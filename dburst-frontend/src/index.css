@@ -1,0 +1,117 @@
+/** @import must precede all other statements */
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+@import "@fontsource/space-grotesk/400.css";
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/700.css";
+
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 240 5% 96%;
+
+    --card: 277 60% 8%;
+    --card-foreground: 240 5% 96%;
+
+    --popover: 277 60% 8%;
+    --popover-foreground: 240 5% 96%;
+
+    --primary: 280 70% 63%;
+    --primary-foreground: 240 5% 96%;
+
+    --secondary: 190 100% 50%;
+    --secondary-foreground: 240 5% 96%;
+
+    --muted: 240 8% 56%;
+    --muted-foreground: 240 8% 56%;
+
+    --accent: 280 70% 63%;
+    --accent-foreground: 240 5% 96%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 240 5% 96%;
+
+    --border: 280 70% 63% / 0.3;
+    --input: 280 70% 63% / 0.3;
+    --ring: 280 70% 63%;
+
+    --radius: 14px;
+
+    --sidebar-background: 277 60% 8% / 0.4;
+    --sidebar-foreground: 240 5% 96%;
+    --sidebar-primary: 280 70% 63%;
+    --sidebar-primary-foreground: 240 5% 96%;
+    --sidebar-accent: 277 60% 8%;
+    --sidebar-accent-foreground: 240 5% 96%;
+    --sidebar-border: 280 70% 63% / 0.3;
+    --sidebar-ring: 280 70% 63%;
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* ✅ THIS IS THE IMPORTANT ONE */
+  --color-border: var(--border);
+
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+   --font-space-grotesk: "Space Grotesk", sans-serif;
+}
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-space-grotesk;
+    background: radial-gradient(141.42% 70.71% at 50% 0%, #2F085E 0%, #000 50%), #FFF;
+    min-height: 100vh;
+  }
+
+  :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label, td, th) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  pre,
+  code {
+    overflow-x: auto;
+    white-space: pre;
+  }
+}
+
+@layer utilities {
+  .gradient-text {
+    background: linear-gradient(90deg, #B656DC 0%, #00D0FF 50%, #FF42A7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-border {
+    border: 1px solid rgba(182, 86, 220, 0.3);
+  }
+
+  .glass-effect {
+    background: rgba(19, 10, 31, 0.4);
+    backdrop-filter: blur(10px);
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 20px 0 rgba(182, 86, 220, 0.5);
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 20px 0 rgba(0, 208, 255, 0.5);
+  }
+}

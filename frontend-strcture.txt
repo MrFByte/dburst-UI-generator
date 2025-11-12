@@ -1,0 +1,24 @@
+frontend-DBurst
+│
+└───src
+│   │   index.html
+│   │   App.tsx
+│   │   App.css
+│   │   main.tsx
+│   └───styles
+│   └───pages
+│   └───components
+│   └───context
+│   └───assets
+│   └───api
+│       └───axios-config.ts
+│       └───apiFunctions.ts
+│       └───apiMapper.ts
+│       └───apiDemoData.ts
+
+
+
+
+
+
+
