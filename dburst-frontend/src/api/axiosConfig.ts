@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
-import { authApi } from './authApi';
+import { refreshToken } from './apiFunctions';
 
 export const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -41,13 +41,13 @@ api.interceptors.response.use(
 
     try {
       // Try to refresh the token
-      await authApi.refreshToken();
+      await refreshToken();
       // Retry the original request
       return api(originalRequest);
     } catch (refreshError) {
       // If refresh fails, clear auth state
-      const { useAuthStore } = await import('@/store/useAuthStore');
-      useAuthStore.getState().logout();
+      const { useAuth } = await import('@/context/AuthContext');
+      useAuth().logoutUser();
       return Promise.reject(refreshError);
     }
   }

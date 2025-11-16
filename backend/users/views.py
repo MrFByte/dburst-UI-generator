@@ -121,3 +121,171 @@ class GoogleAuthView(APIView):
             return Response({"error": "Authentication failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class GithubAuthView(APIView):
+    """
+    Authenticates/Registers a user using GitHub OAuth auth-code flow.
+    Frontend sends GitHub OAuth `code` → backend exchanges it for access token → 
+    fetch GitHub user → create/login user → return JWT cookies.
+    
+    Request Body:
+        - code (str): GitHub OAuth code, required.
+
+    Responses:
+        200: GitHub account authenticated, JWT returned.
+        400: Invalid or missing data.
+        500: Internal authentication error.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        code = request.data.get("code")
+        if not code:
+            return Response({"error": "Missing OAuth code"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            token_url = "https://github.com/login/oauth/access_token"
+            payload = {
+                "client_id": settings.GITHUB_CLIENT_ID,
+                "client_secret": settings.GITHUB_CLIENT_SECRET,
+                "code": code,
+            }
+            
+            headers = {"Accept": "application/json"}
+            token_res = requests.post(token_url, data=payload, headers=headers, timeout=10)
+            token_res.raise_for_status()
+
+            token_data = token_res.json()
+            access_token = token_data.get("access_token")
+
+            if not access_token:
+                return Response({"error": "Unable to authenticate with GitHub"}, status=400)
+
+            user_res = requests.get(
+                "https://api.github.com/user",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10
+            )
+            user_res.raise_for_status()
+            gh_user = user_res.json()
+            
+            email = gh_user.get("email")
+            if not email:
+                email_res = requests.get(
+                    "https://api.github.com/user/emails",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=10
+                )
+                email_res.raise_for_status()
+                email_list = email_res.json()
+                primary_email = next((e["email"] for e in email_list if e["primary"]), None)
+                email = primary_email or email_list[0]["email"]
+
+            github_id = gh_user["id"]
+
+            with transaction.atomic():
+                user, created = User.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        "name": gh_user.get("name") or gh_user.get("login"),
+                        "avatar_url": gh_user.get("avatar_url", "")
+                    }
+                )
+
+                AuthProvider.objects.get_or_create(
+                    user=user,
+                    provider=AuthProvider.Choices.GITHUB,
+                    provider_id=github_id
+                )
+
+                message = "User created successfully" if created else "User login successfully"
+
+                refresh = RefreshToken.for_user(user)
+
+                response = Response({
+                    "user": UserSerializer(user).data,
+                    "message": message,
+                }, status=200)
+
+                response.set_cookie(
+                    key='refresh', value=str(refresh),
+                    httponly=True, secure=True, samesite='None', max_age=86400
+                )
+                response.set_cookie(
+                    key='access', value=str(refresh.access_token),
+                    httponly=True, secure=True, samesite='None', max_age=1800
+                )
+                response.set_cookie("ua", request.META.get("HTTP_USER_AGENT", ""))
+                response.set_cookie("ip", request.META.get("REMOTE_ADDR", ""))
+
+                return response
+
+        except Exception as e:
+            logger.exception(f"GitHub OAuth error: {e}")
+            return Response({"error": "GitHub authentication failed"}, status=500)
+        
+
+class GetProfileView(APIView):
+    """
+    Returns the current user's profile.
+    
+    Request Body:
+        - None
+
+    Responses:
+        200: User profile returned.
+        401: User is not authenticated.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        return Response({"user": UserSerializer(user).data})
+
+
+class TokenRefreshView(APIView):
+    """
+    Refreshes the access token.
+    
+    Request Body:
+        - None
+
+    Responses:
+        200: New access token returned.
+        401: Refresh token is not found.
+    """
+    def post(self, request):
+        refresh = request.COOKIES.get("refresh")
+        if not refresh:
+            return Response({"error": "Refresh token not found"}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            token = RefreshToken(refresh)
+            response = Response({"access": str(token.access_token)}, status=status.HTTP_200_OK)
+            response.set_cookie(
+                key='access',
+                value=str(token.access_token),
+                httponly=True,
+                secure=True, 
+                samesite='None',
+                max_age=1800,  # 30 minutes
+            )
+            return response
+        except Exception as e:
+            logger.exception(f"Unexpected token refresh error: {e}")
+            return Response({"error": "Invalid refresh token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+class LogoutView(APIView):
+    """
+    Logout the user.
+    
+    Request Body:
+        - None
+
+    Responses:
+        200: Logout successful.
+    """
+    def post(self, request):
+        response = Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
+        response.delete_cookie("refresh")
+        response.delete_cookie("access")
+        return response

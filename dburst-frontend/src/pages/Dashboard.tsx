@@ -1,7 +1,25 @@
 import { Link } from "react-router-dom";
 import { Search, Edit, LogOut, Plus, Folder, Sparkles, Settings } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useEffect, useState } from "react";
+import type { User } from "@/types/auth.types";
 
 export default function Dashboard() {
+  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+  const { logoutUser, user, isAuthenticated } = useAuth();
+
+  const handleLogout = () => {
+    logoutUser();
+  };
+
+  useEffect(()=>{
+    if (isAuthenticated) {
+      setLoggedInUser(user);
+    }
+    console.log(user);
+    
+  }, [isAuthenticated])
+
   const projects = [
     { name: "Cosmic Dashboard", updated: "2h ago", featured: false },
     { name: "Stellar Login", updated: "5h ago", featured: true },
@@ -62,13 +80,13 @@ export default function Dashboard() {
 
             {/* Logout */}
             <div className="absolute bottom-6 left-6 right-6">
-              <Link
-                to="/login"
+              <button
+                onClick={handleLogout}
                 className="w-full flex items-center gap-5 px-4 py-2.5 rounded-[14px] text-[#EF4343] text-sm font-medium hover:opacity-70 transition-opacity"
               >
                 <LogOut className="w-4 h-4" />
                 Logout
-              </Link>
+              </button>
             </div>
           </div>
         </aside>
@@ -93,8 +111,18 @@ export default function Dashboard() {
                 Edit Mode
               </button>
 
-              <div className="w-10 h-10 rounded-full gradient-border glass-effect glow-purple flex items-center justify-center">
-                <span className="font-orbitron font-bold text-[#F1F1F4]">JD</span>
+              <div className="w-10 h-10 rounded-full gradient-border glass-effect glow-purple flex items-center justify-center overflow-hidden">
+                {user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.name}
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                ) : (
+                  <span className="font-orbitron font-bold text-[#F1F1F4]">
+                    {user?.name?.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
               </div>
             </div>
           </header>

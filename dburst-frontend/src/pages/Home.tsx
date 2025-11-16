@@ -1,10 +1,16 @@
 import { Link } from "react-router-dom";
 import { Sparkles } from "lucide-react";
-
+import Header from "@/components/common/Header";
+import Footer from "@/components/common/Footer";
 
 export default function Home() {
+  console.log("Home");
+  
   return (
-    <div className="relative z-10">
+    <div className="relative min-h-screen overflow-hidden">
+      <Header />
+
+    <main className="relative z-10">
       <div 
         className="absolute inset-0 opacity-30 pointer-events-none"
       />
@@ -99,6 +105,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+      </main>
+      <Footer />
       </div>
   );
 }

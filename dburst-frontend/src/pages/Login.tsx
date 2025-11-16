@@ -1,14 +1,12 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
-import { useAuthStore } from '@/store/useAuthStore';
-import { authApi } from '@/api/authApi';
+import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
+import { loginWithGithub } from '@/api/apiFunctions';
 
 export default function Login() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { login, socialLogin, setError } = useAuthStore();
-  const from = location.state?.from?.pathname || '/';
+  const { socialLogin, setError } = useAuth();
 
   const handleGoogleLogin = useGoogleLogin({
     flow: 'auth-code',
@@ -16,8 +14,10 @@ export default function Login() {
       try {
         await socialLogin('google', code);
         toast.success('Successfully logged in with Google');
-        navigate(from, { replace: true });
+        console.log("Logged in successfully");
+        navigate('/dashboard');
       } catch (error) {
+        console.log("Login failed", error);
         const errorMessage = error instanceof Error ? error.message : 'Login failed';
         setError(errorMessage);
         toast.error(errorMessage);
@@ -26,9 +26,12 @@ export default function Login() {
     onError: (err) => console.log("Google Login Error:", err),
   });
 
-    const handleGithubLogin = () => {
-        
-    }
+  const handleGithubLogin = () => {
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
+    const redirectUri = import.meta.env.VITE_GITHUB_REDIRECT_URI;
+    window.location.href =
+    `https://github.com/login/oauth/authorize?client_id=${clientId}&scope=user:email&redirect_uri=${redirectUri}`;
+  };
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden">

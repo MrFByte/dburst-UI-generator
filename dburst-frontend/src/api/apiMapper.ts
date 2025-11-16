@@ -1,5 +1,10 @@
 export const authUrl = {
     google: `users/auth/google/`,
     github: `users/auth/github/`,
-    refresh: `token/refresh/`,
+    refresh: `users/token/refresh/`,
+    logout: `users/auth/logout/`,
+}
+
+export const userDataUrl = {
+    profile: `users/profile/`,
 }
