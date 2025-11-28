@@ -1,5 +1,6 @@
 import logging
 import requests
+import json
 from django.db import transaction
 from django.conf import settings
 from google.oauth2.id_token import verify_oauth2_token
@@ -15,7 +16,8 @@ from .models import User, AuthProvider
 from .serializers import UserSerializer
 
 logger = logging.getLogger(__name__)
-
+REFRESH_TOKEN_EXPIRY = settings.REFRESH_TOKEN_EXPIRY
+ACCESS_TOKEN_EXPIRY = settings.ACCESS_TOKEN_EXPIRY
 
 class GoogleAuthView(APIView):
     """
@@ -93,7 +95,7 @@ class GoogleAuthView(APIView):
                     httponly=True,
                     secure=True, 
                     samesite='None',
-                    max_age=86400,  # 1 day
+                    max_age=REFRESH_TOKEN_EXPIRY,
                 )
                 response.set_cookie(
                     key='access',
@@ -101,7 +103,7 @@ class GoogleAuthView(APIView):
                     httponly=True,
                     secure=True, 
                     samesite='None',
-                    max_age=1800,  # 30 minutes
+                    max_age=ACCESS_TOKEN_EXPIRY, 
                 )
                 response.set_cookie('ua', request.META.get('HTTP_USER_AGENT', ''))
                 response.set_cookie('ip', request.META.get('REMOTE_ADDR', ''))
@@ -208,11 +210,11 @@ class GithubAuthView(APIView):
 
                 response.set_cookie(
                     key='refresh', value=str(refresh),
-                    httponly=True, secure=True, samesite='None', max_age=86400
+                    httponly=True, secure=True, samesite='None', max_age=REFRESH_TOKEN_EXPIRY
                 )
                 response.set_cookie(
                     key='access', value=str(refresh.access_token),
-                    httponly=True, secure=True, samesite='None', max_age=1800
+                    httponly=True, secure=True, samesite='None', max_age=ACCESS_TOKEN_EXPIRY #1 hour
                 )
                 response.set_cookie("ua", request.META.get("HTTP_USER_AGENT", ""))
                 response.set_cookie("ip", request.META.get("REMOTE_ADDR", ""))
@@ -267,12 +269,13 @@ class TokenRefreshView(APIView):
                 httponly=True,
                 secure=True, 
                 samesite='None',
-                max_age=1800,  # 30 minutes
+                max_age=ACCESS_TOKEN_EXPIRY,
             )
             return response
         except Exception as e:
             logger.exception(f"Unexpected token refresh error: {e}")
             return Response({"error": "Invalid refresh token"}, status=status.HTTP_401_UNAUTHORIZED)
+
 
 class LogoutView(APIView):
     """
@@ -289,3 +292,11 @@ class LogoutView(APIView):
         response.delete_cookie("refresh")
         response.delete_cookie("access")
         return response
+    
+    
+class TestCRUDOperation(APIView):    
+    def post(self, request):
+        data = json.load()
+        return Response({
+            'message': 'success'
+        })

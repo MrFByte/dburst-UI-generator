@@ -1,46 +1,31 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from '@/shared/ui/Toaster';
+import ProtectedRoute from "@/core/routes/ProtectedRoute";
+import PublicRoute from "@/core/routes/PublicRoutes";
 
-import { ProtectedRoute } from "@/routes/ProtectedRoute";
-import { PublicRoute } from "@/routes/PublicRoute";
+import IndexRoutes from '@/features/index/routes/IndexRoutes';
+import DashboardRoutes from '@/features/dashboard/routes/DashboardRoutes';
 
-// Pages
-import Home from "@/pages/Home";
-import NotFound from "@/pages/NotFound";
-import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
-import GithubCallback from "@/pages/GithubCallback";
-import { AuthProvider } from "@/context/AuthContext";
-
-export default function App() {
+function App() {
   return (
-    <AuthProvider>
-    <BrowserRouter>
-      <Routes>
-          <Route index element={
-            <PublicRoute>
-              <Home />
-            </PublicRoute>
-          } />
-          <Route path="/login" element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          } />
-          <Route path="/auth/github/callback" element={
-            <PublicRoute>
-              <GithubCallback />
-            </PublicRoute>
-          } />
+    <Router>
+      <div className="min-h-screen bg-zinc-900 text-zinc-100 flex flex-col">
 
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
+        <Routes>
+          <Route element={<PublicRoute />}>
+            <Route path="/*" element={<IndexRoutes />} />
+          </Route>
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
-    </AuthProvider>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard/*" element={<DashboardRoutes />} />
+          </Route>
+        </Routes>
+
+        <Toaster />
+      </div>
+    </Router>
   );
 }
+
+
+export default App;
