@@ -17,10 +17,13 @@ interface AuthModalProps {
 export function AuthModal({ isOpen, onClose, title }: AuthModalProps) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
+  
+    console.log("at auth");
   const handleGoogleLogin = useGoogleLogin({
     flow: "auth-code",
+    
     onSuccess: async ({ code }) => {
+      console.log("at google auth");
       try {
         const data = await socialLogin("google", code);
         dispatch(

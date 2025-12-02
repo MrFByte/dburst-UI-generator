@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { useState } from 'react';
-import { Header } from '@/shared/components/Header';
+import Header from '@/shared/components/Header';
 import { Footer } from '@/shared/components/Footer';
 import { AuthModal } from "@/features/index/components/AuthModal";
 
@@ -15,6 +15,7 @@ export default function IndexLayout() {
   return (
     <>
     <Header
+      mode="landing"
       onLoginClick={() => setLoginModalOpen(true)}
       onGetStartedClick={() => setGetStartedOpen(true)}
     />

@@ -8,7 +8,7 @@ const FeedbackModal = ({ isOpen, onClose }) => {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4" onClick={onClose}>
         <div
           className="bg-white rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 scale-100"
-          onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="p-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center justify-between">
@@ -24,7 +24,6 @@ const FeedbackModal = ({ isOpen, onClose }) => {
               <button
                 className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-md hover:bg-indigo-700 transition duration-150"
                 onClick={() => {
-                  // Placeholder for submission logic
                   console.log('Feedback submitted');
                   onClose();
                 }}

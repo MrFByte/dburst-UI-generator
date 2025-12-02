@@ -5,7 +5,8 @@ interface User {
   id: string;
   email: string;
   name: string;
-  avatar?: string;
+  avatar_url?: string;
+  role: string;
 }
 
 export interface AuthState {

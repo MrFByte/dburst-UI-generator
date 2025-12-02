@@ -3,268 +3,218 @@ import {
   Settings,
   User,
   MessageSquare,
-  Zap,
-  Code,
-  FileText,
   ChevronRight,
-  Menu,
   X,
-  PlusCircle,
-  WandSparkles
+  PlusCircle
 } from 'lucide-react';
-import UserProfile from '@/features/dashboard/components/UserProfile';
+
 import { useNavigate } from 'react-router-dom';
+import FeedbackModal from '@/features/dashboard/components/FeedbackModal';
+import ProjectCard from '@/features/dashboard/components/ProjectCard';
+import Header from '@/shared/components/Header';
+import { createProject, getRecentProjects, generateUI } from '../api/dashboardApi';
+import { toast } from "@/shared/hooks/useToast";
 
-// Mock data for previous projects
-const mockProjects = [
-  { id: 1, name: 'E-commerce Cart Page', date: '2 hours ago', icon: <Zap className="w-4 h-4 text-gray-400" /> },
-  { id: 2, name: 'Client Onboarding Flow', date: 'Yesterday', icon: <Code className="w-4 h-4 text-gray-400" /> },
-  { id: 3, name: 'SaaS Analytics Dashboard', date: '3 days ago', icon: <FileText className="w-4 h-4 text-gray-400" /> },
-];
+const Dashboard = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isPrompting, setIsPrompting] = useState(false);
+  const [recentProjects, setRecentProjects] = useState<any[]>([]);
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [errors, setErrors] = useState({
+    title: "",
+    prompt: "",
+  });
+
+  const MAX_TITLE_LENGTH = 200;
+  const navigate = useNavigate();
 
 
-/**
- * Renders a card for a previous project.
- */
-const ProjectCard = ({ project }) => (
-  <div className="bg-gray-800/50 p-4 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-800 hover:border-gray-600 cursor-pointer flex flex-col justify-between h-full">
-    <div className="flex items-center space-x-3 mb-4">
-      <div className="p-2 bg-gray-800 rounded-full">{project.icon}</div>
-      <h3 className="text-lg font-semibold text-gray-100 truncate">{project.name}</h3>
-    </div>
-    <div className="flex justify-between items-end">
-      <p className="text-xs text-gray-400">Last accessed: {project.date}</p>
-      {/* Changed accent color to gray-400/white on hover */}
-      <ChevronRight className="w-4 h-4 text-gray-500 transition group-hover:text-white" />
-    </div>
-  </div>
-);
+  const validate = () => {
+    const newErrors = { title: "", prompt: "" };
+    let valid = true;
 
-/**
- * Simple Modal component for feedback.
- */
-const FeedbackModal = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
+    if (!isPrompting) {
+      if (!title.trim()) {
+        newErrors.title = "Project name is required.";
+        valid = false;
+      } else if (title.length > MAX_TITLE_LENGTH) {
+        newErrors.title = "Project name must be under 200 characters.";
+        valid = false;
+    }
+  } else {
+    if (!prompt.trim()) {
+      newErrors.prompt = "Prompt cannot be empty.";
+      valid = false;
+    }
+  }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 cursor-pointer" onClick={onClose}>
-      <div
-        className="bg-gray-800/50 rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 scale-100 border border-gray-800 cursor-default"
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-      >
-        <div className="p-6">
-          <h2 className="text-2xl font-bold text-white mb-4 flex items-center justify-between">
-            Send Feedback
-            <X className="w-6 h-6 text-gray-400 cursor-pointer hover:text-white transition" onClick={onClose} />
-          </h2>
-          <p className="text-gray-300 mb-4">Help us improve D-burst! What are your thoughts?</p>
-          <textarea
-            className="w-full h-32 p-3 border border-gray-700 rounded-lg focus:ring-blue-600 focus:border-blue-600 resize-none bg-gray-800 text-white placeholder-gray-500 transition duration-200"
-            placeholder="I love the new Code Writer feature, but..."
-          ></textarea>
-          <div className="mt-4 flex justify-end">
-            <button
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700 transition duration-150 cursor-pointer"
-              onClick={() => {
-                // Placeholder for submission logic
-                console.log('Feedback submitted');
-                onClose();
-              }}
-            >
-              Submit
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  setErrors(newErrors);
+  return valid;
 };
 
 
-// --- Main App Component ---
+  const handleRecentProjects = async () => {
+    const data = await getRecentProjects();
+    setRecentProjects(data);
+  };
 
-const App = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const userName = 'Guest User'; // Should be replaced with actual user name from auth context
+  const handleCreateProject = async () => {
+    if (!validate()) return;
 
-  // Basic menu items for the sidebar/dropdown
-  const menuItems = [
-    { name: 'Settings', icon: Settings, action: () => console.log('Go to settings'), className: 'hover:bg-gray-800' },
-    { name: 'Give Feedback', icon: MessageSquare, action: () => setIsModalOpen(true), className: 'hover:bg-gray-800' },
-    { name: 'Log Out', icon: User, action: () => console.log('Logging out...'), className: 'text-red-400 hover:bg-gray-800' },
-  ];
+    const project = await createProject(title,description);
+    toast.success("Project created successfully");
+    setTitle("");
+    setDescription("");
+    navigate(`/dashboard/ui-generator/?projectId=${project.id}`);
+  };
 
-  const navigate = useNavigate();
+  const activatePromptInterface = () => {
+    setIsPrompting(prev => !prev);
+  };
 
-  // Close sidebar on screen size change
+  const handleStartPrompting = async () => {
+    if (!validate()) return;
+    const project = await generateUI(prompt, "groq");
+    toast.success("Ui generation started successfully");
+    navigate(`/dashboard/ui-generator/?projectId=${project.id}`);
+  };
+
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 1024) {
-        setIsSidebarOpen(false);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    if(recentProjects?.length === 0){
+      handleRecentProjects()
+    }
   }, []);
 
-
   return (
-    // Background color matching the login page
     <div className="min-h-screen bg-[#0A0A0A] font-sans">
       <FeedbackModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
-      {/* Mobile Sidebar/Menu Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-70 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        ></div>
-      )}
+      <Header
+        mode="dashboard"
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+        setIsModalOpen={setIsModalOpen}
+      />
 
-      {/* Sidebar Content (Hidden on large screens, slides in on mobile) */}
-      <div
-        className={`fixed top-0 left-0 h-full w-64 bg-gray-900 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out lg:hidden border-r border-gray-800 ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <div className="p-6 flex flex-col space-y-4">
-          <div className="flex justify-between items-center mb-4">
-            {/* Header set to pure white */}
-            <h2 className="text-xl font-bold text-white">D-burst Menu</h2>
-            <X className="w-6 h-6 text-gray-400 cursor-pointer hover:text-white transition" onClick={() => setIsSidebarOpen(false)} />
-          </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 mt-[5%]">
 
-          <UserProfile userName={userName} onUserClick={() => console.log('View full profile')} />
+            <section className="bg-gray-800/40 backdrop-blur-sm p-8 rounded-2xl border border-gray-800 shadow-lg">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white">
+            {isPrompting ? "Start Prompting" : "Start a New Project"}
+          </h1>
+          <p className="text-gray-400 mt-1 text-lg">
+            {isPrompting ? "Enter the prompt to generate UI." : "Fill all details to begin building."}
+          </p>
+        </div>
 
-          <hr className="border-gray-800" />
-
-          {menuItems.map((item) => (
+        <div className="flex gap-3">
+          {!isPrompting ? (
+          <button
+            onClick={activatePromptInterface}
+            className="flex items-center gap-2 px-6 py-3 bg-gray-400 hover:bg-gray-500 cursor-pointer
+                     text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
+          >
+            Start Prompting
+          </button>
+          ) : (
             <button
-              key={item.name}
-              onClick={() => {
-                item.action();
-                setIsSidebarOpen(false);
-              }}
-              className={`flex items-center space-x-3 p-3 text-gray-200 font-medium rounded-lg transition-colors duration-150 w-full text-left cursor-pointer ${item.className}`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span>{item.name}</span>
-            </button>
-          ))}
+            onClick={activatePromptInterface}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
+                     text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
+          >
+            Create Project
+          </button>
+          )}
+
+          <button
+            onClick={isPrompting ? handleStartPrompting : handleCreateProject}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
+                     text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
+          >
+            <PlusCircle className="w-5 h-5" />
+            Submit
+          </button>
         </div>
       </div>
 
-      {/* Main Layout Container */}
-      <header className="bg-gray-900/20 shadow-lg sticky top-0 z-30 border-b border-gray-800 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
-          <div className="flex items-center space-x-4">
-            {/* Mobile Menu Button */}
-            <button
-              className="lg:hidden p-2 rounded-lg text-gray-300 hover:bg-gray-800 transition cursor-pointer"
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              <Menu className="w-6 h-6" />
-            </button>
+      {!isPrompting ? (
+      <div className="mt-6 space-y-4">
+          <div>
+          <input
+            type="text"
+            value={title}
+            placeholder="Project Name - max 200 characters"
+            onChange={(e) => {
+              if (e.target.value.length <= MAX_TITLE_LENGTH) {
+                setTitle(e.target.value);
+              }
+            }}
+            className={`w-full h-20 p-4 bg-gray-800 text-white rounded-xl border-2 
+                        ${errors.title ? "border-red-600" : "border-gray-700"}
+                        focus:ring-2 focus:ring-blue-600 focus:border-blue-600 
+                        placeholder-gray-500`}
+          />
 
-            {/* Logo/Project Title - Set to pure white */}
-            <div className="text-2xl font-extrabold tracking-tight text-white">
-              D-burst
-            </div>
-            <span className="hidden sm:block text-sm font-medium text-gray-500">AI Frontend Builder</span>
-          </div>
-
-          <div className="flex items-center space-x-2 md:space-x-4">
-            {/* Desktop Navigation/Actions */}
-            <button
-              className="hidden lg:flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-200 rounded-lg hover:bg-gray-800 transition cursor-pointer"
-              onClick={() => setIsModalOpen(true)}
-            >
-              <MessageSquare className="w-5 h-5 text-gray-400" />
-              <span>Feedback</span>
-            </button>
-
-            <button
-              className="hidden lg:flex p-2 text-gray-300 rounded-lg hover:bg-gray-800 transition cursor-pointer"
-              onClick={() => console.log('Go to settings')}
-            >
-              <Settings className="w-6 h-6" />
-            </button>
-
-            <UserProfile userName={userName} onUserClick={() => console.log('View full profile')} />
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* New Project / Code Writer Section */}
-        <div className="bg-gray-800/50 p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-800 mb-10">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-            <div className="mb-4 sm:mb-0">
-              <h1 className="text-3xl font-bold text-white flex items-center space-x-3">
-                <span className="text-white">Start a New Project</span>
-              </h1>
-              <p className="mt-1 text-lg text-gray-400">Generate UI from a single text prompt.</p>
-            </div>
-            <button
-              className="w-full sm:w-auto px-6 py-3 bg-gray-500/20 underline text-white font-semibold rounded-xl shadow-lg hover:bg-gray-500 transition transform hover:scale-[1.01] duration-200 flex items-center justify-center space-x-2 cursor-pointer"
-              onClick={() => navigate('/dashboard/ui-generator')}
-            >
-              <WandSparkles className="w-5 h-5" />
-              <span>Advanced Building</span>
-            </button>
-            <button
-              className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow-lg hover:bg-blue-700 transition transform hover:scale-[1.01] duration-200 flex items-center justify-center space-x-2 cursor-pointer"
-              onClick={() => console.log('Open New Project Modal/Page')}
-            >
-              <PlusCircle className="w-5 h-5" />
-              <span>Submit</span>
-            </button>
-          </div>
-          <div className="mt-6">
-            <textarea
-              className="w-full h-24 p-4 border-2 border-gray-700 rounded-xl focus:ring-blue-600 focus:border-blue-600 bg-gray-800 text-white placeholder-gray-500 resize-none transition duration-200"
-              placeholder="e.g., 'A responsive, dark-mode pricing page with three tiers and a clean design using Tailwind CSS'"
-            ></textarea>
+          <div className="flex justify-between mt-1">
+            <p className="text-sm text-red-500">{errors.title}</p>
+            <p className="text-sm text-gray-400">
+              {title.length}/{MAX_TITLE_LENGTH}
+            </p>
           </div>
         </div>
 
-        {/* Previous Projects Section */}
-        <section className="mt-12">
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Project Description (optional)"
+          className="w-full h-24 p-4 bg-gray-800 text-white rounded-xl border-2 border-gray-700
+                     focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder-gray-500"
+        ></textarea>
+      </div>
+      ) : (
+        <div className="mt-6 space-y-4">
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="e.g., 'A responsive, dark-mode pricing page with three tiers and a clean design using Tailwind CSS."
+          className="w-full h-24 p-4 bg-gray-800 text-white rounded-xl border-2 border-gray-700
+                     focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder-gray-500"
+        ></textarea>
+        <p className="text-sm text-red-500">{errors.prompt}</p>
+      </div>
+      )}
+    </section>
+
+        <section className="mt-14">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-white">
-              Recent Projects
-            </h2>
+            <h2 className="text-2xl font-bold text-white">Recent Projects</h2>
+
             <button
-              className="flex items-center text-gray-400 font-medium text-base hover:text-white transition cursor-pointer"
-              onClick={() => console.log('Go to All Projects')}
+              onClick={() => console.log('Navigate to all projects')}
+              className="flex items-center text-gray-400 hover:text-white transition cursor-pointer"
             >
               View All Projects
               <ChevronRight className="w-4 h-4 ml-1" />
             </button>
           </div>
 
-          {/* Project Grid - Shows max 3, automatically responsive */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockProjects.map((project) => (
+            {recentProjects?.map((project) => (
               <ProjectCard key={project.id} project={project} />
             ))}
-
-            {/* "More" option card, visually distinct */}
-            {/* <div
-              className="border-2 border-dashed border-gray-700 p-4 rounded-xl flex items-center justify-center cursor-pointer hover:bg-gray-800 transition duration-150 h-full min-h-[120px]"
-              onClick={() => console.log('Go to All Projects')}
-            >
-              <div className="text-center">
-                <PlusCircle className="w-8 h-8 mx-auto text-gray-500 mb-2" />
-                <p className="text-sm font-medium text-gray-400">More Projects</p>
-              </div>
-            </div> */}
           </div>
         </section>
+
       </main>
     </div>
   );
 };
 
-export default App;
+export default Dashboard;

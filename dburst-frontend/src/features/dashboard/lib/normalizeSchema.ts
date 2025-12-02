@@ -1,24 +1,31 @@
-export function normalizeSchema(node) {
+export function normalizeSchema(node: any): any {
   if (!node) return node;
 
-  // Ensure text contrast
-  if (node.type === "Text" && !node.class?.includes("text-")) {
-    node.class = (node.class || "") + " text-gray-900";
+  if (node.class && !node.props?.className) {
+    if (!node.props) node.props = {};
+    node.props.className = node.class;
+    delete node.class;
   }
 
-  // Ensure cards have column layout
-  if (node.type === "Card" && !node.class.includes("flex")) {
-    node.class += " flex flex-col gap-3";
+  if (node.type === 'Text' && !node.props?.className?.includes('text-')) {
+    node.props = node.props || {};
+    node.props.className = `${node.props.className || ''} text-gray-900`.trim();
   }
 
-  // Fix white-on-white issues
-  if (node.class?.includes("bg-white") && !node.class.includes("text-gray")) {
-    node.class += " text-gray-900";
+  if (node.type === 'Card' && !node.props?.className?.includes('flex')) {
+    node.props = node.props || {};
+    node.props.className = `${node.props.className || ''} flex flex-col gap-3`.trim();
   }
 
-  // Recurse children
-  if (node.children) {
-    node.children = node.children.map(normalizeSchema);
+  if (
+    node.props?.className?.includes('bg-white') &&
+    !node.props.className.includes('text-')
+  ) {
+    node.props.className = `${node.props.className} text-gray-900`;
+  }
+
+  if (node.children && Array.isArray(node.children)) {
+    node.children = node.children.map((child: any) => normalizeSchema(child));
   }
 
   return node;

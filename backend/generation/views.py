@@ -12,9 +12,11 @@ from rest_framework import permissions, status
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .llm import call_groq_model
-from .codegen import schema_to_react_component
+from .llm import LLMClient
+from .codegen import ReactCodeGenerator
+from .schema_validator import SchemaValidator
 from .models import Generations
+from .cache import GenerationCache
 from django_redis import get_redis_connection
 from projects.models import Project
 from .serializers import (
@@ -28,18 +30,17 @@ logger = logging.getLogger(__name__)
 
 
 class GenerateView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         serializer = GenerateRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         prompt = serializer.validated_data["prompt"]
-        provider = serializer.validated_data["llm_provider"]
-
+        provider = serializer.validated_data.get("llm_provider", "groq")
         project_id = serializer.validated_data.get("project_id")
 
-        # 1. Resolve or auto-create project
+        # Resolve or create project
         if not project_id:
             count = Project.objects.filter(user=request.user).count() + 1
             project = Project.objects.create(
@@ -53,60 +54,70 @@ class GenerateView(APIView):
             except Project.DoesNotExist:
                 return Response({"error": "Project not found."}, status=404)
 
-        # 2. Call LLM through adapter
         try:
-            llm_result = call_groq_model(prompt)
+            # Call LLM with appropriate provider
+            llm_client = LLMClient(provider=provider)
+            llm_result = llm_client.call(prompt)
+            
+            schema = llm_result["schema"]
+            
+            # Validate schema
+            try:
+                schema = SchemaValidator.validate(schema)
+            except ValueError as e:
+                return Response({"error": f"Schema validation failed: {str(e)}"}, status=400)
+            
+            title = llm_result.get("title", "Generated UI")
+            meta = llm_result.get("usage", {})
+
+            # Update project title if needed
+            if project.title.startswith("Untitled Project"):
+                project.title = title
+                project.save()
+
+            # Generate code
+            code_generator = ReactCodeGenerator(schema, component_name="GeneratedUI")
+            react_code = code_generator.generate()
+
+            # Save to database
+            generation = Generations.objects.create(
+                project=project,
+                prompt=prompt,
+                schema=schema,
+                llm_provider=provider,
+                token_usage=meta.get("total_tokens", 0),
+                status=Generations.Status.SUCCESS,
+            )
+
+            # Cache generation
+            try:
+                GenerationCache.store_generation(
+                    str(generation.id),
+                    schema,
+                    react_code,
+                    meta
+                )
+            except Exception as redis_err:
+                logger.warning(f"Redis caching failed: {redis_err}")
+
+            return Response(
+                {
+                    "project_id": str(project.id),
+                    "generation_id": str(generation.id),
+                    "schema": schema,
+                    "code": react_code,
+                    "meta": {
+                        "provider": provider,
+                        "model": llm_result.get("provider"),
+                        "usage": meta,
+                    },
+                },
+                status=201,
+            )
+
         except Exception as e:
-            logger.error("LLM error: %s", e)
+            logger.error(f"Generation failed: {e}")
             return Response({"error": str(e)}, status=500)
-
-        schema = llm_result["schema"]
-        title = llm_result["title"] or "Generated UI"
-        meta = llm_result["meta"]
-
-        # 3. Replace Untitled with LLM generated title
-        if project.title.startswith("Untitled Project"):
-            project.title = title
-            project.save()
-
-        # 4. Generate code from schema
-        react_code = schema_to_react_component(
-            schema,
-            component_name="GeneratedUI"
-        )
-
-        # 5. Save generation in DB
-        generation = Generations.objects.create(
-            project=project,
-            prompt=prompt,
-            schema=schema,
-            llm_provider=provider,
-            code_bundle_url="",  # will fill during export phase
-            token_usage=meta["usage"].get("total_tokens", 0),
-            status=Generations.Status.SUCCESS,
-        )
-
-        # 6. Redis caching
-        try:
-            r = get_redis_connection("default")
-            key = f"generation:{generation.id}"
-            r.set(f"{key}:schema", json.dumps(schema))
-            r.set(f"{key}:code", react_code)
-            r.set(f"{key}:meta", json.dumps(meta))
-        except Exception as redis_err:
-            logger.warning("Redis unavailable: %s", redis_err)
-
-        # 7. Response (PHASE 2 REQUIREMENT)
-        return Response(
-            {
-                "project_id": str(project.id),
-                "generation_id": str(generation.id),
-                "schema": schema,
-                "code": react_code,
-                "meta": meta,
-            },
-            status=201,
-        )
 
 
 class GenerationDetailView(APIView):

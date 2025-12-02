@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 REFRESH_TOKEN_EXPIRY = settings.REFRESH_TOKEN_EXPIRY
 ACCESS_TOKEN_EXPIRY = settings.ACCESS_TOKEN_EXPIRY
 
+
 class GoogleAuthView(APIView):
     """
     Authenticates or registers a user using Google OAuth `auth-code` flow.
@@ -93,21 +94,38 @@ class GoogleAuthView(APIView):
                     key='refresh',
                     value=str(refresh),
                     httponly=True,
-                    secure=True, 
+                    secure=True,
                     samesite='None',
                     max_age=REFRESH_TOKEN_EXPIRY,
                 )
+
                 response.set_cookie(
                     key='access',
                     value=str(refresh.access_token),
                     httponly=True,
-                    secure=True, 
+                    secure=True,
                     samesite='None',
-                    max_age=ACCESS_TOKEN_EXPIRY, 
+                    max_age=ACCESS_TOKEN_EXPIRY,
                 )
-                response.set_cookie('ua', request.META.get('HTTP_USER_AGENT', ''))
-                response.set_cookie('ip', request.META.get('REMOTE_ADDR', ''))
-                
+
+                response.set_cookie(
+                    key='ua',
+                    value=request.META.get('HTTP_USER_AGENT', ''),
+                    httponly=False,
+                    secure=True,
+                    samesite='None',
+                    max_age=REFRESH_TOKEN_EXPIRY,
+                )
+
+                response.set_cookie(
+                    key='ip',
+                    value=request.META.get('REMOTE_ADDR', ''),
+                    httponly=False,
+                    secure=True,
+                    samesite='None',
+                    max_age=REFRESH_TOKEN_EXPIRY,
+                )
+
                 return response
 
         except requests.exceptions.RequestException as e:
@@ -209,15 +227,40 @@ class GithubAuthView(APIView):
                 }, status=200)
 
                 response.set_cookie(
-                    key='refresh', value=str(refresh),
-                    httponly=True, secure=True, samesite='None', max_age=REFRESH_TOKEN_EXPIRY
+                    key='refresh',
+                    value=str(refresh),
+                    httponly=True,
+                    secure=True,
+                    samesite='None',
+                    max_age=REFRESH_TOKEN_EXPIRY,
                 )
+
                 response.set_cookie(
-                    key='access', value=str(refresh.access_token),
-                    httponly=True, secure=True, samesite='None', max_age=ACCESS_TOKEN_EXPIRY #1 hour
+                    key='access',
+                    value=str(refresh.access_token),
+                    httponly=True,
+                    secure=True,
+                    samesite='None',
+                    max_age=ACCESS_TOKEN_EXPIRY,
                 )
-                response.set_cookie("ua", request.META.get("HTTP_USER_AGENT", ""))
-                response.set_cookie("ip", request.META.get("REMOTE_ADDR", ""))
+
+                response.set_cookie(
+                    key='ua',
+                    value=request.META.get('HTTP_USER_AGENT', ''),
+                    httponly=False,
+                    secure=True,
+                    samesite='None',
+                    max_age=REFRESH_TOKEN_EXPIRY,
+                )
+
+                response.set_cookie(
+                    key='ip',
+                    value=request.META.get('REMOTE_ADDR', ''),
+                    httponly=False,
+                    secure=True,
+                    samesite='None',
+                    max_age=REFRESH_TOKEN_EXPIRY,
+                )
 
                 return response
 
