@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class GenerationCache:
     """Redis-based caching with patch support"""
     
-    TTL_DEFAULT = 86400 * 7  # 7 days
+    TTL_DEFAULT = 86400 * 3
     
     @staticmethod
     def store_generation(generation_id: str, schema: Dict, code: str, meta: Dict):

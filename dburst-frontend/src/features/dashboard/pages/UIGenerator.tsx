@@ -67,7 +67,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
         <div className="flex items-center space-x-4">
           <div className="text-xs bg-slate-800 px-3 py-1 rounded-full text-gray-300">
-            Gen: {data.generation_id.slice(0, 8)}...
+            Gen: {data?.generation_id?.slice(0, 8)}...
           </div>
           <button className="p-2 hover:bg-slate-700 rounded transition">
             ⚙️
@@ -130,21 +130,21 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
               <p className="text-sm text-gray-400 mb-3">🔋 Token Usage:</p>
               <div className="space-y-2 text-xs text-gray-300">
                 <p>
-                  Total: <span className="text-green-400 font-mono font-bold">{data.meta.usage.total_tokens}</span>
+                  Total: <span className="text-green-400 font-mono font-bold">{data?.meta?.usage?.total_tokens}</span>
                 </p>
-                {data.meta.usage.prompt_tokens && (
+                {data?.meta?.usage?.prompt_tokens && (
                   <p>
                     Prompt:{' '}
                     <span className="text-orange-400 font-mono">
-                      {data.meta.usage.prompt_tokens}
+                      {data?.meta?.usage?.prompt_tokens}
                     </span>
                   </p>
                 )}
-                {data.meta.usage.completion_tokens && (
+                {data?.meta?.usage?.completion_tokens && (
                   <p>
                     Completion:{' '}
                     <span className="text-purple-400 font-mono">
-                      {data.meta.usage.completion_tokens}
+                      {data?.meta?.usage?.completion_tokens}
                     </span>
                   </p>
                 )}
@@ -155,27 +155,27 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             <div className="bg-slate-800 p-4 rounded-lg">
               <p className="text-sm text-gray-400 mb-3">⏱️ Generation Time:</p>
               <div className="space-y-2 text-xs text-gray-300">
-                {data.meta.usage.total_time && (
+                {data?.meta?.usage?.total_time && (
                   <p>
                     Total:{' '}
                     <span className="text-blue-400 font-mono">
-                      {data.meta.usage.total_time.toFixed(2)}s
+                      {data?.meta?.usage?.total_time.toFixed(2)}s
                     </span>
                   </p>
                 )}
-                {data.meta.usage.queue_time && (
+                {data?.meta?.usage?.queue_time && (
                   <p>
                     Queue:{' '}
                     <span className="text-gray-400 font-mono">
-                      {(data.meta.usage.queue_time * 1000).toFixed(0)}ms
+                      {(data?.meta?.usage?.queue_time * 1000).toFixed(0)}ms
                     </span>
                   </p>
                 )}
-                {data.meta.usage.completion_time && (
+                {data?.meta?.usage?.completion_time && (
                   <p>
                     Completion:{' '}
                     <span className="text-gray-400 font-mono">
-                      {data.meta.usage.completion_time.toFixed(2)}s
+                      {data?.meta?.usage?.completion_time.toFixed(2)}s
                     </span>
                   </p>
                 )}

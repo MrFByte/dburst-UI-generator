@@ -1,5 +1,8 @@
 from django.urls import path
-from .views import GoogleAuthView, GithubAuthView, TokenRefreshView, LogoutView, GetProfileView, TestCRUDOperation
+from .views import (
+    GoogleAuthView, GithubAuthView, TokenRefreshView, 
+    LogoutView, GetProfileView
+    )
 
 urlpatterns = [
     path("auth/google/", GoogleAuthView.as_view(), name="google-auth"),
@@ -8,5 +11,4 @@ urlpatterns = [
     path("token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("profile/", GetProfileView.as_view(), name="user-profile"),
     
-    path("test/", TestCRUDOperation.as_view(), name="")
 ]

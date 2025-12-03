@@ -298,6 +298,9 @@ class TokenRefreshView(APIView):
         200: New access token returned.
         401: Refresh token is not found.
     """
+
+    permission_classes = [permissions.AllowAny]
+
     def post(self, request):
         refresh = request.COOKIES.get("refresh")
         if not refresh:
@@ -330,16 +333,12 @@ class LogoutView(APIView):
     Responses:
         200: Logout successful.
     """
+    permission_classes = [permissions.IsAuthenticated]
+
     def post(self, request):
         response = Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
         response.delete_cookie("refresh")
         response.delete_cookie("access")
         return response
     
-    
-class TestCRUDOperation(APIView):    
-    def post(self, request):
-        data = json.load()
-        return Response({
-            'message': 'success'
-        })
+        
