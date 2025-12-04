@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
-  Settings,
-  User,
-  MessageSquare,
+  MousePointerClick,
   ChevronRight,
-  X,
   PlusCircle
 } from 'lucide-react';
 
@@ -14,11 +11,12 @@ import ProjectCard from '@/features/dashboard/components/ProjectCard';
 import Header from '@/shared/components/Header';
 import { createProject, getRecentProjects, generateUI } from '../api/dashboardApi';
 import { toast } from "@/shared/hooks/useToast";
+import { setItem } from '@/shared/utils/storageManager';
 
 const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isPrompting, setIsPrompting] = useState(false);
+  const [isPrompting, setIsPrompting] = useState(true);
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
 
   const [title, setTitle] = useState("");
@@ -30,6 +28,9 @@ const Dashboard = () => {
   });
 
   const MAX_TITLE_LENGTH = 200;
+  const AVAILABLE_MODELS = ["Llama 3.3","GPT OSS 120b","Llama 3.1 ","GPT OSS 20b","Gemini 2.5 Flash"]; 
+  
+  const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0]);
   const navigate = useNavigate();
 
 
@@ -44,7 +45,10 @@ const Dashboard = () => {
       } else if (title.length > MAX_TITLE_LENGTH) {
         newErrors.title = "Project name must be under 200 characters.";
         valid = false;
-    }
+      } else if (!selectedModel) {
+        newErrors.title = "Please select an LLM model.";
+        valid = false;
+      }
   } else {
     if (!prompt.trim()) {
       newErrors.prompt = "Prompt cannot be empty.";
@@ -78,9 +82,10 @@ const Dashboard = () => {
 
   const handleStartPrompting = async () => {
     if (!validate()) return;
-    const project = await generateUI(prompt, "groq");
-    toast.success("Ui generation started successfully");
-    navigate(`/dashboard/ui-generator/?projectId=${project.id}`);
+    const project = await generateUI(prompt, selectedModel);
+    setItem("lastGeneratedProject", project);
+    toast.success("UI generation started successfully");
+    navigate(`/dashboard/ui-generator/?projectId=${project.project_id}`);
   };
 
   useEffect(() => {
@@ -102,8 +107,7 @@ const Dashboard = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 mt-[5%]">
 
-            <section className="bg-gray-800/40 backdrop-blur-sm p-8 rounded-2xl border border-gray-800 shadow-lg">
-      {/* Header */}
+      <section className="bg-gray-800/40 backdrop-blur-sm p-8 rounded-2xl border border-gray-800 shadow-lg">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white">
@@ -116,6 +120,7 @@ const Dashboard = () => {
 
         <div className="flex gap-3">
           {!isPrompting ? (
+          <>
           <button
             onClick={activatePromptInterface}
             className="flex items-center gap-2 px-6 py-3 bg-gray-400 hover:bg-gray-500 cursor-pointer
@@ -123,24 +128,36 @@ const Dashboard = () => {
           >
             Start Prompting
           </button>
-          ) : (
-            <button
-            onClick={activatePromptInterface}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
-                     text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
-          >
-            Create Project
-          </button>
-          )}
-
           <button
-            onClick={isPrompting ? handleStartPrompting : handleCreateProject}
+            onClick={handleCreateProject}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
                      text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
           >
             <PlusCircle className="w-5 h-5" />
             Submit
           </button>
+          </>
+          ) : (
+            <>
+            <button
+            onClick={activatePromptInterface}
+            className="flex items-center gap-2 px-6 py-3 bg-gray-400 hover:bg-gray-600 cursor-pointer
+                     text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
+          >
+            Create Project
+          </button>
+          <button
+            disabled={!prompt}
+            onClick={handleStartPrompting}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
+                     text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <MousePointerClick className="w-5 h-5" />
+            Build Now
+          </button>
+          </>
+          )}
+
         </div>
       </div>
 
@@ -188,6 +205,19 @@ const Dashboard = () => {
                      focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder-gray-500"
         ></textarea>
         <p className="text-sm text-red-500">{errors.prompt}</p>
+        <div className="flex items-center gap-2">
+          <label htmlFor="llm-select" className="text-sm text-gray-400">Model:</label>
+          <select
+              id="llm-select"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="p-2 bg-gray-800 text-white rounded-lg border border-gray-700 text-sm focus:ring-1 focus:ring-blue-600"
+          >
+              {AVAILABLE_MODELS.map(model => (
+                  <option key={model} value={model}>{model}</option>
+              ))}
+          </select>
+        </div>
       </div>
       )}
     </section>

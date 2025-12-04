@@ -53,7 +53,6 @@ class GenerationCache:
             patched_schema = jsonpatch.apply_patch(current_schema, patch)
             cache.set(f"gen:{generation_id}:schema", json.dumps(patched_schema), GenerationCache.TTL_DEFAULT)
             
-            # Regenerate code from patched schema
             generator = ReactCodeGenerator(patched_schema)
             new_code = generator.generate()
             cache.set(f"gen:{generation_id}:code", new_code, GenerationCache.TTL_DEFAULT)

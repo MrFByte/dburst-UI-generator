@@ -50,7 +50,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
       >
         <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm shadow-md">
           {user.avatar_url ? (
-            <img src={user.avatar_url} alt="User" className="w-full h-full rounded-full" />
+            <img src={user?.avatar_url} alt={user?.name?.charAt(0) || "U"} className="w-full h-full rounded-full" />
           ) : (
             user?.name?.charAt(0)
           )}

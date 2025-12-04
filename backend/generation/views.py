@@ -40,7 +40,6 @@ class GenerateView(APIView):
         provider = serializer.validated_data.get("llm_provider", "groq")
         project_id = serializer.validated_data.get("project_id")
 
-        # Resolve or create project
         if not project_id:
             count = Project.objects.filter(user=request.user).count() + 1
             project = Project.objects.create(
@@ -55,13 +54,11 @@ class GenerateView(APIView):
                 return Response({"error": "Project not found."}, status=404)
 
         try:
-            # Call LLM with appropriate provider
             llm_client = LLMClient(provider=provider)
             llm_result = llm_client.call(prompt)
             
             schema = llm_result["schema"]
             
-            # Validate schema
             try:
                 schema = SchemaValidator.validate(schema)
             except ValueError as e:
@@ -70,16 +67,13 @@ class GenerateView(APIView):
             title = llm_result.get("title", "Generated UI")
             meta = llm_result.get("usage", {})
 
-            # Update project title if needed
             if project.title.startswith("Untitled Project"):
                 project.title = title
                 project.save()
 
-            # Generate code
             code_generator = ReactCodeGenerator(schema, component_name="GeneratedUI")
             react_code = code_generator.generate()
 
-            # Save to database
             generation = Generations.objects.create(
                 project=project,
                 prompt=prompt,
@@ -89,7 +83,6 @@ class GenerateView(APIView):
                 status=Generations.Status.SUCCESS,
             )
 
-            # Cache generation
             try:
                 GenerationCache.store_generation(
                     str(generation.id),
@@ -103,6 +96,7 @@ class GenerateView(APIView):
             return Response(
                 {
                     "project_id": str(project.id),
+                    "project_title" : str(project.title),
                     "generation_id": str(generation.id),
                     "schema": schema,
                     "code": react_code,

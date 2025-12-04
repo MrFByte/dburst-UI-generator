@@ -1,10 +1,14 @@
-import { useState, useCallback } from 'react';
-import { generatedData } from '../sampleData/SampleUIGenerator';
+import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { SchemaRenderer } from '../lib/renderer';
 import { normalizeSchema } from '../lib/normalizeSchema';
 import type { SchemaNode } from '../types/renderType';
 import type { APIResponse } from '../types/apiResponseType';
 import type { UIGeneratorProps } from '../types/UIGeneratorTypes';
+import { getItem } from '@/shared/utils/storageManager';
+import Header from '@/shared/components/Header';
+
+import { generatedData as SampleData } from "../sampleData/SampleUIGenerator"
 
 
 export default function UIGenerator({ initialData }: UIGeneratorProps) {
@@ -13,27 +17,34 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
   const [zoom, setZoom] = useState(100);
 
-  const [data] = useState<APIResponse>(
-    initialData || generatedData
-  );
+  const [generatedData, setGeneratedData] = useState<APIResponse | null>(null);
+  const [searchParams] = useSearchParams();
+  
+  const projectId = searchParams.get('projectId') || '';
+
+  const [data, setData] = useState<APIResponse | null>(initialData ?? null);
 
   const copyCode = useCallback(() => {
-    navigator.clipboard.writeText(data.code);
-    alert('✅ Code copied to clipboard!');
-  }, [data.code]);
+    if (data?.code) {
+      navigator.clipboard.writeText(data.code);
+      alert('✅ Code copied to clipboard!');
+    }
+  }, [data?.code]);
 
   const downloadCode = useCallback(() => {
+    if (!data?.code) return;
+    
     const element = document.createElement('a');
     element.setAttribute(
       'href',
-      'data:text/plain;charset=utf-8,' + encodeURIComponent(data.code)
+      'data:text/plain;charset=utf-8,' + encodeURIComponent(data?.code || "")
     );
     element.setAttribute('download', 'GeneratedUI.jsx');
     element.style.display = 'none';
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-  }, [data.code]);
+  }, [data?.code]);
 
   const extractComponentTypes = (node: SchemaNode): Set<string> => {
     const types = new Set<string>();
@@ -46,34 +57,41 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
     return types;
   };
 
-  const componentTypes = Array.from(extractComponentTypes(data?.schema));
-  const schemaSize = (JSON.stringify(data?.schema)?.length / 1024).toFixed(2);
-  const codeSize = (data?.code?.length / 1024).toFixed(1);
-  const lineCount = data?.code?.split('\n').length;
+  const componentTypes = data?.schema ? Array.from(extractComponentTypes(data.schema)) : [];
+
+  const schemaSize = data?.schema
+    ? (JSON.stringify(data.schema).length / 1024).toFixed(2)
+    : "0.00";
+
+  const codeSize = data?.code
+    ? (data.code.length / 1024).toFixed(1)
+    : "0";
+
+  const lineCount = data?.code
+    ? data.code.split("\n").length
+    : 0;
+
+  useEffect(() => {
+    if (initialData) {
+      setData(initialData);
+      return;
+    }
+
+    const lastProject = getItem("lastGeneratedProject");
+    if (lastProject && projectId && lastProject.project_id === projectId) {
+      setGeneratedData(lastProject);
+      setData(lastProject);
+    }
+  }, [initialData, projectId]);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="h-16 border-b border-slate-700 bg-slate-900/95 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-linear-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center font-bold text-sm">
-            D
-          </div>
-          <div>
-            <h1 className="text-lg font-bold">D-burst</h1>
-            <p className="text-xs text-gray-400">AI Frontend Generator</p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-4">
-          <div className="text-xs bg-slate-800 px-3 py-1 rounded-full text-gray-300">
-            Gen: {data?.generation_id?.slice(0, 8)}...
-          </div>
-          <button className="p-2 hover:bg-slate-700 rounded transition">
-            ⚙️
-          </button>
-        </div>
-      </header>
+      <Header
+              mode="dashboard"
+              // isSidebarOpen={}
+              // setIsSidebarOpen={()=>void 0}
+              // setIsModalOpen={setIsModalOpen}
+            />
 
       {/* Main Layout */}
       <div className="flex flex-1 overflow-hidden p-3">
@@ -187,12 +205,12 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
               <p className="text-sm text-gray-400 mb-3">🤖 Model Info:</p>
               <div className="space-y-2 text-xs text-gray-300">
                 <p>
-                  Provider: <span className="text-blue-400 font-mono">{data.meta.provider}</span>
+                  Provider: <span className="text-blue-400 font-mono">{data?.meta?.provider}</span>
                 </p>
                 <p>
                   Model:{' '}
                   <span className="text-blue-400 font-mono">
-                    {data.meta.model || 'llama-3.3-70b-versatile'}
+                    {data?.meta?.model || 'llama-3.3-70b-versatile'}
                   </span>
                 </p>
               </div>
@@ -257,17 +275,20 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
               </div>
 
               {/* Canvas */}
-              <div className="flex-1 overflow-auto flex items-start justify-center p-8 bg-linear-to-br from-slate-950 to-slate-900">
-                <div
-                  style={{
-                    transform: `scale(${zoom / 100})`,
-                    transformOrigin: 'top center',
-                  }}
-                  className="bg-white rounded-lg shadow-2xl overflow-hidden max-w-4xl w-full"
-                >
-                  <SchemaRenderer schema={normalizeSchema(data.schema)} />
+              <div className="flex-1 overflow-auto flex items-start justify-center p-8">
+                <div style={{ display: "inline-block" }}>
+                  <div
+                    style={{
+                      transform: `scale(${zoom / 100})`,
+                      transformOrigin: "top center",
+                    }}
+                    className="bg-transparent rounded-lg shadow-2xl overflow-hidden max-w-4xl w-full"
+                  >
+                    <SchemaRenderer schema={normalizeSchema(data?.schema)} />
+                  </div>
                 </div>
               </div>
+
             </div>
           )}
 
@@ -300,7 +321,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
               {/* Code Editor */}
               <div className="flex-1 overflow-auto bg-slate-950/30">
                 <pre className="p-6 text-xs font-mono text-gray-300 whitespace-pre-wrap wrap-break-word leading-relaxed">
-                  {data.code}
+                  {data?.code}
                 </pre>
               </div>
             </div>

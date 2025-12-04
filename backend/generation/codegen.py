@@ -97,7 +97,6 @@ export default function {self.component_name}() {{
         
         tag = semantic_map.get(node_type, "div")
         
-        # Handle different component types
         if node_type == "Text":
             tag = "p" if not content.startswith("#") else "h2"
             return f'{space}<{tag}{class_attr}>{content}</{tag}>'
@@ -129,7 +128,6 @@ export default function {self.component_name}() {{
             return f'{space}<Badge{class_attr}>{content}</Badge>'
         
         else:
-            # Default: container with children
             if children:
                 children_html = self._render_children(children, indent + 2)
                 return f'{space}<{tag}{class_attr}{id_attr}>\n{children_html}\n{space}</{tag}>'

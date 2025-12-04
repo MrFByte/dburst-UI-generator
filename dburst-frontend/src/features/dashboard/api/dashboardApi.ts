@@ -23,12 +23,12 @@ export const getRecentProjects = () => {
 
 export const generateUI = (
   prompt: string,
-  provider: 'groq' | 'gemini' = 'groq'
+  provider: string
 ) => {
   return apiHandler(async () => {
     const { data } = await api.post(GenerationUrls.generateUI, {
       prompt,
-      llm_provider: provider
+      llm_provider: "groq",
     });
     return data;
   });
