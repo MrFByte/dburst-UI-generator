@@ -85,7 +85,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
   }, [initialData, projectId]);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans flex flex-col overflow-hidden">
+    <div className="h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans flex flex-col overflow-hidden relative">
       <Header
               mode="dashboard"
               // isSidebarOpen={}
@@ -94,7 +94,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             />
 
       {/* Main Layout */}
-      <div className="flex flex-1 overflow-hidden p-3">
+      <div className="flex flex-1 overflow-hidden p-3 pt-16">
         {/* Left Panel */}
         <div
           className={`bg-slate-900 border-r border-slate-700 overflow-hidden transition-all duration-300 flex flex-col ${
@@ -129,7 +129,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
             {/* Size Stats */}
             <div className="bg-slate-800 p-4 rounded-lg">
-              <p className="text-sm text-gray-400 mb-3">📊 Size Stats:</p>
+              <p className="text-sm text-gray-400 mb-3">Size Stats:</p>
               <div className="space-y-2 text-xs text-gray-300">
                 <p>
                   Schema: <span className="text-blue-400 font-mono">{schemaSize} KB</span>
@@ -145,7 +145,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
             {/* Token Usage */}
             <div className="bg-slate-800 p-4 rounded-lg">
-              <p className="text-sm text-gray-400 mb-3">🔋 Token Usage:</p>
+              <p className="text-sm text-gray-400 mb-3"> Token Usage:</p>
               <div className="space-y-2 text-xs text-gray-300">
                 <p>
                   Total: <span className="text-green-400 font-mono font-bold">{data?.meta?.usage?.total_tokens}</span>
@@ -169,40 +169,10 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
               </div>
             </div>
 
-            {/* Generation Time */}
-            <div className="bg-slate-800 p-4 rounded-lg">
-              <p className="text-sm text-gray-400 mb-3">⏱️ Generation Time:</p>
-              <div className="space-y-2 text-xs text-gray-300">
-                {data?.meta?.usage?.total_time && (
-                  <p>
-                    Total:{' '}
-                    <span className="text-blue-400 font-mono">
-                      {data?.meta?.usage?.total_time.toFixed(2)}s
-                    </span>
-                  </p>
-                )}
-                {data?.meta?.usage?.queue_time && (
-                  <p>
-                    Queue:{' '}
-                    <span className="text-gray-400 font-mono">
-                      {(data?.meta?.usage?.queue_time * 1000).toFixed(0)}ms
-                    </span>
-                  </p>
-                )}
-                {data?.meta?.usage?.completion_time && (
-                  <p>
-                    Completion:{' '}
-                    <span className="text-gray-400 font-mono">
-                      {data?.meta?.usage?.completion_time.toFixed(2)}s
-                    </span>
-                  </p>
-                )}
-              </div>
-            </div>
 
             {/* Model Info */}
             <div className="bg-slate-800 p-4 rounded-lg">
-              <p className="text-sm text-gray-400 mb-3">🤖 Model Info:</p>
+              <p className="text-sm text-gray-400 mb-3"> Model Info:</p>
               <div className="space-y-2 text-xs text-gray-300">
                 <p>
                   Provider: <span className="text-blue-400 font-mono">{data?.meta?.provider}</span>
@@ -219,9 +189,11 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
         </div>
 
         {/* Center - Main Canvas */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col overflow-hidden min-h-0"> 
+          {/* ^ REMOVED mt-12 to fix the unwanted top space */}
+
           {/* Tabs */}
-          <div className="h-12 bg-slate-900 border-b border-slate-700 flex items-center px-6 space-x-8">
+          <div className="h-12 bg-slate-900 border-b border-slate-700 flex items-center px-6 space-x-8 shrink-0 z-10 relative">
             <button
               onClick={() => setActiveTab('preview')}
               className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${
@@ -247,9 +219,11 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
           {/* Preview Tab */}
           {activeTab === 'preview' && (
-            <div className="flex-1 flex flex-col overflow-hidden bg-slate-950/30">
+            <div className="flex-1 flex flex-col overflow-hidden bg-gray-100 relative">
+              {/* ^ CHANGED h-fit to flex-1 to fill full height */}
+              
               {/* Zoom Controls */}
-              <div className="h-12 bg-slate-900 border-b border-slate-700 px-6 flex items-center justify-between">
+              <div className="h-12 bg-slate-900 border-b border-slate-700 px-6 flex items-center justify-between z-10 shrink-0">
                 <div className="flex items-center space-x-3 text-sm text-gray-400">
                   <span>🔍 Zoom</span>
                   <button
@@ -274,51 +248,38 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
                 </div>
               </div>
 
-              {/* Canvas */}
-              <div className="flex-1 overflow-auto flex items-start justify-center p-8">
-                <div style={{ display: "inline-block" }}>
-                  <div
-                    style={{
-                      transform: `scale(${zoom / 100})`,
-                      transformOrigin: "top center",
-                    }}
-                    className="bg-transparent rounded-lg shadow-2xl overflow-hidden max-w-4xl w-full"
-                  >
-                    <SchemaRenderer schema={normalizeSchema(data?.schema)} />
-                  </div>
+              {/* Canvas Area - FULL WIDTH & HEIGHT FIX */}
+              <div className="flex-1 overflow-auto bg-white relative w-full h-full">
+                <div
+                  style={{
+                    width: zoom === 100 ? '100%' : `${100 * (100 / zoom)}%`,
+                    transform: `scale(${zoom / 100})`,
+                    transformOrigin: "top left",
+                  }}
+                  className="h-fit flex items-center justify-center"
+                >
+                  <SchemaRenderer schema={normalizeSchema(data?.schema)} />
                 </div>
               </div>
-
             </div>
           )}
 
-          {/* Code Tab */}
+          {/* Code Tab (Unchanged) */}
           {activeTab === 'code' && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Code Toolbar */}
-              <div className="h-12 bg-slate-900 border-b border-slate-700 px-6 flex items-center justify-between">
+              <div className="h-12 bg-slate-900 border-b border-slate-700 px-6 flex items-center justify-between shrink-0">
                 <span className="text-xs text-gray-400 font-mono">
                   {lineCount} lines • {codeSize}KB
                 </span>
                 <div className="flex items-center space-x-2">
-                  <button
-                    onClick={copyCode}
-                    className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded transition flex items-center space-x-1"
-                  >
-                    <span>📋</span>
-                    <span>Copy</span>
+                  <button onClick={copyCode} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded transition flex items-center space-x-1">
+                    <span>📋</span><span>Copy</span>
                   </button>
-                  <button
-                    onClick={downloadCode}
-                    className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded transition flex items-center space-x-1"
-                  >
-                    <span>⬇️</span>
-                    <span>Download</span>
+                  <button onClick={downloadCode} className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded transition flex items-center space-x-1">
+                    <span>⬇️</span><span>Download</span>
                   </button>
                 </div>
               </div>
-
-              {/* Code Editor */}
               <div className="flex-1 overflow-auto bg-slate-950/30">
                 <pre className="p-6 text-xs font-mono text-gray-300 whitespace-pre-wrap wrap-break-word leading-relaxed">
                   {data?.code}

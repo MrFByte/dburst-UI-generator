@@ -20,6 +20,7 @@ class Generations(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="generations")
     prompt = models.TextField(default='')
     schema = models.JSONField(default=dict) 
+    metadata = models.JSONField(null=True, blank=True, default=dict)
     code_bundle_url = models.TextField(blank=True, null=True)
     llm_provider = models.CharField(max_length=30, choices=Provider.choices)
     token_usage = models.IntegerField(default=0)
@@ -28,3 +29,4 @@ class Generations(models.Model):
 
     def __str__(self):
         return f"{self.project.title} → {self.status}"
+

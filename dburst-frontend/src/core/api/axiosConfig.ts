@@ -4,7 +4,7 @@ import { store } from "@/core/redux/store";
 import { logout } from "@/core/redux/authSlice";
 import { refreshTokenApi } from "./refreshTokenApi";
 
-const baseUrl = import.meta.env.VITE_API_URL;
+export const baseUrl = import.meta.env.VITE_API_URL;
 
 export const api: AxiosInstance = axios.create({
   baseURL: baseUrl,

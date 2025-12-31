@@ -24,6 +24,7 @@ function App() {
         } catch (error) {
           console.error("Auth verification failed:", error);
           dispatch(logout());
+          window.location.href = "/";
         }
       }
     };

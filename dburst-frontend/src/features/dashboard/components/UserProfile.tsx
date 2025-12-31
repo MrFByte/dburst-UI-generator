@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, LogOut } from 'lucide-react';
 import { useLogout } from '@/features/index/api/logoutApi';
 import type { User as UserType } from '@/shared/types/userTypes';
+import { useNavigate } from 'react-router-dom';
 
 interface UserProfileProps {
   user: UserType | null; 
@@ -11,6 +12,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null); 
   const logoutAction = useLogout();
+
+  const navigate = useNavigate();
 
   if (!user) {
     return null; 
@@ -38,6 +41,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
     
     setIsOpen(false); 
     logoutAction(); 
+    navigate('/');
   };
   console.log(user);
   

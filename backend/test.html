@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lionel Messi - Official Portfolio</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font family -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            color: #1a202c;
+        }
+        .header-bg {
+            background: linear-gradient(135deg, #1f2937, #374151);
+        }
+        .accent-color {
+            color: #eab308; /* Tailwind yellow-500 equivalent */
+        }
+        .accent-bg {
+            background-color: #eab308;
+        }
+        .card-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* Custom scroll behavior for navigation */
+        html {
+            scroll-behavior: smooth;
+        }
+        /* Style for the timeline circles */
+        .timeline-item {
+            position: relative;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -1.75rem; /* Equivalent to -7 on the left side */
+            height: 100%;
+            width: 4px;
+            background-color: #eab308;
+            border-radius: 9999px;
+        }
+        .timeline-item-circle {
+            position: absolute;
+            top: 0;
+            left: -2.375rem; /* Adjusted for centering circle */
+            width: 1rem;
+            height: 1rem;
+            background-color: #1f2937;
+            border: 3px solid #eab308;
+            border-radius: 9999px;
+            z-index: 10;
+        }
+
+        /* Responsive adjustments for better mobile experience */
+        @media (max-width: 640px) {
+            .hero-text {
+                font-size: 2.25rem;
+            }
+            .timeline-item::before {
+                left: 0.5rem;
+            }
+            .timeline-item-circle {
+                left: 0;
+            }
+        }
+    </style>
+    <script>
+        // Simple client-side navigation script
+        function scrollToSection(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen">
+
+    <!-- Header & Navigation -->
+    <header class="sticky top-0 z-50 shadow-lg header-bg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="text-2xl font-extrabold text-white tracking-wider">
+                    L. MESSI <span class="accent-color">| 10</span>
+                </div>
+                <nav class="hidden md:flex space-x-8">
+                    <button onclick="scrollToSection('skills')" class="text-white hover:text-yellow-400 transition duration-300 font-semibold">Skills</button>
+                    <button onclick="scrollToSection('experience')" class="text-white hover:text-yellow-400 transition duration-300 font-semibold">Experience</button>
+                    <button onclick="scrollToSection('achievements')" class="text-white hover:text-yellow-400 transition duration-300 font-semibold">Achievements</button>
+                    <a href="#contact" class="px-4 py-2 bg-yellow-500 text-gray-900 rounded-full font-bold hover:bg-yellow-400 transition duration-300">Contact</a>
+                </nav>
+                <!-- Mobile Menu Button -->
+                <button id="mobile-menu-button" class="md:hidden text-white focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
+            </div>
+        </div>
+        <!-- Mobile Menu Dropdown -->
+        <div id="mobile-menu" class="hidden md:hidden bg-gray-800">
+            <button onclick="scrollToSection('skills'); document.getElementById('mobile-menu').classList.add('hidden');" class="block w-full text-left px-4 py-3 text-white hover:bg-gray-700">Skills</button>
+            <button onclick="scrollToSection('experience'); document.getElementById('mobile-menu').classList.add('hidden');" class="block w-full text-left px-4 py-3 text-white hover:bg-gray-700">Experience</button>
+            <button onclick="scrollToSection('achievements'); document.getElementById('mobile-menu').classList.add('hidden');" class="block w-full text-left px-4 py-3 text-white hover:bg-gray-700">Achievements</button>
+            <a href="#contact" class="block w-full text-left px-4 py-3 bg-yellow-500 text-gray-900 font-bold hover:bg-yellow-400">Contact</a>
+        </div>
+        <script>
+            document.getElementById('mobile-menu-button').addEventListener('click', () => {
+                document.getElementById('mobile-menu').classList.toggle('hidden');
+            });
+        </script>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="header-bg text-white pt-16 pb-20 md:pb-32">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center">
+            <div class="md:w-3/5 lg:w-3/5 text-center md:text-left mb-10 md:mb-0">
+                <h1 class="hero-text text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight">
+                    LIONEL <span class="accent-color">MESSI</span>
+                </h1>
+                <p class="mt-4 text-xl md:text-2xl font-light">
+                    The Architect of Modern Football. <br class="hidden md:inline"> Eight-Time Ballon d'Or Winner. World Champion.
+                </p>
+                <div class="mt-8 space-x-4">
+                    <a href="#achievements" class="px-6 py-3 bg-yellow-500 text-gray-900 rounded-full font-bold text-lg hover:bg-yellow-400 transition duration-300 shadow-xl">View Trophy Cabinet</a>
+                    <a href="#experience" class="px-6 py-3 border-2 border-white text-white rounded-full font-bold text-lg hover:bg-white hover:text-gray-900 transition duration-300">Career Journey</a>
+                </div>
+            </div>
+            <div class="md:w-2/5 lg:w-2/5 flex justify-center">
+                <!-- Placeholder Image for Messi - Aspect Ratio 4:5 Portrait -->
+                <img src="https://placehold.co/400x500/FACC15/1F2937?text=Lionel+Messi" 
+                     onerror="this.onerror=null; this.src='https://placehold.co/400x500/FACC15/1F2937?text=Messi+Portrait';"
+                     alt="Lionel Messi portrait" 
+                     class="w-64 h-80 md:w-80 md:h-96 object-cover rounded-xl shadow-2xl border-4 border-yellow-500 transform hover:scale-105 transition duration-500">
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Stats Section (Snapshot) -->
+    <section class="bg-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                <div class="p-4 rounded-xl bg-gray-100 card-shadow">
+                    <p class="text-4xl font-extrabold accent-color">8</p>
+                    <p class="text-sm md:text-lg font-semibold text-gray-700 mt-1">Ballon d'Ors</p>
+                </div>
+                <div class="p-4 rounded-xl bg-gray-100 card-shadow">
+                    <p class="text-4xl font-extrabold accent-color">1</p>
+                    <p class="text-sm md:text-lg font-semibold text-gray-700 mt-1">FIFA World Cup</p>
+                </div>
+                <div class="p-4 rounded-xl bg-gray-100 card-shadow">
+                    <p class="text-4xl font-extrabold accent-color">4</p>
+                    <p class="text-sm md:text-lg font-semibold text-gray-700 mt-1">UEFA Champions Leagues</p>
+                </div>
+                <div class="p-4 rounded-xl bg-gray-100 card-shadow">
+                    <p class="text-4xl font-extrabold accent-color">46+</p>
+                    <p class="text-sm md:text-lg font-semibold text-gray-700 mt-1">Total Trophies (Record)</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Skills Section -->
+    <section id="skills" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-4xl font-extrabold text-center mb-12">Core <span class="accent-color">Skills</span> & Attributes</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+
+                <!-- Skill Card 1: Dribbling -->
+                <div class="bg-white p-6 rounded-xl card-shadow border-t-4 border-yellow-500 hover:shadow-xl transition duration-300">
+                    <div class="text-4xl accent-color mb-3">⚽</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">Unparalleled Dribbling</h3>
+                    <p class="text-gray-600 text-sm">Maintains close control at high speed, famously evading multiple defenders with micro-movements and a low center of gravity. Essential for breaking defensive lines.</p>
+                </div>
+
+                <!-- Skill Card 2: Vision & Passing -->
+                <div class="bg-white p-6 rounded-xl card-shadow border-t-4 border-yellow-500 hover:shadow-xl transition duration-300">
+                    <div class="text-4xl accent-color mb-3">👁️</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">Playmaking Vision</h3>
+                    <p class="text-gray-600 text-sm">Exceptional ability to read the game and execute defense-splitting through balls and long-range switches. Functions as an elite playmaker from the attacking third.</p>
+                </div>
+
+                <!-- Skill Card 3: Finishing -->
+                <div class="bg-white p-6 rounded-xl card-shadow border-t-4 border-yellow-500 hover:shadow-xl transition duration-300">
+                    <div class="text-4xl accent-color mb-3">🎯</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">Precision Finishing</h3>
+                    <p class="text-gray-600 text-sm">Prodigious goal-scorer with a deadly left foot. Known for curling shots into the top corner and clinical one-on-one finishes, often setting scoring records.</p>
+                </div>
+
+                <!-- Skill Card 4: Leadership & Adaptability -->
+                <div class="bg-white p-6 rounded-xl card-shadow border-t-4 border-yellow-500 hover:shadow-xl transition duration-300">
+                    <div class="text-4xl accent-color mb-3">🦁</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">Leadership & Adaptability</h3>
+                    <p class="text-gray-600 text-sm">Evolved from a winger to a central attacking midfielder, consistently adapting to new leagues and team structures while maintaining elite performance and captaining Argentina to glory.</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Experience Section (Career Journey) -->
+    <section id="experience" class="py-20 bg-gray-900 text-white">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-4xl font-extrabold text-center accent-color mb-12">Professional <span class="text-white">Experience</span></h2>
+
+            <div class="space-y-12 relative pl-10 md:pl-16">
+
+                <!-- Experience Item 1: Inter Miami CF -->
+                <div class="timeline-item">
+                    <div class="timeline-item-circle"></div>
+                    <div class="bg-gray-800 p-6 rounded-xl card-shadow border-l-4 border-yellow-500">
+                        <p class="text-lg font-bold accent-color">2023 – Present</p>
+                        <h3 class="text-2xl font-extrabold mt-1">Inter Miami CF (MLS)</h3>
+                        <p class="text-gray-400">Captain & Forward</p>
+                        <ul class="list-disc list-inside mt-3 text-gray-300 text-sm space-y-1">
+                            <li>Introduced a global profile to MLS, driving record league viewership and attendance.</li>
+                            <li>Won the club's first-ever trophy (Leagues Cup 2023).</li>
+                            <li>Set new league records for combined goals and assists in a single season.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Experience Item 2: Paris Saint-Germain -->
+                <div class="timeline-item">
+                    <div class="timeline-item-circle"></div>
+                    <div class="bg-gray-800 p-6 rounded-xl card-shadow border-l-4 border-yellow-500">
+                        <p class="text-lg font-bold accent-color">2021 – 2023</p>
+                        <h3 class="text-2xl font-extrabold mt-1">Paris Saint-Germain (Ligue 1)</h3>
+                        <p class="text-gray-400">Forward</p>
+                        <ul class="list-disc list-inside mt-3 text-gray-300 text-sm space-y-1">
+                            <li>Secured 2 Ligue 1 titles in two seasons.</li>
+                            <li>Led the league in assists during the 2022/2023 season.</li>
+                            <li>Demonstrated successful adaptation to a new league and teammates, maintaining elite output.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Experience Item 3: FC Barcelona -->
+                <div class="timeline-item">
+                    <div class="timeline-item-circle"></div>
+                    <div class="bg-gray-800 p-6 rounded-xl card-shadow border-l-4 border-yellow-500">
+                        <p class="text-lg font-bold accent-color">2004 – 2021</p>
+                        <h3 class="text-2xl font-extrabold mt-1">FC Barcelona (La Liga)</h3>
+                        <p class="text-gray-400">Captain & Forward</p>
+                        <ul class="list-disc list-inside mt-3 text-gray-300 text-sm space-y-1">
+                            <li>All-time top goalscorer for the club (672 goals) and La Liga.</li>
+                            <li>Won 10 La Liga titles, 4 UEFA Champions League titles, and 7 Copa del Rey trophies.</li>
+                            <li>Spearheaded two Treble-winning teams (2009, 2015).</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Experience Item 4: Argentina National Team -->
+                <div class="timeline-item">
+                    <div class="timeline-item-circle"></div>
+                    <div class="bg-gray-800 p-6 rounded-xl card-shadow border-l-4 border-yellow-500">
+                        <p class="text-lg font-bold accent-color">2005 – Present</p>
+                        <h3 class="text-2xl font-extrabold mt-1">Argentina National Team</h3>
+                        <p class="text-gray-400">Captain & All-Time Leading Goalscorer</p>
+                        <ul class="list-disc list-inside mt-3 text-gray-300 text-sm space-y-1">
+                            <li>Led the nation to the 2022 FIFA World Cup title, winning the Golden Ball award.</li>
+                            <li>Won the Copa América (2021, 2024) and Olympic Gold (2008).</li>
+                            <li>Most capped player and all-time leading goalscorer for the national team.</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Achievements Section (Trophies) -->
+    <section id="achievements" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-4xl font-extrabold text-center mb-12">Record-Breaking <span class="accent-color">Achievements</span></h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+
+                <!-- Column 1: Individual Honors -->
+                <div class="bg-white p-8 rounded-xl card-shadow">
+                    <h3 class="text-3xl font-bold accent-color border-b-2 border-yellow-200 pb-3 mb-6">Individual Honors</h3>
+                    <ul class="space-y-4">
+                        <li class="flex items-center">
+                            <span class="text-2xl mr-4 text-yellow-600">🏆</span>
+                            <div>
+                                <p class="font-bold text-gray-900">Ballon d'Or (World Player of the Year)</p>
+                                <p class="text-sm text-gray-600">8 Wins (2009, 2010, 2011, 2012, 2015, 2019, 2021, 2023) - World Record</p>
+                            </div>
+                        </li>
+                        <li class="flex items-center">
+                            <span class="text-2xl mr-4 text-yellow-600">🌟</span>
+                            <div>
+                                <p class="font-bold text-gray-900">FIFA World Cup Golden Ball</p>
+                                <p class="text-sm text-gray-600">2 Wins (2014, 2022) - Only player to win twice</p>
+                            </div>
+                        </li>
+                        <li class="flex items-center">
+                            <span class="text-2xl mr-4 text-yellow-600">👟</span>
+                            <div>
+                                <p class="font-bold text-gray-900">European Golden Shoe</p>
+                                <p class="text-sm text-gray-600">6 Wins (Record)</p>
+                            </div>
+                        </li>
+                        <li class="flex items-center">
+                            <span class="text-2xl mr-4 text-yellow-600">🥇</span>
+                            <div>
+                                <p class="font-bold text-gray-900">Laureus World Sportsman of the Year</p>
+                                <p class="text-sm text-gray-600">2 Wins (2020, 2023)</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Column 2: Major Team Trophies -->
+                <div class="bg-white p-8 rounded-xl card-shadow">
+                    <h3 class="text-3xl font-bold accent-color border-b-2 border-yellow-200 pb-3 mb-6">Major Team Trophies</h3>
+                    <ul class="space-y-4">
+                        <li class="flex items-center">
+                            <span class="text-2xl mr-4 text-gray-900">🌍</span>
+                            <div>
+                                <p class="font-bold text-gray-900">FIFA World Cup (Argentina)</p>
+                                <p class="text-sm text-gray-600">1 Win (2022)</p>
+                            </div>
+                        </li>
+                        <li class="flex items-center">
+                            <span class="text-2xl mr-4 text-gray-900">🏆</span>
+                            <div>
+                                <p class="font-bold text-gray-900">UEFA Champions League (FC Barcelona)</p>
+                                <p class="text-sm text-gray-600">4 Wins (2006, 2009, 2011, 2015)</p>
+                            </div>
+                        </li>
+                        <li class="flex items-center">
+                            <span class="text-2xl mr-4 text-gray-900">🇪🇸</span>
+                            <div>
+                                <p class="font-bold text-gray-900">La Liga (FC Barcelona)</p>
+                                <p class="text-sm text-gray-600">10 Wins</p>
+                            </div>
+                        </li>
+                        <li class="flex items-center">
+                            <span class="text-2xl mr-4 text-gray-900">🇦🇷</span>
+                            <div>
+                                <p class="font-bold text-gray-900">Copa América (Argentina)</p>
+                                <p class="text-sm text-gray-600">2 Wins (2021, 2024)</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact/CTA Section -->
+    <footer id="contact" class="header-bg py-16 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-3xl md:text-4xl font-extrabold mb-4">The Journey Continues...</h2>
+            <p class="text-lg text-gray-300 mb-8">
+                Follow my current path and achievements with Inter Miami and the Argentina National Team.
+            </p>
+            
+            <div class="flex justify-center space-x-6">
+                <!-- Social Media Icons (Using emojis as placeholders for simplicity) -->
+                <a href="#" class="text-gray-300 hover:text-yellow-500 transition duration-300">
+                    <span class="text-3xl">𝕏</span>
+                </a>
+                <a href="#" class="text-gray-300 hover:text-yellow-500 transition duration-300">
+                    <span class="text-3xl">📸</span>
+                </a>
+                <a href="#" class="text-gray-300 hover:text-yellow-500 transition duration-300">
+                    <span class="text-3xl">▶️</span>
+                </a>
+            </div>
+
+            <p class="mt-12 text-sm text-gray-500">© 2025 Lionel Messi Portfolio. All rights reserved.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

@@ -341,4 +341,3 @@ class LogoutView(APIView):
         response.delete_cookie("access")
         return response
     
-        
