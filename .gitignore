@@ -1,11 +1,9 @@
 gitrepo_rules.txt
 .env
-module.md
 phase1-scope.md
 
 backend/.env
 
-module.md
 phase2-scope.md
 
 backend/db.sqlite3

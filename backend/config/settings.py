@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'users',
     'projects',
     'generation',
+    'patching',
     
     # third party apps
     'rest_framework',
@@ -194,8 +195,48 @@ CACHES = {
     }
 }
 
+# ========================================
+# SESSION CONFIGURATION (REDIS-BACKED)
+# ========================================
+
+# Use Redis for session storage
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
+
+# Session Security Settings
+SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
+SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection
+SESSION_COOKIE_NAME = 'dburst_sessionid'  # Custom session cookie name
+SESSION_COOKIE_PATH = '/'
+SESSION_COOKIE_DOMAIN = None  # Use default domain
+
+# Session Timeout Settings
+SESSION_COOKIE_AGE = 86400 * 7  # 7 days (in seconds)
+SESSION_SAVE_EVERY_REQUEST = False  # Only save if session modified
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Persist sessions
+
+# Session Serialization
+SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer'
+
+# ========================================
+# CACHE TIMEOUT SETTINGS
+# ========================================
+
+# Cache timeouts for different data types
+CACHE_TTL = {
+    'generation_schema': 86400 * 3,  # 3 days
+    'generation_code': 86400 * 3,    # 3 days
+    'generation_meta': 86400 * 3,    # 3 days
+    'patches': 86400 * 7,            # 7 days
+    'session': 86400 * 7,            # 7 days
+    'user_profile': 3600,            # 1 hour
+    'project_list': 300,             # 5 minutes
+}
+
+# ========================================
+# OAUTH & API KEYS
+# ========================================
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")

@@ -7,6 +7,8 @@ import type { APIResponse } from '../types/apiResponseType';
 import type { UIGeneratorProps } from '../types/UIGeneratorTypes';
 import { getItem } from '@/shared/utils/storageManager';
 import Header from '@/shared/components/Header';
+import { getProjectDetail } from '../api/dashboardApi';
+import { toast } from "@/shared/hooks/useToast";
 
 import { generatedData as SampleData } from "../sampleData/SampleUIGenerator"
 
@@ -77,10 +79,60 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
       return;
     }
 
-    const lastProject = getItem("lastGeneratedProject");
-    if (lastProject && projectId && lastProject.project_id === projectId) {
-      setGeneratedData(lastProject);
-      setData(lastProject);
+    // If projectId is provided, fetch project data from API
+    if (projectId) {
+      const loadProjectData = async () => {
+        try {
+          const response = await getProjectDetail(projectId);
+          
+          if (response.latest_generation) {
+            // Transform the API response to match APIResponse format
+            const transformedData: APIResponse = {
+              success: true,
+              project_id: response.project.id,
+              project_title: response.project.title,
+              project_description: response.project.description,
+              generation_id: response.latest_generation.id,
+              schema: response.latest_generation.schema,
+              code: response.latest_generation.code || "",
+              design_plan: response.latest_generation.metadata?.design_plan || {},
+              meta: {
+                models: {
+                  ui_generation: response.latest_generation.metadata?.ui_model || "unknown"
+                },
+                usage: {
+                  planning: response.latest_generation.metadata?.planning_tokens || {},
+                  generation: response.latest_generation.metadata?.generation_tokens || {},
+                  total_tokens: response.latest_generation.token_usage || 0
+                }
+              }
+            };
+            setData(transformedData);
+          } else {
+            // Project exists but has no generation yet
+            toast.info("This project doesn't have a UI generation yet.");
+          }
+        } catch (error: any) {
+          console.error("Error loading project:", error);
+          toast.error(error.message || "Failed to load project");
+          
+          // Fallback to last generated project if available
+          const lastProject = getItem("lastGeneratedProject");
+          if (lastProject && lastProject.project_id === projectId) {
+            setGeneratedData(lastProject);
+            setData(lastProject);
+          }
+        }
+      };
+
+      loadProjectData();
+    } else {
+      // No projectId, try to use last generated project
+      const lastProject = getItem("lastGeneratedProject");
+      if (lastProject) {
+        setGeneratedData(lastProject);
+        setData(lastProject);
+      }
     }
   }, [initialData, projectId]);
 

@@ -22,7 +22,8 @@ from django.urls import path, include
 api_routes = [
     path('users/', include('users.urls')),
     path('projects/', include('projects.urls')),
-    path('generation/', include('generation.urls'))
+    path('generation/', include('generation.urls')),
+    path('patching/', include('patching.urls')),
 ]
 
 

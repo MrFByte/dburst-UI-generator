@@ -34,3 +34,19 @@ export const generateUI = (
   });
 };
 
+export const getAllProjects = (page: number = 1, pageSize: number = 12) => {
+  return apiHandler(async () => {
+    const { data } = await api.get(ProjectsUrls.allProjects, {
+      params: { page, page_size: pageSize },
+    });
+    return data;
+  });
+};
+
+export const getProjectDetail = (projectId: string) => {
+  return apiHandler(async () => {
+    const { data } = await api.get(ProjectsUrls.projectDetail(projectId));
+    return data;
+  });
+};
+

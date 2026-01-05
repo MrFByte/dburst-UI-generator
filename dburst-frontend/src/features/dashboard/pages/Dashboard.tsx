@@ -227,7 +227,7 @@ const Dashboard = () => {
             <h2 className="text-2xl font-bold text-white">Recent Projects</h2>
 
             <button
-              onClick={() => console.log('Navigate to all projects')}
+              onClick={() => navigate('/dashboard/all-projects')}
               className="flex items-center text-gray-400 hover:text-white transition cursor-pointer"
             >
               View All Projects
