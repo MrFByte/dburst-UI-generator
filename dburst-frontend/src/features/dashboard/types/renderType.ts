@@ -6,6 +6,7 @@ export type ComponentType =
   | 'Container'
   | 'Grid'
   | 'Flex'
+  | 'Div'
   | 'Card'
   | 'CardHeader'
   | 'CardContent'
@@ -27,6 +28,9 @@ export type ComponentType =
   | 'List'
   | 'ListItem'
   | 'Form'
+  | 'Hero'
+  | 'Timeline'
+  | 'TimelineItem'
   | 'Table'
   | 'TableRow'
   | 'TableCell'
@@ -37,9 +41,6 @@ export type ComponentType =
   | 'DonutChart'
   | 'PieChart'
   | 'AreaChart'
-  | 'div'
-  | 'span'
-  | 'p'
   | 'div'
   | 'span'
   | 'p'
@@ -56,9 +57,6 @@ export type ComponentType =
   | 'nav'
   | 'aside'
   | 'article'
-  | 'div'
-  | 'span'
-  | 'p'
   ;
 
 export type TextTag =

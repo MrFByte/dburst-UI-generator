@@ -190,73 +190,73 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
         {/* Center - Main Canvas */}
         <main className="flex-1 flex flex-col overflow-hidden min-h-0"> 
-          {/* ^ REMOVED mt-12 to fix the unwanted top space */}
+          {/* Combined Tabs and Zoom Controls in Single Row */}
+          <div className="h-12 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 shrink-0 z-10 relative">
+            {/* Left: Tabs */}
+            <div className="flex items-center space-x-6">
+              <button
+                onClick={() => setActiveTab('preview')}
+                className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${
+                  activeTab === 'preview'
+                    ? 'border-blue-500 text-white'
+                    : 'border-transparent text-gray-400 hover:text-white'
+                }`}
+              >
+                <span>👁️ Preview</span>
+              </button>
 
-          {/* Tabs */}
-          <div className="h-12 bg-slate-900 border-b border-slate-700 flex items-center px-6 space-x-8 shrink-0 z-10 relative">
-            <button
-              onClick={() => setActiveTab('preview')}
-              className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${
-                activeTab === 'preview'
-                  ? 'border-blue-500 text-white'
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              <span>👁️ Preview</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('code')}
+                className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${
+                  activeTab === 'code'
+                    ? 'border-blue-500 text-white'
+                    : 'border-transparent text-gray-400 hover:text-white'
+                }`}
+              >
+                <span>{'</>'} Code</span>
+              </button>
+            </div>
 
-            <button
-              onClick={() => setActiveTab('code')}
-              className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${
-                activeTab === 'code'
-                  ? 'border-blue-500 text-white'
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              <span>{'</>'} Code</span>
-            </button>
+            {/* Right: Zoom Controls (only show in preview mode) */}
+            {activeTab === 'preview' && (
+              <div className="flex items-center space-x-3 text-sm text-gray-400">
+                <span>🔍 Zoom</span>
+                <button
+                  onClick={() => setZoom(Math.max(50, zoom - 10))}
+                  className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
+                >
+                  −
+                </button>
+                <span className="w-10 text-center font-mono">{zoom}%</span>
+                <button
+                  onClick={() => setZoom(Math.min(200, zoom + 10))}
+                  className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => setZoom(100)}
+                  className="px-2 py-1 ml-2 text-xs bg-slate-700 hover:bg-slate-600 rounded transition"
+                >
+                  Reset
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Preview Tab */}
           {activeTab === 'preview' && (
-            <div className="flex-1 flex flex-col overflow-hidden bg-gray-100 relative">
-              {/* ^ CHANGED h-fit to flex-1 to fill full height */}
-              
-              {/* Zoom Controls */}
-              <div className="h-12 bg-slate-900 border-b border-slate-700 px-6 flex items-center justify-between z-10 shrink-0">
-                <div className="flex items-center space-x-3 text-sm text-gray-400">
-                  <span>🔍 Zoom</span>
-                  <button
-                    onClick={() => setZoom(Math.max(50, zoom - 10))}
-                    className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
-                  >
-                    −
-                  </button>
-                  <span className="w-10 text-center font-mono">{zoom}%</span>
-                  <button
-                    onClick={() => setZoom(Math.min(200, zoom + 10))}
-                    className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
-                  >
-                    +
-                  </button>
-                  <button
-                    onClick={() => setZoom(100)}
-                    className="px-2 py-1 ml-2 text-xs bg-slate-700 hover:bg-slate-600 rounded transition"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
+            <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 relative">
 
               {/* Canvas Area - FULL WIDTH & HEIGHT FIX */}
-              <div className="flex-1 overflow-auto bg-white relative w-full h-full">
+              <div className="flex-1 overflow-auto relative w-full h-full p-8">
                 <div
                   style={{
                     width: zoom === 100 ? '100%' : `${100 * (100 / zoom)}%`,
                     transform: `scale(${zoom / 100})`,
                     transformOrigin: "top left",
                   }}
-                  className="h-fit flex items-center justify-center"
+                  className="h-fit mx-auto bg-white rounded-lg shadow-xl border border-gray-200 min-h-full"
                 >
                   <SchemaRenderer schema={normalizeSchema(data?.schema)} />
                 </div>

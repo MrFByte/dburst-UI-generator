@@ -16,6 +16,15 @@ const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
   reducer: persistedReducer,
+  devTools: {
+    actionSanitizer: (action) => {
+      // Hide persist actions from DevTools
+      if (action.type?.startsWith('persist/')) {
+        return null; // Don't log persist actions
+      }
+      return action;
+    },
+  },
 });
 
 export const persistor = persistStore(store);

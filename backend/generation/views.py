@@ -190,7 +190,6 @@ class GenerateView(APIView):
                     },
                     "meta": {
                         "models": {
-                            "planning": result["models"]["planning"],
                             "ui_generation": result["models"]["ui_generation"]
                         },
                         "usage": {

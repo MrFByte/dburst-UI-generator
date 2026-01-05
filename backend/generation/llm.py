@@ -30,62 +30,36 @@ LLM_MODELS = {
 DEFAULT_PLANNING_MODEL = "plan_moonshot"
 DEFAULT_UI_MODEL = "ui_llama_3_3"
 
-PLANNER_SYSTEM_PROMPT = """You are a world-class UI/UX design strategist.
-Your goal is to analyze a user request and produce a comprehensive DESIGN PLAN JSON.
+PLANNER_SYSTEM_PROMPT = """
+You are a reasoning-first UI architect.
+
+Your responsibilities:
+1. Infer intent and page category
+2. Decide layout archetype
+3. Decide required and forbidden UI patterns
+4. Generate a design_plan JSON
+5. Give a project name in 5 to 200 characters in key name project_name as string
+6. Give a project description in 10 to 500 characters in key name project_description as string
+7. If the page represents a product that need to showcase image:
+   - Generate a list of products
+   - Each product MUST include:
+     { name, price, image_url }
+   - image_url MUST visually represent the product
+   - Decorative images are forbidden
+   
+You must DISCOVER the layout — not assume it.
+
+The key "design_plan.sections" MUST always be a list of objects:
+{ name: string, type: string, content: string }
+
+Do NOT include login/signup unless explicitly requested.
 
 RETURN ONLY VALID JSON.
-
-CORE INSTRUCTION:
-1. Analyze if the request is for a Dashboard/Data App OR a Landing/Auth Page.
-2. Adapt the 'layout_plan' and 'components' strictly to that use case.
-
-JSON STRUCTURE:
-{
-  "project_name": "String",
-  "project_description": "String",
-  "concept": "String",
-  "theme": {
-    "style": "modern | minimal | dashboard",
-    "color_scheme": {
-      "primary": "Hex",
-      "secondary": "Hex",
-      "background": "Hex",
-      "surface": "Hex",
-      "text": "Hex"
-    },
-    "typography": {
-      "heading": "Tailwind classes",
-      "body": "Tailwind classes"
-    }
-  },
-  
-  "design_system": {              <--- ADD THIS BLOCK
-    "spacing": "String (e.g., 'p-4 gap-4')",
-    "radius": "String (e.g., 'rounded-lg')",
-    "shadows": "String",
-    "animations": "String"
-  },
-
-  "layout_plan": {
-    "structure": "Description of the grid/layout",
-    "sections": [
-      {
-        "name": "Section Name",
-        "purpose": "What this does",
-        "components": ["List", "Of", "Key", "Elements"]
-      }
-    ]
-  },
-  "component_patterns": {
-    "card_style": "Description of how cards should look (shadows, borders)",
-    "input_style": "Description of form inputs (if applicable)"
-  },
-  "ui_generation_prompt": "A highly detailed, step-by-step instruction string..."
-}
 """
 
-UI_GENERATOR_SYSTEM_PROMPT = """You are an expert React/Tailwind developer.
-Your job is to convert a `design_plan` into a VALID JSON UI SCHEMA.
+
+UI_GENERATOR_SYSTEM_PROMPT = """You are an expert React/Tailwind developer specializing in modern, polished UI design.
+Your job is to convert a `design_plan` into a VALID JSON UI SCHEMA with RICH, REALISTIC CONTENT.
 
 -------------------------------------------
 STRICT OUTPUT FORMAT
@@ -103,46 +77,183 @@ COMPONENT SCHEMA RULES
 1. Structure: {"type": "Component", "props": {...}, "children": []}
 2. Text Content: Use "content": "Text" (Do not use children for raw text).
 3. NO Raw HTML: Never put <tags> inside a string. Use "type": "Link" or "Text".
+4. NO PLACEHOLDERS: Generate actual, realistic content based on the design plan.
+5. Text should never have white color.
+6. Instead of using placeholders in img src, use the links given in the prompt.
 
 Allowed Types:
 Root, Section, Container, Card, CardHeader, CardTitle, CardContent,
-Form, Label, Input, Button, Text, Link, Icon, Image, Div
+Form, Label, Input, Button, Text, Link, Icon, Image, Div,
+Hero, Timeline, TimelineItem, Grid, Flex
 
 -------------------------------------------
-CRITICAL VISUAL PATTERNS (DO NOT IGNORE)
+CRITICAL: GENERATE REAL CONTENT, NOT PLACEHOLDERS
+-------------------------------------------
+NEVER use placeholder text like "Stats Counter" or "Trophy Gallery".
+ALWAYS generate:
+- Actual numbers, metrics, and data points
+- Realistic titles, descriptions, and labels
+- Meaningful content that matches the design plan's intent
+- Proper icons that match the content context
+
+-------------------------------------------
+MODERN UI PATTERNS (IMPLEMENT THESE)
 -------------------------------------------
 
-1. ICONS:
-   Use the 'Icon' type. 
-   {"type": "Icon", "props": {"name": "Mail", "className": "w-5 h-5 text-gray-400"}}
-   (Valid names: Mail, Lock, User, Github, ArrowRight, LayoutDashboard, etc.)
-
-2. FORM INPUTS:
-   ALWAYS wrap inputs with a Label.
-   Structure:
+1. STATS COUNTERS:
+   Structure each stat as a Card with:
+   - An Icon at the top (use appropriate icon: Users, TrendingUp, Star, Award, Target, etc.)
+   - A large, bold number (use text-3xl or text-4xl font-bold)
+   - A descriptive label below (text-sm text-muted-foreground)
+   - Modern styling: rounded-xl, shadow-md, border, bg-gradient-to-br or solid color
+   - Icon should be colored (e.g., text-purple-600, text-blue-600)
+   
+   Example structure:
    {
-     "type": "Div", "props": {"className": "space-y-2"},
+     "type": "Card",
+     "props": {"className": "p-6 rounded-xl shadow-md border bg-gradient-to-br from-white to-purple-50"},
      "children": [
-        {"type": "Label", "content": "Email Address"},
-        {"type": "Input", "props": {"className": "w-full border rounded-md p-2..."}}
+       {"type": "Icon", "props": {"name": "Users", "className": "w-8 h-8 text-purple-600 mb-3"}},
+       {"type": "Text", "props": {"className": "text-4xl font-bold text-gray-900 mb-1"}, "content": "12k+"},
+       {"type": "Text", "props": {"className": "text-sm text-gray-600"}, "content": "Active Users"}
      ]
    }
 
-3. CARDS:
+2. TROPHY/AWARD GALLERIES:
+   Create a responsive grid of trophy cards with:
+   - Card with rounded corners and shadow
+   - Trophy icon or image placeholder
+   - Title text (trophy name)
+   - Optional subtitle (date or achievement)
+   - Hover effects suggested via className
+   
+   Example:
+   {
+     "type": "Card",
+     "props": {"className": "p-6 rounded-xl shadow-md border bg-gradient-to-br from-yellow-50 to-amber-50 hover:shadow-lg transition-shadow"},
+     "children": [
+       {"type": "Icon", "props": {"name": "Trophy", "className": "w-12 h-12 text-yellow-600 mb-3"}},
+       {"type": "Text", "props": {"className": "text-lg font-semibold text-gray-900"}, "content": "World Cup 2022"},
+       {"type": "Text", "props": {"className": "text-sm text-gray-600 mt-1"}, "content": "FIFA World Cup Champion"}
+     ]
+   }
+
+3. HERO SECTIONS:
+   Use type "Hero" for hero sections:
+   - Large, prominent heading (text-5xl or text-6xl font-bold)
+   - Descriptive subtitle (text-xl text-gray-600)
+   - Background gradient: bg-gradient-to-br from-blue-50 via-white to-purple-50
+   - Centered or left-aligned layout
+   - Generous padding (p-12 or p-16)
+   - Rounded corners: rounded-2xl
+   - Shadow: shadow-lg
+   
+   Example:
+   {
+     "type": "Hero",
+     "props": {"className": "bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12 text-center"},
+     "children": [
+       {"type": "Text", "props": {"className": "text-5xl font-bold text-gray-900 mb-4"}, "content": "Lionel Messi: The Record Breaker"},
+       {"type": "Text", "props": {"className": "text-xl text-gray-600"}, "content": "A legendary career marked by unparalleled achievements"}
+     ]
+   }
+
+4. TIMELINES:
+   Use type "Timeline" for timeline containers and "TimelineItem" for each entry:
+   - Timeline container: Use "Timeline" type with relative positioning and left border
+   - Each timeline item: Use "TimelineItem" type
+   - Year/date prominently displayed (text-2xl font-bold)
+   - Achievement description (text-sm text-gray-600)
+   - Each item should be a Card with gradient background
+   
+   Example:
+   {
+     "type": "Timeline",
+     "props": {"className": "relative pl-8 border-l-2 border-blue-200 space-y-8"},
+     "children": [
+       {
+         "type": "TimelineItem",
+         "props": {"className": "relative"},
+         "children": [
+           {"type": "Text", "props": {"className": "text-2xl font-bold text-gray-900 mb-1"}, "content": "2004"},
+           {"type": "Text", "props": {"className": "text-sm text-gray-600"}, "content": "Debut for Barcelona"}
+         ]
+       }
+     ]
+   }
+
+5. TESTIMONIAL CAROUSELS:
+   - Card-based testimonials
+   - Quote text in italic
+   - Author name and role
+   - Optional avatar icon
+
+6. ICONS (lucide-react):
+   Use appropriate icons from lucide-react. Common icons:
+   - Users, User, UserCheck (for user-related stats)
+   - TrendingUp, TrendingDown, BarChart (for metrics)
+   - Star, Award, Trophy (for achievements)
+   - Target, Goal, Zap (for performance)
+   - Calendar, Clock (for time-related)
+   - Mail, Phone, MessageSquare (for contact)
+   - Github, Twitter, Linkedin (for social)
+   - LayoutDashboard, Settings, Home (for navigation)
+   - ArrowRight, ArrowLeft, ChevronRight (for navigation)
+   - Check, X, AlertCircle (for status)
+   
+   Format: {"type": "Icon", "props": {"name": "IconName", "className": "w-6 h-6 text-purple-600"}}
+
+7. MODERN STYLING GUIDELINES:
+   - Use rounded-xl or rounded-2xl for modern card corners
+   - Apply shadow-md or shadow-lg for depth
+   - Use gradient backgrounds: bg-gradient-to-br from-color1 to-color2
+   - Color scheme: Use purple, blue, indigo for primary actions (text-purple-600, bg-purple-50)
+   - Spacing: Use p-6 or p-8 for card padding, gap-6 for grid spacing
+   - Typography: Use font-bold for headings, font-semibold for subheadings
+   - Text sizes: text-4xl or text-5xl for hero numbers, text-2xl for section titles
+   - BACKGROUNDS: NEVER use 'bg-white' - ALWAYS use gradients:
+     * Root: bg-gradient-to-br from-gray-50 via-white to-slate-50
+     * Cards: bg-gradient-to-br from-white to-gray-50 (or colored variants)
+     * Sections: Can use bg-gradient-to-br from-transparent to-gray-50/30 for subtle variation
+   - SECTION STRUCTURE: Always wrap sections with proper padding (py-12 px-4 sm:px-6 lg:px-8)
+   - CONTAINERS: Use max-w-7xl mx-auto for main containers to prevent content from stretching too wide
+   - CRITICAL: If you see 'bg-white' in any example, replace it with a gradient. Pure white backgrounds are forbidden.
+
+8. CARDS:
    Follow the Shadcn pattern:
    Card -> CardHeader (optional) -> CardContent -> CardFooter (optional).
-   Add 'shadow-sm', 'border', 'bg-white', 'rounded-xl' to the main Card props.
+   CRITICAL: NEVER use 'bg-white' alone. Always use gradients:
+   - bg-gradient-to-br from-white to-gray-50 (subtle)
+   - bg-gradient-to-br from-white to-purple-50 (for stats)
+   - bg-gradient-to-br from-white to-blue-50 (for info)
+   - bg-gradient-to-br from-yellow-50 to-amber-50 (for trophies/awards)
+   Use: 'shadow-md', 'border border-gray-200', 'rounded-xl', 'p-6'
+   For modern cards: Always add gradient backgrounds, never pure white
 
-4. LAYOUT:
-   - For Login/Auth: Use a centered Flex or Grid layout (min-h-screen flex items-center justify-center).
-   - For Dashboards: Use a Sidebar + Main Content layout.
+9. LAYOUT:
+   - Use responsive grids: grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6
+   - Full-width sections: w-full py-16 or py-20
+   - Container max-width: max-w-7xl mx-auto px-4
+   - Centered content: flex items-center justify-center
+
+-------------------------------------------
+CONTENT GENERATION RULES
+-------------------------------------------
+1. Read each section's "content" field carefully - it describes what should be displayed
+2. Extract key information (numbers, achievements, dates) from the content description
+3. Generate realistic data that matches the context (e.g., if it says "800+ goals", use "800+" not "Stats Counter")
+4. Create meaningful labels and descriptions
+5. Use appropriate icons that match the content theme
+6. Apply modern color schemes and styling
 
 -------------------------------------------
 EXECUTION
 -------------------------------------------
 Read the `design_plan` provided by the user carefully. 
-Apply the colors, typography, and layout strategies defined there.
+For each section, generate REAL CONTENT based on the section's description.
+Apply modern styling, appropriate icons, and realistic data.
 Ensure the final JSON is valid and nest components correctly.
+DO NOT use placeholder text - always generate actual, meaningful content.
 """
 
 
@@ -194,7 +305,7 @@ class LLMClient:
         
         # STAGE 2: UI Generation with user-selected model
         logger.info("🔨 STAGE 2: Building UI from design plan...")
-        ui_prompt = design_plan["ui_generation_prompt"]
+        ui_prompt = self._compile_ui_prompt(design_plan)
         ui_result = self._call_ui_generator(ui_prompt, design_plan, retries)
         
         print(ui_result)
@@ -248,9 +359,16 @@ class LLMClient:
         spacing = design_system.get("spacing", "p-4 gap-4")
         radius = design_system.get("border_radius") or design_system.get("radius", "rounded-lg")
 
+        # Get project context
+        project_name = design_plan.get('project_name', '')
+        project_description = design_plan.get('project_description', '')
+        
         # Inject design context safely
-        enhanced_prompt = f"""DESIGN SPECIFICATIONS:
+        enhanced_prompt = f"""PROJECT CONTEXT:
+Project Name: {project_name}
+Project Description: {project_description}
 
+DESIGN SPECIFICATIONS:
 THEME: {theme.get('style', 'modern')}
 PRIMARY COLOR: {colors.get('primary', '#000000')}
 BACKGROUND: {colors.get('background', '#ffffff')}
@@ -262,7 +380,14 @@ BORDER RADIUS: {radius}
 BUILD INSTRUCTIONS:
 {prompt}
 
-Remember: Use EXACT Tailwind classes. Build nested structures (Root → Section → Grid → Components). Create Text components with children for multi-colored text."""
+CRITICAL REMINDERS:
+1. Generate REAL CONTENT - extract actual numbers, achievements, and data from section descriptions
+2. Use appropriate icons from lucide-react (see icon suggestions in sections above)
+3. Apply modern styling: rounded-xl, shadow-md, gradients, proper spacing (p-6, gap-6)
+4. DO NOT use placeholder text - always generate meaningful, realistic content
+5. Use EXACT Tailwind classes
+6. Build nested structures (Root → Section → Grid → Components)
+7. Create polished, production-ready UI that matches modern design standards"""
         
         for attempt in range(retries):
             try:
@@ -397,3 +522,91 @@ Remember: Use EXACT Tailwind classes. Build nested structures (Root → Section 
 
       parsed["usage"] = usage
       return parsed
+
+    def _compile_ui_prompt(self, design_plan: Dict[str, Any]) -> str:
+        archetype = design_plan.get("layout_archetype", "standard_layout")
+        intent = design_plan.get("intent", "")
+        required = design_plan.get("required_patterns", [])
+        forbidden = design_plan.get("forbidden_patterns", [])
+
+        design = design_plan.get("design_plan", {})
+        sections = design.get("sections", [])
+
+        lines = [
+            f"PAGE INTENT: {intent}",
+            f"LAYOUT ARCHETYPE: {archetype}",
+            "",
+            "REQUIRED UI PATTERNS:"
+        ]
+
+        for r in required:
+            lines.append(f"- {r}")
+
+        lines.append("")
+        lines.append("FORBIDDEN UI PATTERNS:")
+        for f in forbidden:
+            lines.append(f"- {f}")
+
+        lines.append("")
+        lines.append("=" * 60)
+        lines.append("DETAILED SECTIONS TO IMPLEMENT:")
+        lines.append("=" * 60)
+        lines.append("")
+        
+        # Icon mapping for different section types
+        icon_suggestions = {
+            "hero": ["Star", "Award", "Trophy", "Zap"],
+            "stats": ["Users", "TrendingUp", "Star", "Award", "Target", "BarChart", "Zap", "Trophy"],
+            "grid": ["Trophy", "Award", "Star", "Medal", "Crown"],
+            "timeline": ["Calendar", "Clock", "History", "ArrowRight"],
+            "carousel": ["Quote", "MessageSquare", "Users"],
+            "footer": ["Github", "Twitter", "Linkedin", "Mail"]
+        }
+        
+        for idx, section in enumerate(sections, 1):
+            name = section.get("name", "unnamed")
+            section_type = section.get("type", "")
+            content_desc = section.get("content", "")
+            
+            lines.append(f"--- SECTION {idx}: {name} ({section_type}) ---")
+            lines.append(f"Description: {content_desc}")
+            
+            # Provide implementation guidance based on section type
+            if section_type == "hero":
+                lines.append("Implementation: Create a full-width hero with large heading, subtitle, and optional background.")
+                lines.append("Icons: Use one of: " + ", ".join(icon_suggestions.get("hero", ["Star"])))
+            elif section_type == "stats":
+                lines.append("Implementation: Create a grid of stat cards (typically 3-4 cards).")
+                lines.append("Each card should have: Icon + Large Number + Label")
+                lines.append("Icons: Use one of: " + ", ".join(icon_suggestions.get("stats", ["TrendingUp"])))
+                lines.append("Extract actual numbers from the description (e.g., '800+ goals' -> display '800+')")
+            elif section_type == "grid":
+                lines.append("Implementation: Create a responsive grid (2-3 columns) of cards.")
+                lines.append("Icons: Use one of: " + ", ".join(icon_suggestions.get("grid", ["Trophy"])))
+                lines.append("Each card should represent a trophy/achievement with icon, title, and optional subtitle.")
+            elif section_type == "timeline":
+                lines.append("Implementation: Create a vertical or horizontal timeline with items.")
+                lines.append("Icons: Use one of: " + ", ".join(icon_suggestions.get("timeline", ["Calendar"])))
+                lines.append("Each item should show: Year/Date + Achievement Title + Description")
+            elif section_type == "carousel":
+                lines.append("Implementation: Create testimonial/quote cards in a grid or list.")
+                lines.append("Icons: Use one of: " + ", ".join(icon_suggestions.get("carousel", ["Quote"])))
+            elif section_type == "footer":
+                lines.append("Implementation: Create a footer with links and social icons.")
+                lines.append("Icons: Use one of: " + ", ".join(icon_suggestions.get("footer", ["Github"])))
+            
+            lines.append("")  # Empty line between sections
+
+        lines.append("=" * 60)
+        lines.append("")
+        lines.append("CRITICAL INSTRUCTIONS:")
+        lines.append("1. Generate REAL CONTENT - extract numbers, achievements, and data from section descriptions")
+        lines.append("2. Use appropriate icons for each section type (see suggestions above)")
+        lines.append("3. Apply modern styling: rounded-xl, shadow-md, gradients, proper spacing")
+        lines.append("4. DO NOT use placeholder text like 'Stats Counter' or 'Trophy Gallery'")
+        lines.append("5. Create meaningful titles, numbers, and labels based on the content descriptions")
+        lines.append("6. Do NOT invent additional sections beyond those listed above")
+        lines.append("7. Do NOT include authentication UI unless explicitly allowed")
+        lines.append("8. Build a polished, production-ready UI that matches modern design standards")
+
+        return "\n".join(lines)

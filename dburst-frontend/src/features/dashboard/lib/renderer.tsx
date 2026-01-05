@@ -1,5 +1,6 @@
 import React from 'react';
 import type { SchemaNode } from '../types/renderType';
+import * as LucideIcons from 'lucide-react';
 
 // Type guard to ensure we only pass SchemaNode objects to RenderNode
 function isSchemaNode(child: SchemaNode | string): child is SchemaNode {
@@ -16,7 +17,6 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
 
   const { type, props = {}, children = [], content = '', src } = node;
   const className = props.className || '';
-  const tag = props.tag || '';
 
   // Function to render children, filtering out strings for container elements
   const renderChildren = () => (
@@ -39,29 +39,59 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
 
   switch (type) {
     case 'Root':
+      // Add default background if not specified to reduce white overuse
+      // Replace any explicit bg-white with gradient
+      let rootClass = className;
+      if (className.includes('bg-white') && !className.includes('bg-gradient')) {
+        rootClass = className.replace('bg-white', 'bg-gradient-to-br from-gray-50 via-white to-slate-50');
+      } else if (!className.includes('bg-')) {
+        rootClass = `${className} bg-gradient-to-br from-gray-50 via-white to-slate-50`;
+      }
       return (
-        <main className={`${className} h-fit w-full`}>
+        <main className={`${rootClass} h-fit w-full min-h-screen`}>
           {renderChildren()}
         </main>
       );
 
     case 'Section':
+      // Add default padding and structure if not specified
+      const sectionClass = className.includes('py-') || className.includes('px-') 
+        ? className 
+        : `${className} py-12 px-4 sm:px-6 lg:px-8`;
       return (
-        <section className={className}>
+        <section className={sectionClass}>
           {renderChildren()}
         </section>
       );
 
     case 'Grid':
+      // Add default grid styling if not specified
+      const gridClass = className.includes('grid') 
+        ? className 
+        : `${className} grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`;
       return (
-        <div className={className}>
+        <div className={gridClass}>
           {renderChildren()}
         </div>
       );
 
     case 'Card':
+      // Enhanced card styling with better defaults
+      // If bg-white is explicitly set, replace it with a subtle gradient
+      let cardClass = className;
+      if (className.includes('bg-white') && !className.includes('bg-gradient')) {
+        // Replace bg-white with a subtle gradient
+        cardClass = className.replace('bg-white', 'bg-gradient-to-br from-white to-gray-50');
+      } else if (!className.includes('bg-')) {
+        // Add default gradient if no background specified
+        cardClass = `${className} bg-gradient-to-br from-white to-gray-50`;
+      }
+      
+      const cardDefaults = cardClass.includes('rounded') 
+        ? cardClass 
+        : `${cardClass} rounded-xl border border-gray-200 shadow-md hover:shadow-lg transition-shadow`;
       return (
-        <div className={`${className} bg-white rounded-lg border shadow-sm`}>
+        <div className={cardDefaults}>
           {renderChildren()}
         </div>
       );
@@ -111,8 +141,12 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
       );
 
     case 'Container':
+      // Add default max-width and centering for containers
+      const containerClass = className.includes('max-w-') || className.includes('mx-auto')
+        ? className
+        : `${className} max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`;
       return (
-        <div className={className}>
+        <div className={containerClass}>
           {renderChildren()}
         </div>
       );
@@ -190,8 +224,23 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
         </span>
       );
 
-    case 'Icon':
-      return <span className={className}>{content}</span>;
+    case 'Icon': {
+      // Dynamic icon rendering from lucide-react
+      const iconName = props.name || content || 'Circle';
+      const IconComponent = (LucideIcons as any)[iconName] as React.ComponentType<{ className?: string }> | undefined;
+      const iconClass = className || 'w-6 h-6 text-gray-600';
+      
+      if (IconComponent) {
+        return <IconComponent className={iconClass} />;
+      }
+      
+      // Fallback for unknown icons
+      return (
+        <span className={`${iconClass} inline-flex items-center justify-center`}>
+          ●
+        </span>
+      );
+    }
 
     case 'Separator':
       return <hr className={`${className} border-t border-gray-200`} />;
@@ -285,6 +334,49 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
             </svg>
             <p className="mt-2 text-sm text-gray-500">Chart: {type}</p>
             <p className="text-xs text-gray-400 mt-1">Placeholder</p>
+          </div>
+        </div>
+      );
+
+    case 'Div':
+      // Add better default styling for Div elements
+      const divClass = className || '';
+      return (
+        <div className={divClass}>
+          {renderChildren()}
+        </div>
+      );
+
+    case 'Hero':
+      // Hero section with modern styling
+      const heroClass = className.includes('bg-') 
+        ? className 
+        : `${className} bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12`;
+      return (
+        <div className={heroClass}>
+          {renderChildren()}
+        </div>
+      );
+
+    case 'Timeline':
+      // Timeline container with vertical line styling
+      const timelineClass = className.includes('bg-')
+        ? className
+        : `${className} relative pl-8 border-l-2 border-blue-200 space-y-8`;
+      return (
+        <div className={timelineClass}>
+          {renderChildren()}
+        </div>
+      );
+
+    case 'TimelineItem':
+      // Individual timeline item with dot indicator
+      return (
+        <div className={`${className} relative`}>
+          {/* Timeline dot */}
+          <div className="absolute -left-[2.1rem] top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-md"></div>
+          <div className="bg-gradient-to-br from-white to-gray-50 rounded-lg p-6 shadow-md border border-gray-200">
+            {renderChildren()}
           </div>
         </div>
       );

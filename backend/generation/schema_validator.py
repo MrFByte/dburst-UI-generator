@@ -9,6 +9,9 @@ ALLOWED_COMPONENT_TYPES = {
     # Container Components
     "Root", "Section", "Container", "Card", "Grid", "Flex", "Div", "container",
     
+    # Special Layout Components
+    "Hero", "Timeline", "TimelineItem",
+    
     # Card Sub-components (CRITICAL - was missing!)
     "CardHeader", "CardContent", "CardFooter", "CardTitle", "CardDescription",
     

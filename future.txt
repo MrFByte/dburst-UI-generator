@@ -1,0 +1,948 @@
+================================================================================
+DBURST - FULL REACT APP GENERATION: COMPREHENSIVE PLANNING DOCUMENT
+================================================================================
+
+EXECUTIVE SUMMARY
+================================================================================
+
+Current State:
+- DBurst generates single React UI components from natural language prompts
+- Two-stage LLM process: Strategic Planning → UI Schema Generation
+- Outputs a single React component file with Tailwind CSS styling
+- Uses Shadcn UI component library
+- Stores projects and generations in PostgreSQL database
+- Frontend previews and displays generated code
+
+Goal:
+Extend DBurst to generate complete, production-ready React applications with:
+- Multiple pages/routes
+- State management
+- API integration layer
+- Full project structure (config files, dependencies, etc.)
+- Build and deployment configuration
+- Organized component architecture
+
+================================================================================
+CURRENT ARCHITECTURE ANALYSIS
+================================================================================
+
+BACKEND (Django REST Framework):
+---------------------------------
+1. Generation Module (generation/):
+   - llm.py: Two-stage LLM client (Planning → UI Generation)
+   - codegen.py: ReactCodeGenerator - converts schema to React code
+   - schema_validator.py: Validates JSON schemas
+   - views.py: GenerateView API endpoint
+   - models.py: Generations model stores schema, code, metadata
+
+2. Project Module (projects/):
+   - models.py: Project model (title, description, user, timestamps)
+   - views.py: CRUD operations for projects
+
+3. Current Output:
+   - Single React component file
+   - Schema stored as JSON
+   - Code stored as text
+   - Metadata includes design plan, token usage, model info
+
+FRONTEND (React + TypeScript + Vite):
+--------------------------------------
+1. Dashboard: UI generation interface
+2. UIGenerator: Preview and code view for generated components
+3. Current display: Single component preview
+
+================================================================================
+REQUIRED CHANGES FOR FULL APP GENERATION
+================================================================================
+
+PHASE 1: BACKEND ENHANCEMENTS
+================================================================================
+
+1.1 DATABASE MODEL CHANGES
+---------------------------
+
+A. Extend Generations Model:
+   - Add field: `app_type` (choices: 'component' | 'full_app')
+   - Add field: `app_structure` (JSONField) - stores full app metadata
+   - Add field: `pages` (JSONField) - array of page schemas
+   - Add field: `routing_config` (JSONField) - route definitions
+   - Add field: `state_management` (JSONField) - state setup (context/Redux/Zustand)
+   - Add field: `api_config` (JSONField) - API endpoints configuration
+   - Add field: `dependencies` (JSONField) - package.json dependencies
+   - Add field: `build_config` (JSONField) - vite.config, tsconfig, etc.
+
+B. New Model: AppBundle
+   - id (UUID)
+   - generation (ForeignKey to Generations)
+   - zip_file_url (URL to downloadable zip)
+   - version (for versioning generated apps)
+   - created_at, updated_at
+
+C. New Model: AppPage
+   - id (UUID)
+   - generation (ForeignKey to Generations)
+   - page_name (e.g., 'Home', 'Dashboard', 'Login')
+   - route_path (e.g., '/', '/dashboard', '/login')
+   - schema (JSONField) - page component schema
+   - component_code (TextField) - generated React code
+   - order (IntegerField) - for page ordering
+
+1.2 LLM PROMPT ENHANCEMENTS
+----------------------------
+
+A. Update PLANNER_SYSTEM_PROMPT (llm.py):
+   Add to design plan JSON structure:
+   {
+     ...
+     "app_type": "component | full_app",
+     "pages": [
+       {
+         "name": "Home",
+         "route": "/",
+         "purpose": "Landing page",
+         "components": ["Hero", "Features", "CTA"]
+       },
+       ...
+     ],
+     "routing": {
+       "type": "react-router-dom",
+       "routes": [...]
+     },
+     "state_management": {
+       "type": "context | redux | zustand | none",
+       "stores": [...]
+     },
+     "api_integration": {
+       "endpoints": [...],
+       "base_url": "..."
+     },
+     "dependencies": {
+       "required": ["react-router-dom", "axios", ...],
+       "optional": [...]
+     }
+   }
+
+B. New Stage: App Architecture Planning
+   - Add third LLM call for app structure planning
+   - Analyzes prompt for multi-page requirements
+   - Determines routing structure
+   - Identifies state management needs
+   - Plans API integration points
+
+1.3 CODE GENERATION ENHANCEMENTS
+---------------------------------
+
+A. New Class: FullAppGenerator (codegen.py)
+   Extends ReactCodeGenerator with:
+   
+   Methods:
+   - generate_app_structure() - creates folder structure
+   - generate_pages() - generates all page components
+   - generate_routing() - creates App.tsx with routes
+   - generate_state_management() - creates context/Redux setup
+   - generate_api_layer() - creates API service files
+   - generate_config_files() - package.json, vite.config, tsconfig, etc.
+   - generate_readme() - project README
+   - create_zip_bundle() - packages everything into downloadable zip
+
+B. File Structure Generator:
+   Generates:
+   ```
+   generated-app/
+   ├── package.json
+   ├── vite.config.ts
+   ├── tsconfig.json
+   ├── tailwind.config.ts
+   ├── index.html
+   ├── README.md
+   ├── .env.example
+   ├── src/
+   │   ├── main.tsx
+   │   ├── App.tsx
+   │   ├── routes/
+   │   │   └── AppRoutes.tsx
+   │   ├── pages/
+   │   │   ├── Home.tsx
+   │   │   ├── Dashboard.tsx
+   │   │   └── ...
+   │   ├── components/
+   │   │   └── ui/ (shadcn components)
+   │   ├── context/ (or store/)
+   │   │   └── AppContext.tsx
+   │   ├── services/
+   │   │   └── api.ts
+   │   ├── hooks/
+   │   │   └── useApi.ts
+   │   ├── types/
+   │   │   └── index.ts
+   │   └── assets/
+   └── public/
+   ```
+
+1.4 NEW API ENDPOINTS
+----------------------
+
+A. Enhanced GenerateView:
+   - Accepts new parameter: `app_type` ('component' | 'full_app')
+   - If app_type='full_app', triggers full app generation pipeline
+   - Returns app bundle URL instead of just code
+
+B. New Endpoint: /api/generation/<id>/download/
+   - Returns zip file download
+   - Includes all generated files
+
+C. New Endpoint: /api/generation/<id>/pages/
+   - Returns list of pages for a generation
+   - Allows updating individual pages
+
+D. New Endpoint: /api/generation/<id>/bundle/
+   - Returns app bundle metadata
+   - Includes download URL, file structure, dependencies
+
+1.5 STORAGE & FILE MANAGEMENT
+------------------------------
+
+A. File Storage Service:
+   - Use Django's FileField or cloud storage (S3, etc.)
+   - Store generated zip files
+   - Generate unique URLs for downloads
+   - Cleanup old bundles periodically
+
+B. Temporary File Management:
+   - Create temporary directory for app generation
+   - Build zip file
+   - Upload to storage
+   - Clean up temp files
+
+================================================================================
+PHASE 2: FRONTEND ENHANCEMENTS
+================================================================================
+
+2.1 UI GENERATOR ENHANCEMENTS
+------------------------------
+
+A. Update UIGenerator.tsx:
+   - Add toggle: "Generate Component" vs "Generate Full App"
+   - Show app structure preview (pages, routes, state)
+   - Display file tree of generated app
+   - Add download button for zip bundle
+   - Show dependency list
+   - Preview multiple pages
+
+B. New Component: AppStructureViewer
+   - Displays generated app structure
+   - Shows pages, routes, components
+   - Interactive file tree
+   - Page preview switcher
+
+C. New Component: AppPreview
+   - Multi-page preview
+   - Route navigation
+   - State management visualization
+
+2.2 DASHBOARD ENHANCEMENTS
+---------------------------
+
+A. Update Dashboard.tsx:
+   - Add app type selector (Component/Full App)
+   - Show app generation status
+   - Display app bundle info
+   - Quick download button
+
+B. Project Card Updates:
+   - Show app type badge
+   - Display page count
+   - Show last generated bundle version
+
+2.3 NEW PAGES/COMPONENTS
+------------------------
+
+A. AppBuilder Page:
+   - Multi-step wizard for app generation
+   - Step 1: App type selection
+   - Step 2: Pages configuration
+   - Step 3: State management selection
+   - Step 4: API configuration
+   - Step 5: Generate and download
+
+B. AppPreview Page:
+   - Full app preview with routing
+   - Page navigation
+   - State inspector
+   - API call simulator
+
+================================================================================
+PHASE 3: LLM PROMPT ENGINEERING
+================================================================================
+
+3.1 ENHANCED PLANNING STAGE
+----------------------------
+
+Update PLANNER_SYSTEM_PROMPT to detect:
+- Multi-page requirements ("dashboard with login", "e-commerce site")
+- State management needs ("user authentication", "shopping cart")
+- API requirements ("fetch user data", "submit form")
+- Routing needs ("navigation between pages")
+
+3.2 APP ARCHITECTURE PLANNER
+-----------------------------
+
+New LLM call for app structure:
+- Analyzes design plan
+- Determines optimal app structure
+- Plans routing hierarchy
+- Identifies shared components
+- Plans state management strategy
+- Suggests API integration points
+
+3.3 PAGE GENERATION PROMPTS
+----------------------------
+
+For each page:
+- Use design plan context
+- Include routing information
+- Include state management context
+- Include API integration context
+- Generate page-specific schema
+
+3.4 CONFIG FILE GENERATION
+--------------------------
+
+LLM generates:
+- package.json with correct dependencies
+- vite.config.ts with proper settings
+- tsconfig.json with TypeScript config
+- tailwind.config.ts with theme
+- .env.example with required variables
+- README.md with setup instructions
+
+================================================================================
+PHASE 4: TECHNICAL IMPLEMENTATION DETAILS
+================================================================================
+
+4.1 CODE GENERATION TEMPLATES
+------------------------------
+
+A. App.tsx Template:
+```typescript
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AppProvider } from './context/AppContext';
+import Home from './pages/Home';
+// ... other imports
+
+function App() {
+  return (
+    <AppProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          {/* ... other routes */}
+        </Routes>
+      </BrowserRouter>
+    </AppProvider>
+  );
+}
+```
+
+B. Context/State Template:
+```typescript
+import { createContext, useContext, useState } from 'react';
+
+interface AppState {
+  // Generated based on app requirements
+}
+
+const AppContext = createContext<AppState | undefined>(undefined);
+
+export function AppProvider({ children }) {
+  const [state, setState] = useState({});
+  return (
+    <AppContext.Provider value={{ state, setState }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+```
+
+C. API Service Template:
+```typescript
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+
+export const apiService = {
+  // Generated methods based on requirements
+};
+```
+
+4.2 DEPENDENCY MANAGEMENT
+--------------------------
+
+A. Dependency Analyzer:
+   - Scans generated code for imports
+   - Identifies required packages
+   - Adds to package.json
+   - Includes version numbers
+
+B. Core Dependencies (always included):
+   - react, react-dom
+   - react-router-dom
+   - axios (if API needed)
+   - tailwindcss
+   - @types packages
+
+C. Optional Dependencies:
+   - @reduxjs/toolkit (if Redux selected)
+   - zustand (if Zustand selected)
+   - react-query (if data fetching needed)
+
+4.3 BUILD CONFIGURATION
+------------------------
+
+A. vite.config.ts Generator:
+   - Base path configuration
+   - Alias setup (@/components, etc.)
+   - Plugin configuration
+   - Build optimizations
+
+B. tsconfig.json Generator:
+   - Path mappings
+   - Strict mode settings
+   - Include/exclude patterns
+
+C. tailwind.config.ts Generator:
+   - Theme from design plan
+   - Custom colors
+   - Typography settings
+
+4.4 ZIP BUNDLE CREATION
+------------------------
+
+Process:
+1. Create temporary directory
+2. Generate all files
+3. Create package.json
+4. Create config files
+5. Copy/generate components
+6. Create README
+7. Zip entire directory
+8. Upload to storage
+9. Return download URL
+10. Cleanup temp files
+
+================================================================================
+PHASE 5: NEW FEATURES & CAPABILITIES
+================================================================================
+
+5.1 MULTI-PAGE GENERATION
+---------------------------
+
+Features:
+- Generate multiple pages from single prompt
+- "Create a dashboard with login, home, and settings pages"
+- Automatic route generation
+- Shared layout components
+- Navigation components
+
+5.2 STATE MANAGEMENT INTEGRATION
+--------------------------------
+
+Options:
+- React Context (simple apps)
+- Redux Toolkit (complex state)
+- Zustand (lightweight)
+- React Query (server state)
+
+LLM determines best option based on requirements.
+
+5.3 API INTEGRATION LAYER
+-------------------------
+
+Features:
+- Generate API service files
+- Mock API endpoints (optional)
+- TypeScript types for API responses
+- Error handling
+- Loading states
+
+5.4 FORM HANDLING
+------------------
+
+Features:
+- React Hook Form integration
+- Form validation
+- Form state management
+- Submission handling
+
+5.5 AUTHENTICATION FLOW
+------------------------
+
+If detected in prompt:
+- Generate auth pages (Login, Register)
+- Auth context/provider
+- Protected routes
+- Token management
+
+5.6 ASSET MANAGEMENT
+--------------------
+
+Features:
+- Image placeholder generation
+- Icon management
+- Font configuration
+- Asset organization
+
+================================================================================
+PHASE 6: BACKEND API CHANGES DETAILED
+================================================================================
+
+6.1 GENERATION VIEW UPDATES
+----------------------------
+
+Current: GenerateView.post()
+New: Enhanced to handle app_type parameter
+
+```python
+class GenerateView(APIView):
+    def post(self, request):
+        app_type = request.data.get('app_type', 'component')
+        
+        if app_type == 'full_app':
+            return self._generate_full_app(request)
+        else:
+            return self._generate_component(request)
+    
+    def _generate_full_app(self, request):
+        # 1. Call LLM for app architecture planning
+        # 2. Generate pages
+        # 3. Generate routing
+        # 4. Generate state management
+        # 5. Generate API layer
+        # 6. Generate config files
+        # 7. Create zip bundle
+        # 8. Store in database
+        # 9. Return bundle URL
+```
+
+6.2 NEW SERIALIZERS
+--------------------
+
+```python
+class FullAppGenerationSerializer(serializers.Serializer):
+    prompt = serializers.CharField()
+    app_type = serializers.ChoiceField(choices=['component', 'full_app'])
+    pages = serializers.ListField(required=False)
+    state_management = serializers.ChoiceField(required=False)
+    api_config = serializers.JSONField(required=False)
+
+class AppBundleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppBundle
+        fields = ['id', 'generation', 'zip_file_url', 'version', 'created_at']
+```
+
+6.3 NEW MODELS
+--------------
+
+```python
+class AppBundle(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    generation = models.ForeignKey(Generations, on_delete=models.CASCADE)
+    zip_file_url = models.URLField()
+    version = models.CharField(max_length=20, default='1.0.0')
+    file_size = models.IntegerField()  # in bytes
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class AppPage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    generation = models.ForeignKey(Generations, on_delete=models.CASCADE)
+    page_name = models.CharField(max_length=100)
+    route_path = models.CharField(max_length=200)
+    schema = models.JSONField()
+    component_code = models.TextField()
+    order = models.IntegerField(default=0)
+```
+
+6.4 FILE STORAGE SERVICE
+------------------------
+
+```python
+# backend/generation/storage.py
+from django.core.files.storage import default_storage
+import zipfile
+import os
+
+class AppBundleStorage:
+    @staticmethod
+    def create_bundle(generation_id, files_dict):
+        # Create temp directory
+        # Write all files
+        # Create zip
+        # Upload to storage
+        # Return URL
+        pass
+```
+
+================================================================================
+PHASE 7: FRONTEND CHANGES DETAILED
+================================================================================
+
+7.1 API CLIENT UPDATES
+-----------------------
+
+```typescript
+// features/dashboard/api/dashboardApi.ts
+
+export const generateFullApp = async (prompt: string, config: AppConfig) => {
+  const response = await api.post('/generation/generate/', {
+    prompt,
+    app_type: 'full_app',
+    ...config
+  });
+  return response.data;
+};
+
+export const downloadAppBundle = async (generationId: string) => {
+  const response = await api.get(`/generation/${generationId}/download/`, {
+    responseType: 'blob'
+  });
+  return response.data;
+};
+```
+
+7.2 NEW TYPES
+-------------
+
+```typescript
+// features/dashboard/types/appTypes.ts
+
+export interface AppConfig {
+  app_type: 'component' | 'full_app';
+  pages?: PageConfig[];
+  state_management?: 'context' | 'redux' | 'zustand';
+  api_config?: ApiConfig;
+}
+
+export interface PageConfig {
+  name: string;
+  route: string;
+  schema: SchemaNode;
+}
+
+export interface AppBundle {
+  id: string;
+  zip_file_url: string;
+  version: string;
+  file_size: number;
+  created_at: string;
+}
+```
+
+7.3 NEW COMPONENTS
+-------------------
+
+A. AppTypeSelector:
+   - Radio buttons: Component vs Full App
+   - Shows feature differences
+
+B. AppStructurePreview:
+   - File tree visualization
+   - Page list
+   - Route visualization
+   - Component hierarchy
+
+C. AppDownloadButton:
+   - Downloads zip bundle
+   - Shows file size
+   - Progress indicator
+
+D. MultiPagePreview:
+   - Tabbed interface for pages
+   - Route navigation
+   - Page switcher
+
+================================================================================
+PHASE 8: IMPLEMENTATION ROADMAP
+================================================================================
+
+WEEK 1-2: Backend Foundation
+-----------------------------
+1. Update database models (migrations)
+2. Create AppBundle and AppPage models
+3. Update Generations model with new fields
+4. Create file storage service
+5. Update serializers
+
+WEEK 3-4: LLM Integration
+---------------------------
+1. Enhance planner prompt for app detection
+2. Create app architecture planner
+3. Update UI generator for multi-page
+4. Test prompt engineering
+
+WEEK 5-6: Code Generation
+--------------------------
+1. Create FullAppGenerator class
+2. Implement page generation
+3. Implement routing generation
+4. Implement state management generation
+5. Implement config file generation
+6. Implement zip bundle creation
+
+WEEK 7-8: API Endpoints
+------------------------
+1. Update GenerateView
+2. Create download endpoint
+3. Create bundle endpoint
+4. Create pages endpoint
+5. Test all endpoints
+
+WEEK 9-10: Frontend Updates
+----------------------------
+1. Update Dashboard UI
+2. Update UIGenerator component
+3. Create new preview components
+4. Create download functionality
+5. Test user flow
+
+WEEK 11-12: Testing & Polish
+-----------------------------
+1. End-to-end testing
+2. Error handling
+3. Performance optimization
+4. Documentation
+5. Deployment preparation
+
+================================================================================
+PHASE 9: TECHNICAL CHALLENGES & SOLUTIONS
+================================================================================
+
+9.1 CHALLENGE: LLM Context Window
+-----------------------------------
+Problem: Full app generation requires large context
+Solution:
+- Generate pages sequentially
+- Use design plan as shared context
+- Chunk large schemas
+- Cache intermediate results
+
+9.2 CHALLENGE: Code Quality
+----------------------------
+Problem: Generated code may have errors
+Solution:
+- Schema validation before code generation
+- TypeScript type generation
+- Linting rules in templates
+- Code formatting (Prettier)
+
+9.3 CHALLENGE: Dependency Resolution
+--------------------------------------
+Problem: Determining correct package versions
+Solution:
+- Use latest stable versions
+- Lock file generation (package-lock.json)
+- Dependency conflict detection
+- Version compatibility matrix
+
+9.4 CHALLENGE: File Size Management
+------------------------------------
+Problem: Large zip files
+Solution:
+- Compression optimization
+- Exclude node_modules
+- Generate .gitignore
+- Stream downloads for large files
+
+9.5 CHALLENGE: State Management Complexity
+--------------------------------------------
+Problem: Determining state needs from prompt
+Solution:
+- Explicit state planning stage
+- Pattern recognition in prompts
+- Default to Context for simple apps
+- Allow user override
+
+9.6 CHALLENGE: Routing Configuration
+--------------------------------------
+Problem: Complex nested routes
+Solution:
+- Flat route structure initially
+- Support nested routes in future
+- Route guards for protected pages
+- 404 page generation
+
+================================================================================
+PHASE 10: DEPENDENCIES & INFRASTRUCTURE
+================================================================================
+
+10.1 NEW BACKEND DEPENDENCIES
+------------------------------
+- django-storages (for S3/file storage)
+- boto3 (if using S3)
+- zipfile (Python standard library)
+- shutil (file operations)
+
+10.2 STORAGE OPTIONS
+--------------------
+Option 1: Local File Storage
+- Simple for development
+- Limited scalability
+
+Option 2: AWS S3
+- Scalable
+- CDN integration
+- Cost-effective
+
+Option 3: Google Cloud Storage
+- Similar to S3
+- Good integration options
+
+10.3 INFRASTRUCTURE CHANGES
+---------------------------
+- Increase server storage capacity
+- CDN for file downloads
+- Background task queue (Celery) for large generations
+- Rate limiting for generation requests
+
+10.4 MONITORING & ANALYTICS
+----------------------------
+- Track generation types (component vs app)
+- Monitor file sizes
+- Track download counts
+- Error rate monitoring
+
+================================================================================
+PHASE 11: USER EXPERIENCE ENHANCEMENTS
+================================================================================
+
+11.1 GENERATION WIZARD
+-----------------------
+Multi-step process:
+1. App Type Selection
+2. Prompt Input
+3. Pages Configuration (if multi-page)
+4. State Management Selection
+5. API Configuration
+6. Review & Generate
+7. Download
+
+11.2 PREVIEW ENHANCEMENTS
+--------------------------
+- Multi-page preview
+- Route navigation
+- State inspector
+- API call simulator
+- Code view per page
+
+11.3 DOCUMENTATION
+------------------
+- Generated README with setup instructions
+- API documentation
+- Component documentation
+- Deployment guide
+
+11.4 CUSTOMIZATION OPTIONS
+---------------------------
+- Theme customization
+- Component library selection
+- Build tool selection (Vite vs Create React App)
+- TypeScript vs JavaScript
+
+================================================================================
+PHASE 12: FUTURE ENHANCEMENTS
+================================================================================
+
+12.1 INCREMENTAL GENERATION
+---------------------------
+- Add pages to existing app
+- Update existing pages
+- Merge changes
+
+12.2 VERSION CONTROL
+--------------------
+- Git repository generation
+- Initial commit
+- Version history
+
+12.3 DEPLOYMENT INTEGRATION
+---------------------------
+- Vercel deployment config
+- Netlify deployment config
+- Docker configuration
+- CI/CD pipeline generation
+
+12.4 TESTING FRAMEWORK
+----------------------
+- Jest configuration
+- React Testing Library setup
+- Sample tests
+
+12.5 BACKEND GENERATION
+-----------------------
+- Generate backend API (Node.js/Express)
+- Generate Django REST API
+- Full-stack app generation
+
+================================================================================
+ESTIMATED EFFORT & RESOURCES
+================================================================================
+
+Development Time: 12-16 weeks (1 developer)
+Testing Time: 2-3 weeks
+Documentation: 1 week
+Total: ~16-20 weeks
+
+Team Size: 1-2 developers
+Additional Resources:
+- LLM API costs (increased usage)
+- Storage costs (S3/file storage)
+- CDN costs (if implemented)
+
+================================================================================
+SUCCESS METRICS
+================================================================================
+
+1. Full app generation success rate > 90%
+2. Generated apps are runnable without manual fixes
+3. Average generation time < 2 minutes
+4. User satisfaction with generated apps
+5. Download and usage rates
+
+================================================================================
+RISK MITIGATION
+================================================================================
+
+1. Start with simple multi-page apps
+2. Gradually add complexity
+3. Extensive testing at each phase
+4. User feedback loops
+5. Fallback to component generation if app generation fails
+
+================================================================================
+CONCLUSION
+================================================================================
+
+This plan outlines a comprehensive approach to extending DBurst from
+component generation to full React app generation. The implementation
+should be done in phases, starting with core functionality and gradually
+adding advanced features.
+
+Key priorities:
+1. Robust LLM prompt engineering
+2. Reliable code generation
+3. Good user experience
+4. Scalable infrastructure
+5. Comprehensive testing
+
+The success of this feature will depend on:
+- Quality of LLM outputs
+- Code generation reliability
+- User experience design
+- Infrastructure scalability
+
+================================================================================
+END OF PLANNING DOCUMENT
+================================================================================
+

@@ -92,6 +92,34 @@ export default function {self.component_name}() {{
         
         return "\n".join(imports)
     
+    def _replace_bg_white(self, className: str, node_type: str = "") -> str:
+        """Replace bg-white with gradients to reduce white overuse"""
+        if not className:
+            return className
+        
+        # Replace bg-white with appropriate gradients based on component type
+        if "bg-white" in className and "bg-gradient" not in className:
+            # For hero sections, use more colorful gradient
+            if node_type == "Hero":
+                className = className.replace("bg-white", "bg-gradient-to-br from-blue-50 via-white to-purple-50")
+            # For cards, use subtle gradient
+            elif node_type == "Card":
+                className = className.replace("bg-white", "bg-gradient-to-br from-white to-gray-50")
+            # For timeline items, use subtle gradient
+            elif node_type == "TimelineItem":
+                className = className.replace("bg-white", "bg-gradient-to-br from-white to-gray-50")
+            # For timeline container, usually no bg needed but if present use subtle
+            elif node_type == "Timeline":
+                className = className.replace("bg-white", "bg-gradient-to-br from-white to-gray-50")
+            # For root, use page-level gradient
+            elif node_type == "Root":
+                className = className.replace("bg-white", "bg-gradient-to-br from-gray-50 via-white to-slate-50")
+            # Default: subtle gradient
+            else:
+                className = className.replace("bg-white", "bg-gradient-to-br from-white to-gray-50")
+        
+        return className
+    
     def _render_component(self, node: Dict[str, Any], indent: int = 1) -> str:
         """Recursively render component tree"""
         space = "  " * indent
@@ -102,6 +130,8 @@ export default function {self.component_name}() {{
         
         # Extract props
         className = props.get("className", "")
+        # Replace bg-white with gradients based on component type
+        className = self._replace_bg_white(className, node_type)
         id_attr = props.get("id", "")
         # Specific props
         src = props.get("src", "")
@@ -122,6 +152,9 @@ export default function {self.component_name}() {{
             "Grid": "div",
             "Flex": "div",
             "Div": "div", # Added explicit Div
+            "Hero": "div", # Hero renders as div
+            "Timeline": "div", # Timeline renders as div
+            "TimelineItem": "div", # TimelineItem renders as div
             "Form": "form",
             "Label": "Label", # Changed to Capital L (Shadcn component)
             "List": "ul",
@@ -172,7 +205,45 @@ export default function {self.component_name}() {{
                 return f'{space}<a{href_attr}{class_attr}{id_attr_str}>\n{children_html}\n{space}</a>'
             return f'{space}<a{href_attr}{class_attr}{id_attr_str}>{content}</a>'
 
-        # 7. Generic Container / Shadcn Components
+        # 7. Hero, Timeline, TimelineItem (render as divs with special styling)
+        elif node_type == "Hero":
+            # Hero gets special default styling if bg- not present (className already has bg-white replaced)
+            if "bg-" not in className:
+                if className:
+                    className = f"{className} bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12"
+                else:
+                    className = "bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12"
+            elif "rounded" not in className:
+                className = f"{className} rounded-2xl shadow-lg p-12"
+            class_attr = f' className="{className}"'
+            children_html = self._render_children(children, indent + 1)
+            return f'{space}<div{class_attr}{id_attr_str}>\n{children_html}\n{space}</div>'
+        
+        elif node_type == "Timeline":
+            # Timeline gets special default styling (className already processed)
+            if "border-l" not in className:
+                if className:
+                    className = f"{className} relative pl-8 border-l-2 border-blue-200 space-y-8"
+                else:
+                    className = "relative pl-8 border-l-2 border-blue-200 space-y-8"
+            class_attr = f' className="{className}"'
+            children_html = self._render_children(children, indent + 1)
+            return f'{space}<div{class_attr}{id_attr_str}>\n{children_html}\n{space}</div>'
+        
+        elif node_type == "TimelineItem":
+            # TimelineItem gets special styling with dot indicator
+            # Ensure it has a gradient background if bg-white was replaced
+            if not className or "bg-" not in className:
+                if className:
+                    className = f"{className} bg-gradient-to-br from-white to-gray-50 rounded-lg p-6 shadow-md border border-gray-200"
+                else:
+                    className = "bg-gradient-to-br from-white to-gray-50 rounded-lg p-6 shadow-md border border-gray-200"
+            class_attr = f' className="{className}"'
+            children_html = self._render_children(children, indent + 1)
+            # Wrap in a container with the dot
+            return f'{space}<div className="relative">\n{space}  <div className="absolute -left-[2.1rem] top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-md"></div>\n{space}  <div{class_attr}{id_attr_str}>\n{children_html}\n{space}  </div>\n{space}</div>'
+        
+        # 8. Generic Container / Shadcn Components
         # If it has children, render them
         elif children:
             children_html = self._render_children(children, indent + 1)
