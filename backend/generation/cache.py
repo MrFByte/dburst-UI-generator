@@ -54,13 +54,10 @@ class GenerationCache:
         current_schema = json.loads(schema_json)
         
         try:
-            # Apply JSON Patch (RFC 6902)
             patched_schema = jsonpatch.apply_patch(current_schema, patch)
             
-            # Update schema in cache
             cache.set(f"gen:{generation_id}:schema", json.dumps(patched_schema), GenerationCache.TTL_DEFAULT)
             
-            # Regenerate code from updated schema
             generator = ReactCodeGenerator(patched_schema)
             new_code = generator.generate()
             cache.set(f"gen:{generation_id}:code", new_code, GenerationCache.TTL_DEFAULT)
@@ -93,13 +90,10 @@ class GenerationCache:
                 "timestamp": time.time(),
             }
             
-            # Store in Redis list (LPUSH for newest first)
             cache_key = f"gen:{generation_id}:patches"
             
-            # Get current patch count
             current_count = GenerationCache.get_patch_count(generation_id)
             
-            # Add patch to list
             from django_redis import get_redis_connection
             redis_conn = get_redis_connection("default")
             redis_conn.lpush(cache_key, json.dumps(patch_data))
@@ -107,10 +101,8 @@ class GenerationCache:
             
             logger.info(f"Stored patch #{current_count + 1} for generation {generation_id}")
             
-            # Check if snapshot needed
             if (current_count + 1) % GenerationCache.PATCH_SNAPSHOT_THRESHOLD == 0:
                 logger.info(f"Snapshot threshold reached for {generation_id} (patch #{current_count + 1})")
-                # Snapshot creation will be handled by the view/service layer
             
             return True
         except Exception as e:
@@ -136,8 +128,6 @@ class GenerationCache:
             
             cache_key = f"gen:{generation_id}:patches"
             
-            # Get patches from Redis list (LRANGE)
-            # Redis lists are 0-indexed
             end = offset + limit - 1
             patch_strings = redis_conn.lrange(cache_key, offset, end)
             

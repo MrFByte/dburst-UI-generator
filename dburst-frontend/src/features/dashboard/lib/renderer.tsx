@@ -1,18 +1,32 @@
 import React from 'react';
 import type { SchemaNode } from '../types/renderType';
 import * as LucideIcons from 'lucide-react';
+import { EditableText } from '../components/EditableText';
 
 // Type guard to ensure we only pass SchemaNode objects to RenderNode
 function isSchemaNode(child: SchemaNode | string): child is SchemaNode {
   return typeof child !== 'string';
 }
 
-export function SchemaRenderer({ schema }: { schema: SchemaNode }) {
-  if (!schema) return null;
-  return <RenderNode node={schema} />;
+interface SchemaRendererProps {
+  schema: SchemaNode;
+  editMode?: boolean;
+  onTextEdit?: (path: string, newContent: string) => void | Promise<void>;
 }
 
-function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
+export function SchemaRenderer({ schema, editMode = false, onTextEdit }: SchemaRendererProps) {
+  if (!schema) return null;
+  return <RenderNode node={schema} path="" editMode={editMode} onTextEdit={onTextEdit} />;
+}
+
+interface RenderNodeProps {
+  node: SchemaNode;
+  path?: string;
+  editMode?: boolean;
+  onTextEdit?: (path: string, newContent: string) => void | Promise<void>;
+}
+
+function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNodeProps): React.ReactNode | null {
   if (!node) return null;
 
   const { type, props = {}, children = [], content = '', src } = node;
@@ -21,9 +35,15 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
   // Function to render children, filtering out strings for container elements
   const renderChildren = () => (
     children
-      .filter(isSchemaNode) 
+      .filter(isSchemaNode)
       .map((child, i) => (
-        <RenderNode key={i} node={child} />
+        <RenderNode
+          key={i}
+          node={child}
+          path={`${path}/children/${i}`}
+          editMode={editMode}
+          onTextEdit={onTextEdit}
+        />
       ))
   );
 
@@ -31,9 +51,17 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
   const renderTextContent = () => (
     children.length > 0
       ? children.map((child, i) => {
-          // This handles both SchemaNode (recursive call) and string (direct render)
-          return isSchemaNode(child) ? <RenderNode key={i} node={child} /> : child;
-        })
+        // This handles both SchemaNode (recursive call) and string (direct render)
+        return isSchemaNode(child) ? (
+          <RenderNode
+            key={i}
+            node={child}
+            path={`${path}/children/${i}`}
+            editMode={editMode}
+            onTextEdit={onTextEdit}
+          />
+        ) : child;
+      })
       : content
   );
 
@@ -55,8 +83,8 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
 
     case 'Section':
       // Add default padding and structure if not specified
-      const sectionClass = className.includes('py-') || className.includes('px-') 
-        ? className 
+      const sectionClass = className.includes('py-') || className.includes('px-')
+        ? className
         : `${className} py-12 px-4 sm:px-6 lg:px-8`;
       return (
         <section className={sectionClass}>
@@ -66,8 +94,8 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
 
     case 'Grid':
       // Add default grid styling if not specified
-      const gridClass = className.includes('grid') 
-        ? className 
+      const gridClass = className.includes('grid')
+        ? className
         : `${className} grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`;
       return (
         <div className={gridClass}>
@@ -86,9 +114,9 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
         // Add default gradient if no background specified
         cardClass = `${className} bg-gradient-to-br from-white to-gray-50`;
       }
-      
-      const cardDefaults = cardClass.includes('rounded') 
-        ? cardClass 
+
+      const cardDefaults = cardClass.includes('rounded')
+        ? cardClass
         : `${cardClass} rounded-xl border border-gray-200 shadow-md hover:shadow-lg transition-shadow`;
       return (
         <div className={cardDefaults}>
@@ -153,7 +181,19 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
 
     case 'Text': {
       const TextTag: React.ElementType = props.tag || 'p';
-      
+      const textContent = children.length > 0 ? children.map(c => isSchemaNode(c) ? '' : c).join('') : content;
+
+      if (editMode && onTextEdit) {
+        return (
+          <EditableText
+            content={textContent}
+            path={`${path}/content`}
+            onEdit={onTextEdit}
+            className={className}
+          />
+        );
+      }
+
       return (
         <TextTag className={className}>
           {renderTextContent()}
@@ -229,11 +269,11 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
       const iconName = props.name || content || 'Circle';
       const IconComponent = (LucideIcons as any)[iconName] as React.ComponentType<{ className?: string }> | undefined;
       const iconClass = className || 'w-6 h-6 text-gray-600';
-      
+
       if (IconComponent) {
         return <IconComponent className={iconClass} />;
       }
-      
+
       // Fallback for unknown icons
       return (
         <span className={`${iconClass} inline-flex items-center justify-center`}>
@@ -349,8 +389,8 @@ function RenderNode({ node }: { node: SchemaNode }): React.ReactNode | null {
 
     case 'Hero':
       // Hero section with modern styling
-      const heroClass = className.includes('bg-') 
-        ? className 
+      const heroClass = className.includes('bg-')
+        ? className
         : `${className} bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12`;
       return (
         <div className={heroClass}>

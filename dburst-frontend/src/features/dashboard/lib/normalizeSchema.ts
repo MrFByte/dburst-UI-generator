@@ -1,6 +1,9 @@
 export function normalizeSchema(node: any): any {
   if (!node) return node;
 
+  // Deep clone to avoid mutating frozen/immutable objects
+  node = JSON.parse(JSON.stringify(node));
+
   // Migrate legacy 'class' to 'props.className'
   if (node.class && !node.props?.className) {
     if (!node.props) node.props = {};

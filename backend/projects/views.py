@@ -22,6 +22,12 @@ logger = logging.getLogger(__name__)
 # Create your views here.
 
 
+class ProjectPagination(PageNumberPagination):
+    page_size = 12
+    page_size_query_param = "page_size"
+    max_page_size = 48
+
+
 class ListRecentProjects(ListAPIView):
     """
     Retrieve the three most recently updated projects belonging to the authenticated user.
@@ -103,12 +109,6 @@ class CreateProject(CreateAPIView):
         serializer.save(user=self.request.user)
 
 
-class ProjectPagination(PageNumberPagination):
-    page_size = 12
-    page_size_query_param = "page_size"
-    max_page_size = 48
-
-
 class ListAllProjects(ListAPIView):
     """
     Retrieve all projects belonging to the authenticated user with pagination.
@@ -207,7 +207,6 @@ class GetProjectDetail(APIView):
         except Project.DoesNotExist:
             return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get the latest generation for this project
         latest_generation = project.generations.filter(status='success').order_by('-created_at').first()
         
         response_data = {
@@ -218,7 +217,6 @@ class GetProjectDetail(APIView):
             from generation.serializers import GenerationSerializer
             from generation.codegen import ReactCodeGenerator
             
-            # Generate code from schema
             try:
                 code_generator = ReactCodeGenerator(latest_generation.schema)
                 react_code = code_generator.generate()
@@ -233,12 +231,6 @@ class GetProjectDetail(APIView):
         
         return Response(response_data)
 
-        
-class ProjectPagination(PageNumberPagination):
-    page_size = 12
-    page_size_query_param = "page_size"
-    max_page_size = 48
-
 
 class ListAllProjects(ListAPIView):
     """
@@ -338,7 +330,6 @@ class GetProjectDetail(APIView):
         except Project.DoesNotExist:
             return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get the latest generation for this project
         latest_generation = project.generations.filter(status='success').order_by('-created_at').first()
         
         response_data = {
@@ -349,7 +340,6 @@ class GetProjectDetail(APIView):
             from generation.serializers import GenerationSerializer
             from generation.codegen import ReactCodeGenerator
             
-            # Generate code from schema
             try:
                 code_generator = ReactCodeGenerator(latest_generation.schema)
                 react_code = code_generator.generate()

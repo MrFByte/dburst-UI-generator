@@ -9,6 +9,8 @@ import { getItem } from '@/shared/utils/storageManager';
 import Header from '@/shared/components/Header';
 import { getProjectDetail } from '../api/dashboardApi';
 import { toast } from "@/shared/hooks/useToast";
+import { Phase3Wrapper } from '../components/Phase3Wrapper';
+import { EditControls } from '../components/EditControls';
 
 import { generatedData as SampleData } from "../sampleData/SampleUIGenerator"
 
@@ -21,7 +23,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
   const [generatedData, setGeneratedData] = useState<APIResponse | null>(null);
   const [searchParams] = useSearchParams();
-  
+
   const projectId = searchParams.get('projectId') || '';
 
   const [data, setData] = useState<APIResponse | null>(initialData ?? null);
@@ -35,7 +37,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
   const downloadCode = useCallback(() => {
     if (!data?.code) return;
-    
+
     const element = document.createElement('a');
     element.setAttribute(
       'href',
@@ -61,7 +63,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
   const componentTypes = data?.schema ? Array.from(extractComponentTypes(data.schema)) : [];
 
-  const schemaSize = data?.schema
+  const schemaSize = (data?.schema && typeof data.schema === 'object')
     ? (JSON.stringify(data.schema).length / 1024).toFixed(2)
     : "0.00";
 
@@ -84,7 +86,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
       const loadProjectData = async () => {
         try {
           const response = await getProjectDetail(projectId);
-          
+
           if (response.latest_generation) {
             // Transform the API response to match APIResponse format
             const transformedData: APIResponse = {
@@ -115,7 +117,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
         } catch (error: any) {
           console.error("Error loading project:", error);
           toast.error(error.message || "Failed to load project");
-          
+
           // Fallback to last generated project if available
           const lastProject = getItem("lastGeneratedProject");
           if (lastProject && lastProject.project_id === projectId) {
@@ -139,19 +141,18 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
   return (
     <div className="h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans flex flex-col overflow-hidden relative">
       <Header
-              mode="dashboard"
-              // isSidebarOpen={}
-              // setIsSidebarOpen={()=>void 0}
-              // setIsModalOpen={setIsModalOpen}
-            />
+        mode="dashboard"
+      // isSidebarOpen={}
+      // setIsSidebarOpen={()=>void 0}
+      // setIsModalOpen={setIsModalOpen}
+      />
 
       {/* Main Layout */}
       <div className="flex flex-1 overflow-hidden p-3 pt-16">
         {/* Left Panel */}
         <div
-          className={`bg-slate-900 border-r border-slate-700 overflow-hidden transition-all duration-300 flex flex-col ${
-            isEditPanelOpen ? 'w-80' : 'w-0'
-          }`}
+          className={`bg-slate-900 border-r border-slate-700 overflow-hidden transition-all duration-300 flex flex-col ${isEditPanelOpen ? 'w-80' : 'w-0'
+            }`}
         >
           <div className="p-6 border-b border-slate-700">
             <h2 className="font-semibold text-lg mb-4">Structure & Stats</h2>
@@ -241,79 +242,111 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
         </div>
 
         {/* Center - Main Canvas */}
-        <main className="flex-1 flex flex-col overflow-hidden min-h-0"> 
+        <main className="flex-1 flex flex-col overflow-hidden min-h-0">
           {/* Combined Tabs and Zoom Controls in Single Row */}
           <div className="h-12 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 shrink-0 z-10 relative">
             {/* Left: Tabs */}
             <div className="flex items-center space-x-6">
               <button
                 onClick={() => setActiveTab('preview')}
-                className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${
-                  activeTab === 'preview'
-                    ? 'border-blue-500 text-white'
-                    : 'border-transparent text-gray-400 hover:text-white'
-                }`}
+                className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${activeTab === 'preview'
+                  ? 'border-blue-500 text-white'
+                  : 'border-transparent text-gray-400 hover:text-white'
+                  }`}
               >
                 <span>👁️ Preview</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('code')}
-                className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${
-                  activeTab === 'code'
-                    ? 'border-blue-500 text-white'
-                    : 'border-transparent text-gray-400 hover:text-white'
-                }`}
+                className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${activeTab === 'code'
+                  ? 'border-blue-500 text-white'
+                  : 'border-transparent text-gray-400 hover:text-white'
+                  }`}
               >
                 <span>{'</>'} Code</span>
               </button>
             </div>
 
-            {/* Right: Zoom Controls (only show in preview mode) */}
-            {activeTab === 'preview' && (
-              <div className="flex items-center space-x-3 text-sm text-gray-400">
-                <span>🔍 Zoom</span>
-                <button
-                  onClick={() => setZoom(Math.max(50, zoom - 10))}
-                  className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
-                >
-                  −
-                </button>
-                <span className="w-10 text-center font-mono">{zoom}%</span>
-                <button
-                  onClick={() => setZoom(Math.min(200, zoom + 10))}
-                  className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
-                >
-                  +
-                </button>
-                <button
-                  onClick={() => setZoom(100)}
-                  className="px-2 py-1 ml-2 text-xs bg-slate-700 hover:bg-slate-600 rounded transition"
-                >
-                  Reset
-                </button>
-              </div>
-            )}
+            {/* Right: Zoom Controls + Edit Controls */}
+            <div className="flex items-center">
+              {/* Zoom Controls (only show in preview mode) */}
+              {activeTab === 'preview' && (
+                <div className="flex items-center space-x-3 text-sm text-gray-400">
+                  <span>🔍 Zoom</span>
+                  <button
+                    onClick={() => setZoom(Math.max(50, zoom - 10))}
+                    className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
+                  >
+                    −
+                  </button>
+                  <span className="w-10 text-center font-mono">{zoom}%</span>
+                  <button
+                    onClick={() => setZoom(Math.min(200, zoom + 10))}
+                    className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => setZoom(100)}
+                    className="px-2 py-1 ml-2 text-xs bg-slate-700 hover:bg-slate-600 rounded transition"
+                  >
+                    Reset
+                  </button>
+                </div>
+              )}
+
+              {/* Edit Controls - Rendered by Phase3Wrapper */}
+              <div id="edit-controls-container"></div>
+            </div>
           </div>
 
-          {/* Preview Tab */}
-          {activeTab === 'preview' && (
-            <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 relative">
-
-              {/* Canvas Area - FULL WIDTH & HEIGHT FIX */}
-              <div className="flex-1 overflow-auto relative w-full h-full p-8">
-                <div
-                  style={{
-                    width: zoom === 100 ? '100%' : `${100 * (100 / zoom)}%`,
-                    transform: `scale(${zoom / 100})`,
-                    transformOrigin: "top left",
-                  }}
-                  className="h-fit mx-auto bg-white rounded-lg shadow-xl border border-gray-200 min-h-full"
-                >
-                  <SchemaRenderer schema={normalizeSchema(data?.schema)} />
-                </div>
-              </div>
-            </div>
+          {/* Phase 3: Edit Controls */}
+          {data?.generation_id && (
+            <Phase3Wrapper
+              generationId={data.generation_id}
+              schema={data.schema}
+              onSchemaUpdate={(schema, code) => {
+                setData(prev => {
+                  if (!prev) return null;
+                  return {
+                    ...prev,
+                    schema: schema || prev.schema,
+                    code: code || prev.code,
+                  };
+                });
+              }}
+              renderControls={(controls) => {
+                const container = document.getElementById('edit-controls-container');
+                if (container) {
+                  return <EditControls controls={controls} />;
+                }
+                return null;
+              }}
+            >
+              {(editMode, handleTextEdit) => (
+                activeTab === 'preview' && (
+                  <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 relative">
+                    <div className="flex-1 overflow-auto relative w-full h-full p-8">
+                      <div
+                        style={{
+                          width: zoom === 100 ? '100%' : `${100 * (100 / zoom)}%`,
+                          transform: `scale(${zoom / 100})`,
+                          transformOrigin: "top left",
+                        }}
+                        className="h-fit mx-auto bg-white rounded-lg shadow-xl border border-gray-200 min-h-full"
+                      >
+                        <SchemaRenderer
+                          schema={normalizeSchema(data?.schema)}
+                          editMode={editMode}
+                          onTextEdit={handleTextEdit}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              )}
+            </Phase3Wrapper>
           )}
 
           {/* Code Tab (Unchanged) */}
@@ -343,9 +376,8 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
         {/* Right Panel - Chat */}
         <div
-          className={`bg-slate-900 border-l border-slate-700 overflow-hidden transition-all duration-300 flex flex-col ${
-            isChatPanelOpen ? 'w-80' : 'w-0'
-          }`}
+          className={`bg-slate-900 border-l border-slate-700 overflow-hidden transition-all duration-300 flex flex-col ${isChatPanelOpen ? 'w-80' : 'w-0'
+            }`}
         >
           <div className="p-6 border-b border-slate-700">
             <h2 className="font-semibold text-lg mb-4">AI Refinements</h2>
@@ -388,11 +420,10 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             setIsEditPanelOpen(!isEditPanelOpen);
             setIsChatPanelOpen(false);
           }}
-          className={`fixed left-6 bottom-6 p-4 rounded-full shadow-lg transition z-20 ${
-            isEditPanelOpen
-              ? 'bg-blue-600 text-white'
-              : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'
-          }`}
+          className={`fixed left-6 bottom-6 p-4 rounded-full shadow-lg transition z-20 ${isEditPanelOpen
+            ? 'bg-blue-600 text-white'
+            : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'
+            }`}
           title="Toggle Structure Panel"
         >
           ☰
@@ -403,11 +434,10 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             setIsChatPanelOpen(!isChatPanelOpen);
             setIsEditPanelOpen(false);
           }}
-          className={`fixed right-6 bottom-6 p-4 rounded-full shadow-lg transition z-20 ${
-            isChatPanelOpen
-              ? 'bg-blue-600 text-white'
-              : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'
-          }`}
+          className={`fixed right-6 bottom-6 p-4 rounded-full shadow-lg transition z-20 ${isChatPanelOpen
+            ? 'bg-blue-600 text-white'
+            : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'
+            }`}
           title="Toggle Chat Panel"
         >
           💬

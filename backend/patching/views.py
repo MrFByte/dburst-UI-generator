@@ -42,7 +42,7 @@ class StorePatchView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request, generation_id):
-        # Validate request data
+        
         serializer = ApplyPatchRequestSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -54,7 +54,6 @@ class StorePatchView(APIView):
         description = serializer.validated_data.get('description', '')
         
         try:
-            # Get generation and verify ownership
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
@@ -63,11 +62,9 @@ class StorePatchView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            # Apply patch to cached schema
             updated_schema = GenerationCache.apply_patch(str(generation_id), patch_ops)
             
             if updated_schema is None:
-                # Schema not in cache, try to load from database
                 if generation.schema:
                     GenerationCache.store_generation(
                         str(generation_id),
@@ -83,7 +80,6 @@ class StorePatchView(APIView):
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR
                     )
             
-            # Store patch in Redis
             patch_stored = GenerationCache.store_patch(
                 str(generation_id),
                 patch_ops,
@@ -94,7 +90,6 @@ class StorePatchView(APIView):
             if not patch_stored:
                 logger.warning(f"Failed to store patch in Redis for generation {generation_id}")
             
-            # Store patch in database for persistence
             with transaction.atomic():
                 patch_count = GenerationCache.get_patch_count(str(generation_id))
                 snapshot_created = (patch_count % GenerationCache.PATCH_SNAPSHOT_THRESHOLD == 0)
@@ -107,7 +102,6 @@ class StorePatchView(APIView):
                     snapshot_created=snapshot_created
                 )
                 
-                # If snapshot threshold reached, update generation schema in database
                 if snapshot_created:
                     generation.schema = updated_schema
                     generation.save(update_fields=['schema'])
@@ -155,7 +149,6 @@ class GetSchemaView(APIView):
     
     def get(self, request, generation_id):
         try:
-            # Get generation and verify ownership
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
@@ -164,7 +157,6 @@ class GetSchemaView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            # Try to get from cache first
             cached_data = GenerationCache.get_generation(str(generation_id))
             
             if cached_data:
@@ -177,9 +169,7 @@ class GetSchemaView(APIView):
                     "cached": True,
                 }, status=status.HTTP_200_OK)
             
-            # Fallback to database
             if generation.schema:
-                # Warm the cache
                 code = generation.metadata.get('code', '')
                 GenerationCache.store_generation(
                     str(generation_id),
@@ -242,7 +232,6 @@ class ListPatchesView(APIView):
     
     def get(self, request, generation_id):
         try:
-            # Get generation and verify ownership
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
@@ -251,14 +240,11 @@ class ListPatchesView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            # Get pagination parameters
             limit = int(request.query_params.get('limit', 20))
             offset = int(request.query_params.get('offset', 0))
             
-            # Limit max results to prevent abuse
             limit = min(limit, 100)
             
-            # Get patches from database (persistent storage)
             patches = Patch.objects.filter(generation=generation).order_by('-applied_at')[offset:offset+limit]
             total_patches = Patch.objects.filter(generation=generation).count()
             
@@ -307,7 +293,6 @@ class ClearCacheView(APIView):
     
     def delete(self, request, generation_id):
         try:
-            # Get generation and verify ownership
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
@@ -316,7 +301,6 @@ class ClearCacheView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            # Clear cache
             cleared = GenerationCache.clear_generation(str(generation_id))
             
             if cleared:

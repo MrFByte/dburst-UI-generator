@@ -1,9 +1,7 @@
 """
 Session management utilities for DBurst.
-
 Provides functions for session analytics, cleanup, and monitoring.
 """
-
 import logging
 from django.core.cache import cache
 from django_redis import get_redis_connection

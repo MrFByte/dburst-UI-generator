@@ -11,24 +11,20 @@ GROQ_API_KEY = settings.GROQ_AI_API_KEY
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 GEMINI_API_KEY = settings.GEMINI_API_KEY
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 LLM_MODELS = {
-    # UI Generation Models (user selectable)
+    "ui_gemini_2_5": "gemini-2.5-flash",
     "ui_llama_3_3": "llama-3.3-70b-versatile",
     "ui_llama_3_1": "llama-3.1-8b-instant",
-    "ui_gemini_2_5": "gemini-2.5-flash",
-    "ui_gemini_2_0": "gemini-2.0-flash",
     "ui_gpt_oss_120b": "openai/gpt-oss-120b",
     
-    # Planning / Reasoning Models (system controlled)
     "plan_moonshot": "moonshotai/kimi-k2-instruct-0905",
     "plan_llama_4_scout": "meta-llama/llama-4-scout-17b-16e-instruct"
 }
 
-# Default models
 DEFAULT_PLANNING_MODEL = "plan_moonshot"
-DEFAULT_UI_MODEL = "ui_llama_3_3"
+DEFAULT_UI_MODEL = "ui_gemini_2_5"
 
 PLANNER_SYSTEM_PROMPT = """
 You are a reasoning-first UI architect.
@@ -265,7 +261,7 @@ class LLMClient:
         Initialize client with model selection
         
         Args:
-            ui_model: Model key for UI generation (e.g., 'ui_llama_3_3', 'ui_gemini_2_0')
+            ui_model: Model key for UI generation (e.g., 'ui_gemini_2_5', 'ui_llama_3_3')
             planning_model: Model key for planning (defaults to 'plan_moonshot')
         """
         self.ui_model_key = ui_model if ui_model else DEFAULT_UI_MODEL
@@ -391,15 +387,14 @@ CRITICAL REMINDERS:
         
         for attempt in range(retries):
             try:
-                # Check if using Gemini model
                 if self.ui_model_key.startswith("ui_gemini"):
-                    return self._call_gemini(enhanced_prompt, UI_GENERATOR_SYSTEM_PROMPT, max_tokens=4096)
+                    return self._call_gemini(enhanced_prompt, UI_GENERATOR_SYSTEM_PROMPT, max_tokens=8192)
                 else:
                     return self._call_groq_api(
                         prompt=enhanced_prompt,
                         system_prompt=UI_GENERATOR_SYSTEM_PROMPT,
                         model=self.ui_model,
-                        max_tokens=4096
+                        max_tokens=8192
                     )
             except Exception as e:
                 logger.error(f"UI Generator attempt {attempt + 1}/{retries} failed: {e}")
@@ -480,27 +475,7 @@ CRITICAL REMINDERS:
 
       content = content.strip()
       
-      # CRITICAL FIX: Remove invalid control characters
-      # Replace newlines and tabs within strings (common LLM error)
       import re
-      
-      # First, protect actual line breaks in the JSON structure
-      # by temporarily replacing them
-      lines = content.split('\n')
-      cleaned_lines = []
-      
-      in_string = False
-      for line in lines:
-          # Track if we're inside a string
-          clean_line = ""
-          for i, char in enumerate(line):
-              if char == '"' and (i == 0 or line[i-1] != '\\'):
-                  in_string = not in_string
-              clean_line += char
-          cleaned_lines.append(clean_line)
-      
-      # Rejoin with newlines
-      content = '\n'.join(cleaned_lines)
       
       # Remove other control characters that break JSON
       content = re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', content)
@@ -511,13 +486,28 @@ CRITICAL REMINDERS:
           logger.error(f"JSON Parse Error: {e}")
           logger.error(f"Content preview: {content[:500]}")
           
-          # Try to fix common issues
-          try:
-              # Escape unescaped quotes in strings
-              content = re.sub(r'(?<!\\)"(?=.*":)', r'\"', content)
-              parsed = json.loads(content)
-              logger.warning("Fixed JSON with quote escaping")
-          except:
+          if "Unterminated string" in str(e) or "Expecting value" in str(e):
+              logger.warning("Attempting to fix truncated JSON...")
+              
+              try:
+                  last_brace = content.rfind('}')
+                  if last_brace > 0:
+                      truncated = content[:last_brace + 1]
+                      
+                      open_braces = truncated.count('{')
+                      close_braces = truncated.count('}')
+                      while close_braces < open_braces:
+                          truncated += '}'
+                          close_braces += 1
+                      
+                      parsed = json.loads(truncated)
+                      logger.info("Successfully recovered truncated JSON")
+                  else:
+                      raise ValueError(f"Invalid JSON from LLM: {str(e)}")
+              except Exception as recovery_error:
+                  logger.error(f"JSON recovery failed: {recovery_error}")
+                  raise ValueError(f"Invalid JSON from LLM: {str(e)}")
+          else:
               raise ValueError(f"Invalid JSON from LLM: {str(e)}")
 
       parsed["usage"] = usage

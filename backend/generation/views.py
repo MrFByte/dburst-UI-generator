@@ -203,12 +203,10 @@ class GenerateView(APIView):
             )
 
         except ValueError as e:
-            # Model selection or validation errors
             logger.error(f"Validation error: {e}")
             return Response({"error": str(e)}, status=400)
         
         except Exception as e:
-            # Any other errors
             logger.error(f"Generation failed: {e}", exc_info=True)
             return Response({"error": str(e)}, status=500)
 
@@ -256,6 +254,3 @@ class GenerationDetailView(APIView):
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(GenerationSerializer(generation).data)
-
-
-# Design a simple REST API for a bank account with endpoints: create account, deposit, withdraw, get balance.

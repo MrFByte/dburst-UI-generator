@@ -28,8 +28,8 @@ class GenerateRequestSerializer(serializers.Serializer):
     Fields:
         prompt: User's UI generation prompt (required)
         ui_model: UI generation model selection (optional)
-            Options: ui_llama_3_3, ui_llama_3_1, ui_gemini_2_0, ui_gemini_2_5, ui_gpt_oss_120b
-            Default: ui_llama_3_3
+            Options: ui_gemini_2_5, ui_llama_3_3, ui_llama_3_1, ui_gpt_oss_120b
+            Default: ui_gemini_2_5
     """
     prompt = serializers.CharField(
         required=True,
@@ -41,12 +41,14 @@ class GenerateRequestSerializer(serializers.Serializer):
         choices=[
             "ui_llama_3_3",
             "ui_llama_3_1", 
-            "ui_gemini_2_0",
             "ui_gemini_2_5",
             "ui_gpt_oss_120b"
         ],
-        default="ui_llama_3_3",
-        help_text="Model for UI generation (planning always uses plan_moonshot)"
+        default="ui_gemini_2_5",
+        help_text="""
+            Model to use for UI generation.
+            Options: ui_gemini_2_5, ui_llama_3_3, ui_llama_3_1, ui_gpt_oss_120b
+        """
     )
     
     def validate_prompt(self, value):
