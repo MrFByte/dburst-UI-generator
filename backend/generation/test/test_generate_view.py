@@ -27,11 +27,21 @@ def test_generate_success(
     api_client.force_authenticate(user=user)
 
     mock_llm_instance = MagicMock()
-    mock_llm_instance.call.return_value = {
+    mock_llm_instance.generate_ui.return_value = {
+        "project_name": "My UI",
+        "project_description": "Test Project Description",
+        "design_plan": {"concept": "Test concept", "theme": {}},
         "title": "My UI",
         "schema": {"type": "Root"},
-        "usage": {"total_tokens": 123},
-        "provider": "groq",
+        "metadata": {"framework": "react"},
+        "usage": {
+            "planning_tokens": {"total_tokens": 50},
+            "generation_tokens": {"total_tokens": 73}
+        },
+        "models": {
+            "planning": "plan_moonshot",
+            "ui_generation": "groq"
+        }
     }
     mock_llm.return_value = mock_llm_instance
 
@@ -50,7 +60,7 @@ def test_generate_success(
     assert response.data["project_title"] == "My UI"
     assert response.data["schema"] == {"type": "Root"}
     assert response.data["code"] == "<UI />"
-    assert response.data["meta"]["usage"] == {"total_tokens": 123}
+    assert response.data["meta"]["usage"]["total_tokens"] == 123
 
     gen = Generations.objects.first()
     assert gen is not None
@@ -67,10 +77,21 @@ def test_generate_schema_validation_error(mock_llm, mock_validator, api_client, 
     api_client.force_authenticate(user=user)
 
     mock_llm_instance = MagicMock()
-    mock_llm_instance.call.return_value = {
+    mock_llm_instance.generate_ui.return_value = {
+        "project_name": "Bad UI",
+        "project_description": "Bad Description",
+        "design_plan": {},
         "title": "Bad UI",
         "schema": {"type": "Evil"},
-        "usage": {},
+        "metadata": {},
+        "usage": {
+            "planning_tokens": {},
+            "generation_tokens": {}
+        },
+        "models": {
+            "planning": "plan_moonshot",
+            "ui_generation": "groq"
+        }
     }
     mock_llm.return_value = mock_llm_instance
 
@@ -81,8 +102,8 @@ def test_generate_schema_validation_error(mock_llm, mock_validator, api_client, 
 
 
 @pytest.mark.django_db
-@patch("generation.views.LLMClient.call", side_effect=Exception("LLM down"))
-def test_generate_llm_failure(mock_llm, api_client, user, url):
+@patch("generation.views.LLMClient.generate_ui", side_effect=Exception("LLM down"))
+def test_generate_llm_failure(mock_generate_ui, api_client, user, url):
     api_client.force_authenticate(user=user)
 
     res = api_client.post(url, {"prompt": "hello", "llm_provider": "groq"})

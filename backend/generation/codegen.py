@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 class ReactCodeGenerator:
     """Generate modern React code from schema with proper nesting support"""
     
-    # ADDED "Label" to this list
     COMPONENT_IMPORTS = {
         "Button": "shadcn/ui",
         "Input": "shadcn/ui",
@@ -67,7 +66,10 @@ export default function {self.component_name}() {{
             if icon_name:
                 self.used_icons.add(icon_name)
         
-        # Case B: {"type": "Button", "props": {"icon": "Mail"}} (Legacy support)
+        metadata_icon = node.get("metadata", {}).get("icon")
+        if metadata_icon:
+            self.used_icons.add(metadata_icon)
+        
         props = node.get("props", {})
         if "icon" in props:
             self.used_icons.add(props["icon"])
@@ -81,7 +83,6 @@ export default function {self.component_name}() {{
         """Generate import statements"""
         imports = ["import React from 'react';"]
         
-        # Assumes a barrel file exists at @/components/ui/index.ts
         if self.used_components:
             components = sorted(list(self.used_components))
             imports.append(f"import {{ {', '.join(components)} }} from '@/components/ui';")

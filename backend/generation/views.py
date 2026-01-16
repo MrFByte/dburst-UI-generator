@@ -99,6 +99,15 @@ class GenerateView(APIView):
         prompt = serializer.validated_data["prompt"]
         
         ui_model = serializer.validated_data.get("ui_model", "ui_llama_3_3")
+        project_id = serializer.validated_data.get("project_id")
+
+        if project_id:
+            try:
+                project = Project.objects.get(id=project_id, user=request.user)
+            except Project.DoesNotExist:
+                return Response({"error": "Project not found."}, status=404)
+        else:
+            project = None
     
         try:
             llm_client = LLMClient(ui_model=ui_model)
@@ -121,12 +130,14 @@ class GenerateView(APIView):
                     status=400
                 )
             
-            project = Project.objects.create(
-                user=request.user,
-                title=project_name,
-                description=project_description,
-            )
-            logger.info(f"Created project: {project.id} - {project.title}")
+            if not project:
+                project = Project.objects.create(
+                    user=request.user,
+                    title=project_name,
+                    description=project_description,
+                )
+                logger.info(f"Created project: {project.id} - {project.title}")
+
 
             code_generator = ReactCodeGenerator(schema)
             print(code_generator)

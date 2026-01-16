@@ -18,11 +18,12 @@ def test_schema_requires_type_field():
         SchemaValidator.validate({})
 
 
-def test_schema_rejects_unknown_component_type():
-    """Unknown component types should be rejected."""
+def test_schema_allows_unknown_component_type():
+    """Unknown component types should be allowed (with warning)."""
     schema = {"type": "UnknownComponent"}
-    with pytest.raises(ValueError, match="Unknown component type"):
-        SchemaValidator.validate(schema)
+    # Should not raise
+    validated = SchemaValidator.validate(schema)
+    assert validated["type"] == "UnknownComponent"
 
 
 def test_schema_accepts_valid_component_type():
@@ -119,8 +120,8 @@ def test_recursive_validation_of_children():
     assert validated["children"][1]["children"][0]["props"]["className"] == "bg-blue-500 hover:bg-blue-700"
 
 
-def test_recursive_child_invalid_type_raises_error():
-    """If a child contains an invalid type, raise error."""
+def test_recursive_child_invalid_type_allowed():
+    """If a child contains an invalid type, allow it."""
     schema = {
         "type": "Root",
         "children": [
@@ -129,5 +130,6 @@ def test_recursive_child_invalid_type_raises_error():
         ],
     }
 
-    with pytest.raises(ValueError, match="Unknown component type"):
-        SchemaValidator.validate(schema)
+    # Should not raise
+    validated = SchemaValidator.validate(schema)
+    assert validated["children"][1]["type"] == "INVALID_CHILD"

@@ -50,6 +50,11 @@ class GenerateRequestSerializer(serializers.Serializer):
             Options: ui_gemini_2_5, ui_llama_3_3, ui_llama_3_1, ui_gpt_oss_120b
         """
     )
+    project_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        help_text="Optional project ID to attach generation to"
+    )
     
     def validate_prompt(self, value):
         """Ensure prompt is not empty"""

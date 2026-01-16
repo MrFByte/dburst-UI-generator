@@ -8,6 +8,7 @@ import requests
 from typing import Optional, Dict, Any, List
 from django.conf import settings
 from functools import wraps
+from django_redis import get_redis_connection
 from .codegen import ReactCodeGenerator
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,6 @@ class GenerationCache:
             
             current_count = GenerationCache.get_patch_count(generation_id)
             
-            from django_redis import get_redis_connection
             redis_conn = get_redis_connection("default")
             redis_conn.lpush(cache_key, json.dumps(patch_data))
             redis_conn.expire(cache_key, GenerationCache.TTL_DEFAULT)
@@ -123,7 +123,6 @@ class GenerationCache:
             List of patch objects with metadata
         """
         try:
-            from django_redis import get_redis_connection
             redis_conn = get_redis_connection("default")
             
             cache_key = f"gen:{generation_id}:patches"
@@ -158,7 +157,6 @@ class GenerationCache:
             Total patch count
         """
         try:
-            from django_redis import get_redis_connection
             redis_conn = get_redis_connection("default")
             
             cache_key = f"gen:{generation_id}:patches"
@@ -200,7 +198,6 @@ class GenerationCache:
             cache.delete(f"gen:{generation_id}:code")
             cache.delete(f"gen:{generation_id}:meta")
             
-            from django_redis import get_redis_connection
             redis_conn = get_redis_connection("default")
             redis_conn.delete(f"gen:{generation_id}:patches")
             

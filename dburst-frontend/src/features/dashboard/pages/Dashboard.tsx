@@ -144,7 +144,7 @@ const Dashboard = () => {
                 <>
                   <button
                     onClick={activatePromptInterface}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-400 hover:bg-gray-600 cursor-pointer
+                    className="hidden flex items-center gap-2 px-6 py-3 bg-gray-400 hover:bg-gray-600 cursor-pointer
                      text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
                   >
                     Create Project

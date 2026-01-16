@@ -7,7 +7,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+.pnp
+.pnp.js
+
+# Build Output
 dist
 dist-ssr
 *.local
@@ -23,24 +28,27 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment Variables
 .env
-env
+.env.*
+!.env.example
 
+# Vite
+.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Project Specific
 .frontend-scope.txt
 .histroy.txt
 frontend-scope.txt
 histroy.txt
-
-node_modules/
-.DS_Store
-dist/
-.vscode/
-.idea/
-.env
-.env.local
-
-npm-debug.log*
 file-structure.txt
-frontend-scope.txt
-histroy.txt
-package-lock.json

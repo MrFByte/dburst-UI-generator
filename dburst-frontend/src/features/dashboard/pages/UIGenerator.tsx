@@ -81,14 +81,12 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
       return;
     }
 
-    // If projectId is provided, fetch project data from API
     if (projectId) {
       const loadProjectData = async () => {
         try {
           const response = await getProjectDetail(projectId);
 
           if (response.latest_generation) {
-            // Transform the API response to match APIResponse format
             const transformedData: APIResponse = {
               success: true,
               project_id: response.project.id,
@@ -111,14 +109,12 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             };
             setData(transformedData);
           } else {
-            // Project exists but has no generation yet
             toast.info("This project doesn't have a UI generation yet.");
           }
         } catch (error: any) {
           console.error("Error loading project:", error);
           toast.error(error.message || "Failed to load project");
 
-          // Fallback to last generated project if available
           const lastProject = getItem("lastGeneratedProject");
           if (lastProject && lastProject.project_id === projectId) {
             setGeneratedData(lastProject);
@@ -129,7 +125,6 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
       loadProjectData();
     } else {
-      // No projectId, try to use last generated project
       const lastProject = getItem("lastGeneratedProject");
       if (lastProject) {
         setGeneratedData(lastProject);

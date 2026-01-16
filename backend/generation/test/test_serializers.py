@@ -51,14 +51,14 @@ def test_generate_request_serializer_valid():
     payload = {
         "project_id": str(uuid.uuid4()),
         "prompt": "Create dashboard UI",
-        "llm_provider": "groq",
+        "ui_model": "ui_llama_3_3",
     }
 
     serializer = GenerateRequestSerializer(data=payload)
     assert serializer.is_valid(), serializer.errors
 
     assert serializer.validated_data["prompt"] == "Create dashboard UI"
-    assert serializer.validated_data["llm_provider"] == "groq"
+    assert serializer.validated_data["ui_model"] == "ui_llama_3_3"
 
 
 def test_generate_request_serializer_no_project_id():
@@ -66,7 +66,7 @@ def test_generate_request_serializer_no_project_id():
 
     payload = {
         "prompt": "Create component",
-        "llm_provider": "gemini",
+        "ui_model": "ui_gemini_2_5",
         "project_id": None,
     }
 
@@ -78,7 +78,7 @@ def test_generate_request_serializer_no_project_id():
 def test_generate_request_serializer_missing_prompt():
     """prompt is required and cannot be missing."""
 
-    payload = {"llm_provider": "groq"}
+    payload = {"ui_model": "ui_llama_3_3"}
 
     serializer = GenerateRequestSerializer(data=payload)
 
@@ -87,19 +87,19 @@ def test_generate_request_serializer_missing_prompt():
     assert serializer.errors["prompt"][0].code == "required"
 
 
-def test_generate_request_serializer_invalid_provider():
-    """Provider must be one of groq/gemini/openai."""
+def test_generate_request_serializer_invalid_model():
+    """Model must be a valid choice."""
 
     payload = {
         "prompt": "generate UI",
-        "llm_provider": "anthropic"
+        "ui_model": "invalid_model"
     }
 
     serializer = GenerateRequestSerializer(data=payload)
 
     assert not serializer.is_valid()
-    assert "llm_provider" in serializer.errors
-    assert "is not a valid choice" in serializer.errors["llm_provider"][0]
+    assert "ui_model" in serializer.errors
+    assert "is not a valid choice" in serializer.errors["ui_model"][0]
 
 
 def test_generate_request_serializer_invalid_uuid():
@@ -108,7 +108,7 @@ def test_generate_request_serializer_invalid_uuid():
     payload = {
         "project_id": "not-a-uuid",
         "prompt": "Test UI",
-        "llm_provider": "openai",
+        "ui_model": "ui_llama_3_3",
     }
 
     serializer = GenerateRequestSerializer(data=payload)
