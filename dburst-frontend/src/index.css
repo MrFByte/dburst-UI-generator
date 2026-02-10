@@ -5,6 +5,33 @@
 @import "@fontsource/space-grotesk/500.css";
 @import "@fontsource/space-grotesk/700.css";
 
+/* Tailwind v4: Safelist ALL dynamic color classes that LLM might generate */
+/* Background, text, border, ring, shadow - all color shades (50-900) */
+@source inline("{bg,text,border,ring,shadow}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
+/* Background, text, border - special colors (white, black, transparent, etc.) */
+@source inline("{bg,text,border,ring,shadow}-{white,black,transparent,current,inherit}");
+/* Gradient colors (from, via, to) - all shades */
+@source inline("{from,via,to}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
+/* Gradient colors - special colors */
+@source inline("{from,via,to}-{white,black,transparent,current,inherit}");
+/* Hover states - all color utilities */
+@source inline("hover:{bg,text,border,decoration,divide,outline}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("hover:{bg,text,border,decoration,divide,outline}-{white,black,transparent}");
+/* Focus states - all color utilities */
+@source inline("focus:{bg,text,border,ring,outline}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("focus:{bg,text,border,ring,outline}-{white,black,transparent}");
+/* Opacity variants for backgrounds, text, borders */
+@source inline("{bg,text,border}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}/{0,5,10,20,25,30,40,50,60,70,75,80,90,95,100}");
+/* Additional utilities: decoration, divide, outline, caret, accent */
+@source inline("{decoration,divide,outline,caret,accent}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{decoration,divide,outline,caret,accent}-{white,black,transparent}");
+/* SVG fill and stroke colors */
+@source inline("{fill,stroke}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{fill,stroke}-{white,black,transparent,current,none}");
+/* Placeholder text colors */
+@source inline("placeholder-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("placeholder-{white,black,transparent}");
+
 @layer base {
   :root {
     --background: 0 0% 0%;
@@ -63,7 +90,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-   --font-space-grotesk: "Space Grotesk", sans-serif;
+  --font-space-grotesk: "Space Grotesk", sans-serif;
 }
 
 
@@ -115,4 +142,3 @@
     box-shadow: 0 0 20px 0 rgba(0, 208, 255, 0.5);
   }
 }
-
