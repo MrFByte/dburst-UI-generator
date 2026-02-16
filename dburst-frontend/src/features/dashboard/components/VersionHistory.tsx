@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Clock, RotateCcw, Package } from 'lucide-react';
+import Loader from '@/shared/components/Loader';
 import type { PatchHistoryItem } from '@/types/patch';
 
 interface VersionHistoryProps {
@@ -29,10 +30,7 @@ export function VersionHistory({
     if (isLoading && patches.length === 0) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">Loading history...</p>
-                </div>
+                <Loader size="md" text="Loading history..." />
             </div>
         );
     }

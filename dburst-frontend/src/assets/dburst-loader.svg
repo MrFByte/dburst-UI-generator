@@ -1,0 +1,172 @@
+<!-- DBurst Loader - Optimized SVG Animation -->
+<!-- Ready for Lottie conversion and direct SVG use -->
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="particleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+ 
+  <!-- Center core with pulse animation -->
+  <circle cx="200" cy="200" r="8" fill="#6366f1" opacity="0.8">
+    <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Outer ring particles (12 particles) -->
+  <!-- Particle 1 -->
+  <circle cx="280" cy="200" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 30,0; 0,0" dur="2.4s" begin="0s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 2 -->
+  <circle cx="269.28" cy="240" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 25.98,15; 0,0" dur="2.4s" begin="0.08s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.08s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.08s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 3 -->
+  <circle cx="240" cy="269.28" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 15,25.98; 0,0" dur="2.4s" begin="0.16s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.16s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.16s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 4 -->
+  <circle cx="200" cy="280" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 0,30; 0,0" dur="2.4s" begin="0.24s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.24s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.24s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 5 -->
+  <circle cx="160" cy="269.28" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; -15,25.98; 0,0" dur="2.4s" begin="0.32s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.32s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.32s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 6 -->
+  <circle cx="130.72" cy="240" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; -25.98,15; 0,0" dur="2.4s" begin="0.40s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.40s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.40s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 7 -->
+  <circle cx="120" cy="200" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; -30,0; 0,0" dur="2.4s" begin="0.48s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.48s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.48s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 8 -->
+  <circle cx="130.72" cy="160" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; -25.98,-15; 0,0" dur="2.4s" begin="0.56s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.56s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.56s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 9 -->
+  <circle cx="160" cy="130.72" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; -15,-25.98; 0,0" dur="2.4s" begin="0.64s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.64s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.64s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 10 -->
+  <circle cx="200" cy="120" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 0,-30; 0,0" dur="2.4s" begin="0.72s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.72s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.72s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 11 -->
+  <circle cx="240" cy="130.72" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 15,-25.98; 0,0" dur="2.4s" begin="0.80s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.80s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.80s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Particle 12 -->
+  <circle cx="269.28" cy="160" r="4" fill="url(#particleGradient)" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 25.98,-15; 0,0" dur="2.4s" begin="0.88s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;0" dur="2.4s" begin="0.88s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;4;2" dur="2.4s" begin="0.88s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Inner ring particles (contracting motion) -->
+  <!-- Inner particle 1 -->
+  <circle cx="180" cy="200" r="3" fill="#8b5cf6" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; -15,0; 0,0" dur="2.4s" begin="0.3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.8;0.8;0" dur="2.4s" begin="0.3s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Inner particle 2 -->
+  <circle cx="190" cy="217.32" r="3" fill="#8b5cf6" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; -7.5,-12.99; 0,0" dur="2.4s" begin="0.38s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.8;0.8;0" dur="2.4s" begin="0.38s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Inner particle 3 -->
+  <circle cx="210" cy="217.32" r="3" fill="#8b5cf6" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 7.5,-12.99; 0,0" dur="2.4s" begin="0.46s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.8;0.8;0" dur="2.4s" begin="0.46s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Inner particle 4 -->
+  <circle cx="220" cy="200" r="3" fill="#8b5cf6" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 15,0; 0,0" dur="2.4s" begin="0.54s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.8;0.8;0" dur="2.4s" begin="0.54s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Inner particle 5 -->
+  <circle cx="210" cy="182.68" r="3" fill="#8b5cf6" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; 7.5,12.99; 0,0" dur="2.4s" begin="0.62s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.8;0.8;0" dur="2.4s" begin="0.62s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Inner particle 6 -->
+  <circle cx="190" cy="182.68" r="3" fill="#8b5cf6" opacity="0">
+    <animateTransform attributeName="transform" type="translate" values="0,0; -7.5,12.99; 0,0" dur="2.4s" begin="0.70s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.8;0.8;0" dur="2.4s" begin="0.70s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Connection lines (6 lines) -->
+  <line x1="220" y1="200" x2="280" y2="200" stroke="#6366f1" stroke-width="1" opacity="0">
+    <animate attributeName="opacity" values="0;0.3;0" dur="2.4s" begin="0s" repeatCount="indefinite"/>
+  </line>
+
+  <line x1="210" y1="217.32" x2="269.28" y2="240" stroke="#6366f1" stroke-width="1" opacity="0">
+    <animate attributeName="opacity" values="0;0.3;0" dur="2.4s" begin="0.08s" repeatCount="indefinite"/>
+  </line>
+
+  <line x1="190" y1="217.32" x2="160" y2="269.28" stroke="#6366f1" stroke-width="1" opacity="0">
+    <animate attributeName="opacity" values="0;0.3;0" dur="2.4s" begin="0.16s" repeatCount="indefinite"/>
+  </line>
+
+  <line x1="180" y1="200" x2="120" y2="200" stroke="#6366f1" stroke-width="1" opacity="0">
+    <animate attributeName="opacity" values="0;0.3;0" dur="2.4s" begin="0.24s" repeatCount="indefinite"/>
+  </line>
+
+  <line x1="190" y1="182.68" x2="160" y2="130.72" stroke="#6366f1" stroke-width="1" opacity="0">
+    <animate attributeName="opacity" values="0;0.3;0" dur="2.4s" begin="0.32s" repeatCount="indefinite"/>
+  </line>
+
+  <line x1="210" y1="182.68" x2="240" y2="130.72" stroke="#6366f1" stroke-width="1" opacity="0">
+    <animate attributeName="opacity" values="0;0.3;0" dur="2.4s" begin="0.40s" repeatCount="indefinite"/>
+  </line>
+</svg>

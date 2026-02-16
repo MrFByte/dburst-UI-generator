@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import FeedbackModal from '@/features/dashboard/components/FeedbackModal';
 import ProjectCard from '@/features/dashboard/components/ProjectCard';
 import Header from '@/shared/components/Header';
+import Loader from '@/shared/components/Loader';
 import { createProject, getRecentProjects, generateUI } from '../api/dashboardApi';
 import { toast } from "@/shared/hooks/useToast";
 import { setItem } from '@/shared/utils/storageManager';
@@ -19,6 +20,7 @@ const Dashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPrompting, setIsPrompting] = useState(true);
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -82,13 +84,19 @@ const Dashboard = () => {
   const handleStartPrompting = async () => {
     if (!validate()) return;
 
-    console.log('Selected model:', selectedModel, 'Type:', typeof selectedModel);
+    try {
+      setIsGenerating(true);
+      console.log('Selected model:', selectedModel, 'Type:', typeof selectedModel);
 
-    const modelString = String(selectedModel);
-    const project = await generateUI(prompt, "groq", modelString);
-    setItem("lastGeneratedProject", project);
-    toast.success("UI generation started successfully");
-    navigate(`/dashboard/ui-generator/?projectId=${project.project_id}`);
+      const modelString = String(selectedModel);
+      const project = await generateUI(prompt, "groq", modelString);
+      setItem("lastGeneratedProject", project);
+      toast.success("UI generation started successfully");
+      navigate(`/dashboard/ui-generator/?projectId=${project.project_id}`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to generate UI");
+      setIsGenerating(false);
+    }
   };
 
   useEffect(() => {
@@ -239,6 +247,16 @@ const Dashboard = () => {
         </section>
 
       </main>
+
+      {/* Loading Overlay during UI Generation */}
+      {isGenerating && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="text-center">
+            <Loader size="xl" text="Generating your UI..." />
+            <p className="text-gray-400 mt-4 text-sm">This may take a few moments</p>
+          </div>
+        </div>
+      )}
     </div >
   );
 };

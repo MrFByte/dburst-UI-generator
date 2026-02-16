@@ -9,6 +9,7 @@ import { patchApi } from '../api/patchApi';
 import { EditModeToggle } from '../components/EditModeToggle';
 import { UndoRedoButtons } from '../components/UndoRedoButtons';
 import { VersionHistory } from '../components/VersionHistory';
+import Loader from '@/shared/components/Loader';
 import { History, X } from 'lucide-react';
 import { toast } from '@/shared/hooks/useToast';
 import type { SchemaNode } from '../types/renderType';
@@ -174,9 +175,10 @@ export function Phase3Controls({ generationId, schema, onSchemaUpdate }: Phase3C
                     </button>
 
                     {isPending && (
-                        <span className="text-xs text-blue-400 animate-pulse">
-                            Saving...
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <Loader size="sm" />
+                            <span className="text-xs text-blue-400">Saving...</span>
+                        </div>
                     )}
                 </div>
 

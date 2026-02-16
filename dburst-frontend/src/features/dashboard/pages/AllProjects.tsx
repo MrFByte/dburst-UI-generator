@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Header from '@/shared/components/Header';
 import ProjectCard from '@/features/dashboard/components/ProjectCard';
+import Loader from '@/shared/components/Loader';
 import { getAllProjects } from '../api/dashboardApi';
 import { toast } from "@/shared/hooks/useToast";
 
@@ -70,7 +71,7 @@ const AllProjects = () => {
 
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="text-gray-400">Loading projects...</div>
+            <Loader size="lg" text="Loading projects..." />
           </div>
         ) : projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
@@ -119,11 +120,10 @@ const AllProjects = () => {
                       <button
                         key={pageNum}
                         onClick={() => handlePageChange(pageNum)}
-                        className={`px-4 py-2 rounded-lg transition ${
-                          currentPage === pageNum
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                        }`}
+                        className={`px-4 py-2 rounded-lg transition ${currentPage === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                          }`}
                       >
                         {pageNum}
                       </button>

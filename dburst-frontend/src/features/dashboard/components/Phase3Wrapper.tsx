@@ -4,6 +4,7 @@ import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useVersionHistory } from '@/hooks/useVersionHistory';
 import { patchApi } from '../api/patchApi';
 import { toast } from '@/shared/hooks/useToast';
+import Loader from '@/shared/components/Loader';
 import type { SchemaNode } from '../types/renderType';
 import { compare } from 'fast-json-patch';
 
@@ -254,7 +255,9 @@ export function Phase3Wrapper({
 
                     <div className="flex-1 overflow-auto p-4">
                         {isLoadingHistory ? (
-                            <div className="text-center text-gray-400">Loading...</div>
+                            <div className="flex items-center justify-center py-12">
+                                <Loader size="md" text="Loading versions..." />
+                            </div>
                         ) : patches.length === 0 ? (
                             <div className="text-center text-gray-400">No saved versions yet</div>
                         ) : (

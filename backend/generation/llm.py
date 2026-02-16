@@ -43,6 +43,36 @@ Your responsibilities:
    - image_url MUST visually represent the product
    - Decorative images are forbidden
    
+8. COLOR THEME ANALYSIS - CRITICAL:
+   Analyze user's aesthetic keywords and generate appropriate color_scheme:
+   
+   KEYWORD MAPPINGS:
+   - "dark", "elegant", "luxury", "professional", "sleek", "modern", "gaming", "tech" 
+     → Dark Theme: {"mode": "dark", "background": "#0a0a0a", "surface": "#1a1a2e", "primary": "#9333ea", "accent": "#fbbf24"}
+   
+   - "colorful", "vibrant", "fun", "playful", "kids", "bright", "energetic"
+     → Vibrant Theme: {"mode": "vibrant", "background": "#667eea", "surface": "#ffffff", "primary": "#ec4899", "accent": "#f59e0b"}
+   
+   - "minimal", "clean", "calm", "serene", "meditation", "wellness"
+     → Soft Theme: {"mode": "soft", "background": "#ede9fe", "surface": "#faf5ff", "primary": "#8b5cf6", "accent": "#06b6d4"}
+   
+   - "crypto", "finance", "trading", "dashboard"
+     → Dark Financial: {"mode": "dark", "background": "#0f172a", "surface": "#1e293b", "primary": "#10b981", "accent": "#ef4444"}
+   
+   DEFAULT (if no keywords):
+     → Light Colored: {"mode": "light", "background": "#faf5ff", "surface": "#ffffff", "primary": "#9333ea", "accent": "#06b6d4"}
+   
+   NEVER use pure white (#ffffff) as background unless explicitly requested.
+   
+   Output this in theme.color_scheme:
+   {
+     "mode": "dark" | "vibrant" | "soft" | "light",
+     "background": "#hex",
+     "surface": "#hex",
+     "primary": "#hex",
+     "accent": "#hex"
+   }
+   
 You must DISCOVER the layout — not assume it.
 
 The key "design_plan.sections" MUST always be a list of objects:
@@ -207,24 +237,61 @@ MODERN UI PATTERNS (IMPLEMENT THESE)
    - Spacing: Use p-6 or p-8 for card padding, gap-6 for grid spacing
    - Typography: Use font-bold for headings, font-semibold for subheadings
    - Text sizes: text-4xl or text-5xl for hero numbers, text-2xl for section titles
-   - BACKGROUNDS: NEVER use 'bg-white' - ALWAYS use gradients:
-     * Root: bg-gradient-to-br from-gray-50 via-white to-slate-50
-     * Cards: bg-gradient-to-br from-white to-gray-50 (or colored variants)
-     * Sections: Can use bg-gradient-to-br from-transparent to-gray-50/30 for subtle variation
+   
+   - BACKGROUNDS (THEME-AWARE):
+     
+     IF design_plan.theme.color_scheme.mode == "dark":
+       * Root: bg-gray-900 OR bg-slate-900 OR bg-gray-950
+       * Cards: bg-gray-800 OR bg-slate-800/90 with border-gray-700
+       * Gradients: bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900
+       * Text: text-gray-100 OR text-white (light text on dark background)
+       * Secondary text: text-gray-300 OR text-gray-400
+       * Hero sections: bg-gradient-to-br from-gray-900 to-slate-800
+     
+     IF design_plan.theme.color_scheme.mode == "vibrant":
+       * Root: bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500
+       * Cards: bg-white/90 backdrop-blur-sm with shadow-xl
+       * Sections: bg-white/80 backdrop-blur-sm with colored borders
+       * Text: text-gray-900 (dark text on light cards)
+       * Buttons: Use bright colors (bg-pink-500, bg-purple-500, etc.)
+     
+     IF design_plan.theme.color_scheme.mode == "soft":
+       * Root: bg-gradient-to-br from-purple-100 via-blue-50 to-indigo-100
+       * Cards: bg-white/90 backdrop-blur-sm OR bg-gradient-to-br from-white to-purple-50
+       * Gradients: bg-gradient-to-br from-purple-50 to-blue-50
+       * Text: text-gray-900
+       * Hero: bg-gradient-to-br from-purple-100 to-blue-100
+     
+     IF design_plan.theme.color_scheme.mode == "light" (DEFAULT):
+       * Root: bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 (COLORFUL, not gray!)
+       * Cards: bg-white with shadow-lg OR bg-gradient-to-br from-white to-purple-50
+       * Hero: bg-gradient-to-br from-blue-100 to-purple-100 (NOT white or pale gray!)
+       * Text: text-gray-900
+       * Sections: Can use bg-gradient-to-br from-purple-50/50 to-blue-50/50
+     
+     CRITICAL RULES:
+     - NEVER use bg-white alone for Root or Hero sections
+     - NEVER use from-gray-50 via-white to-slate-50 (this is too pale and looks white!)
+     - ALWAYS check the color_scheme.mode from design_plan and apply the correct theme
+     - For dark mode, ALWAYS use light text colors (text-gray-100, text-white)
+     - For vibrant mode, use bold saturated backgrounds with high contrast cards
+     - If you see examples with bg-white in Root, replace with appropriate gradient
+   
    - SECTION STRUCTURE: Always wrap sections with proper padding (py-12 px-4 sm:px-6 lg:px-8)
    - CONTAINERS: Use max-w-7xl mx-auto for main containers to prevent content from stretching too wide
-   - CRITICAL: If you see 'bg-white' in any example, replace it with a gradient. Pure white backgrounds are forbidden.
 
 8. CARDS:
    Follow the Shadcn pattern:
    Card -> CardHeader (optional) -> CardContent -> CardFooter (optional).
-   CRITICAL: NEVER use 'bg-white' alone. Always use gradients:
-   - bg-gradient-to-br from-white to-gray-50 (subtle)
-   - bg-gradient-to-br from-white to-purple-50 (for stats)
-   - bg-gradient-to-br from-white to-blue-50 (for info)
-   - bg-gradient-to-br from-yellow-50 to-amber-50 (for trophies/awards)
-   Use: 'shadow-md', 'border border-gray-200', 'rounded-xl', 'p-6'
-   For modern cards: Always add gradient backgrounds, never pure white
+   
+   CRITICAL: Apply theme-aware backgrounds based on color_scheme.mode:
+   - Dark mode: bg-gray-800 or bg-slate-800 with border-gray-700
+   - Vibrant mode: bg-white with colored shadows and borders
+   - Soft mode: bg-white OR bg-gradient-to-br from-white to-purple-50
+   - Light mode: bg-white OR bg-gradient-to-br from-white to-blue-50
+   
+   Use: 'shadow-md', 'border border-gray-200' (or border-gray-700 for dark), 'rounded-xl', 'p-6'
+   NEVER use pure bg-white for cards in dark mode - use bg-gray-800 instead
 
 9. LAYOUT:
    - Use responsive grids: grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6
@@ -366,8 +433,11 @@ Project Description: {project_description}
 
 DESIGN SPECIFICATIONS:
 THEME: {theme.get('style', 'modern')}
+MODE: {colors.get('mode', 'light')}
 PRIMARY COLOR: {colors.get('primary', '#000000')}
-BACKGROUND: {colors.get('background', '#ffffff')}
+BACKGROUND COLOR: {colors.get('background', '#faf5ff')}
+SURFACE COLOR: {colors.get('surface', '#ffffff')}
+ACCENT COLOR: {colors.get('accent', '#06b6d4')}
 TYPOGRAPHY SCALE: Hero: {typography.get('heading', 'text-2xl font-bold')}, Body: {typography.get('body', 'text-sm')}
 
 SPACING SYSTEM: {spacing}
@@ -383,7 +453,16 @@ CRITICAL REMINDERS:
 4. DO NOT use placeholder text - always generate meaningful, realistic content
 5. Use EXACT Tailwind classes
 6. Build nested structures (Root → Section → Grid → Components)
-7. Create polished, production-ready UI that matches modern design standards"""
+7. Create polished, production-ready UI that matches modern design standards
+
+THEME MODE CRITICAL INSTRUCTIONS:
+- Current theme mode is: {colors.get('mode', 'light')}
+- If mode is "dark": Use dark backgrounds (bg-gray-900, bg-slate-900) and light text (text-gray-100, text-white)
+- If mode is "vibrant": Use bold saturated gradient backgrounds with high-contrast white cards
+- If mode is "soft": Use soft pastel gradients (purple-100, blue-50, indigo-100)
+- If mode is "light": Use colored gradients (purple-50, blue-50, indigo-50) - NOT white or gray!
+- NEVER ignore the color_scheme - it's based on the user's intent from their prompt
+- NEVER use "from-gray-50 via-white to-slate-50" - this appears white and is forbidden"""
         
         for attempt in range(retries):
             try:

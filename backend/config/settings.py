@@ -245,7 +245,7 @@ GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET")
 
 GROQ_AI_API_KEY = os.environ.get("GROQ_AI_API_KEY")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 # ========================================
 # LOGGING (STRUCTLOG)
