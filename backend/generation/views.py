@@ -149,10 +149,16 @@ class GenerateView(APIView):
                 planning_usage.get("total_tokens", 0) + 
                 generation_usage.get("total_tokens", 0)
             )
+            
+            # Generate brief AI response for chat history
+            page_type = design_plan.get("intent", "page")
+            sections_count = len(design_plan.get("design_plan", {}).get("sections", []))
+            ai_response = f"Created {page_type} with {sections_count} sections using {design_plan.get('theme', {}).get('style', 'modern')} design"[:200]
 
             generation = Generations.objects.create(
                 project=project,
                 prompt=prompt,
+                ai_response=ai_response,
                 schema=schema,
                 llm_provider=result["models"]["ui_generation"],
                 token_usage=total_tokens,

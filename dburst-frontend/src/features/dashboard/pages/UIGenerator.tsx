@@ -11,6 +11,7 @@ import { getProjectDetail } from '../api/dashboardApi';
 import { toast } from "@/shared/hooks/useToast";
 import { Phase3Wrapper } from '../components/Phase3Wrapper';
 import { EditControls } from '../components/EditControls';
+import { PromptBox } from '../components/PromptBox';
 
 import { generatedData as SampleData } from "../sampleData/SampleUIGenerator"
 
@@ -371,42 +372,24 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
         {/* Right Panel - Chat */}
         <div
-          className={`bg-slate-900 border-l border-slate-700 overflow-hidden transition-all duration-300 flex flex-col ${isChatPanelOpen ? 'w-80' : 'w-0'
+          className={`bg-slate-900 border-l border-slate-700 overflow-hidden transition-all duration-300 flex flex-col ${isChatPanelOpen ? 'w-96' : 'w-0'
             }`}
         >
-          <div className="p-6 border-b border-slate-700">
-            <h2 className="font-semibold text-lg mb-4">AI Refinements</h2>
-            <button
-              onClick={() => setIsChatPanelOpen(false)}
-              className="text-sm text-gray-400 hover:text-white transition"
-            >
-              Close →
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-auto p-6 space-y-4">
-            <div className="bg-slate-800 p-4 rounded-lg">
-              <p className="text-sm text-gray-300">
-                💡 Ready to refine your design?
-              </p>
-              <p className="text-xs text-gray-500 mt-2">Coming Soon</p>
-            </div>
-            <div className="bg-blue-900/30 p-4 rounded-lg ml-4 border border-blue-800">
-              <p className="text-sm text-blue-200">
-                ✨ Connect with backend to enable live refinements
-              </p>
-              <p className="text-xs text-blue-400 mt-2">AI Assistant</p>
-            </div>
-          </div>
-
-          <div className="p-6 border-t border-slate-700">
-            <input
-              type="text"
-              placeholder="Ask for changes..."
-              disabled
-              className="w-full bg-slate-800 text-white rounded px-3 py-2 text-sm border border-slate-700 focus:border-blue-500 focus:outline-none placeholder-gray-500 disabled:opacity-50"
+          {isChatPanelOpen && data?.generation_id && (
+            <PromptBox
+              generationId={data.generation_id}
+              onSchemaUpdate={(schema, code) => {
+                setData(prev => {
+                  if (!prev) return null;
+                  return {
+                    ...prev,
+                    schema: schema || prev.schema,
+                    code: code || prev.code,
+                  };
+                });
+              }}
             />
-          </div>
+          )}
         </div>
 
         {/* Floating Buttons */}
@@ -438,6 +421,6 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
           💬
         </button>
       </div>
-    </div>
+    </div >
   );
 }

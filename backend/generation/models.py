@@ -19,6 +19,7 @@ class Generations(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="generations")
     prompt = models.TextField(default='')
+    ai_response = models.CharField(max_length=200, blank=True, default='')  # AI's brief explanation of what it generated
     schema = models.JSONField(default=dict) 
     metadata = models.JSONField(null=True, blank=True, default=dict)
     code_bundle_url = models.TextField(blank=True, null=True)
