@@ -1,8 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
-import { SchemaRenderer } from '../lib/renderer';
-import { normalizeSchema } from '../lib/normalizeSchema';
-import type { SchemaNode } from '../types/renderType';
 import type { APIResponse } from '../types/apiResponseType';
 import type { UIGeneratorProps } from '../types/UIGeneratorTypes';
 import { getItem } from '@/shared/utils/storageManager';
@@ -12,22 +10,26 @@ import { toast } from "@/shared/hooks/useToast";
 import { Phase3Wrapper } from '../components/Phase3Wrapper';
 import { EditControls } from '../components/EditControls';
 import { PromptBox } from '../components/PromptBox';
+import { SchemaRenderer } from '../lib/renderer';
+import { WebContainerPreview } from '@/core/webcontainer';
+// Initialise WebContainer auth once at module load
+import '@/core/webcontainer/webcontainerAuth';
 
-import { generatedData as SampleData } from "../sampleData/SampleUIGenerator"
 
 
 export default function UIGenerator({ initialData }: UIGeneratorProps) {
   const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
-  const [zoom, setZoom] = useState(100);
 
-  const [generatedData, setGeneratedData] = useState<APIResponse | null>(null);
   const [searchParams] = useSearchParams();
 
   const projectId = searchParams.get('projectId') || '';
 
   const [data, setData] = useState<APIResponse | null>(initialData ?? null);
+
+  // Ref to the edit-controls container div in the header
+  const editControlsContainerRef = useRef<HTMLDivElement | null>(null);
 
   const copyCode = useCallback(() => {
     if (data?.code) {
@@ -51,12 +53,17 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
     document.body.removeChild(element);
   }, [data?.code]);
 
-  const extractComponentTypes = (node: SchemaNode): Set<string> => {
+  // Use 'any' here because data.schema comes from apiResponseType.SchemaNode
+  // which has type: string, not the stricter ComponentType union from renderType
+  const extractComponentTypes = (node: any): Set<string> => {
     const types = new Set<string>();
-    types.add(node?.type);
-    if (node?.children) {
-      node?.children.forEach((child) => {
-        extractComponentTypes(child).forEach((type) => types.add(type));
+    if (!node || typeof node !== 'object') return types;
+    types.add(node.type);
+    if (node.children && Array.isArray(node.children)) {
+      node.children.forEach((child: any) => {
+        if (typeof child !== 'string') {
+          extractComponentTypes(child).forEach((type) => types.add(type));
+        }
       });
     }
     return types;
@@ -88,26 +95,21 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
           const response = await getProjectDetail(projectId);
 
           if (response.latest_generation) {
-            const transformedData: APIResponse = {
-              success: true,
+            const transformedData = {
               project_id: response.project.id,
-              project_title: response.project.title,
-              project_description: response.project.description,
               generation_id: response.latest_generation.id,
               schema: response.latest_generation.schema,
               code: response.latest_generation.code || "",
-              design_plan: response.latest_generation.metadata?.design_plan || {},
               meta: {
-                models: {
-                  ui_generation: response.latest_generation.metadata?.ui_model || "unknown"
-                },
+                provider: response.latest_generation.metadata?.provider || "unknown",
+                model: response.latest_generation.metadata?.ui_model,
                 usage: {
-                  planning: response.latest_generation.metadata?.planning_tokens || {},
-                  generation: response.latest_generation.metadata?.generation_tokens || {},
-                  total_tokens: response.latest_generation.token_usage || 0
+                  total_tokens: response.latest_generation.token_usage || 0,
+                  prompt_tokens: response.latest_generation.metadata?.planning_tokens?.prompt_tokens,
+                  completion_tokens: response.latest_generation.metadata?.generation_tokens?.completion_tokens,
                 }
               }
-            };
+            } as APIResponse;
             setData(transformedData);
           } else {
             toast.info("This project doesn't have a UI generation yet.");
@@ -118,7 +120,6 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
           const lastProject = getItem("lastGeneratedProject");
           if (lastProject && lastProject.project_id === projectId) {
-            setGeneratedData(lastProject);
             setData(lastProject);
           }
         }
@@ -128,11 +129,18 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
     } else {
       const lastProject = getItem("lastGeneratedProject");
       if (lastProject) {
-        setGeneratedData(lastProject);
         setData(lastProject);
       }
     }
   }, [initialData, projectId]);
+
+  // Capture the edit-controls container ref once the DOM is painted
+  useEffect(() => {
+    const el = document.getElementById('edit-controls-container');
+    if (el) {
+      editControlsContainerRef.current = el as HTMLDivElement;
+    }
+  }, []);
 
   return (
     <div className="h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans flex flex-col overflow-hidden relative">
@@ -151,7 +159,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             }`}
         >
           <div className="p-6 border-b border-slate-700">
-            <h2 className="font-semibold text-lg mb-4">Structure & Stats</h2>
+            <h2 className="font-semibold text-lg mb-4">Structure &amp; Stats</h2>
             <button
               onClick={() => setIsEditPanelOpen(false)}
               className="text-sm text-gray-400 hover:text-white transition"
@@ -239,7 +247,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
         {/* Center - Main Canvas */}
         <main className="flex-1 flex flex-col overflow-hidden min-h-0">
-          {/* Combined Tabs and Zoom Controls in Single Row */}
+          {/* Combined Tabs and Edit Controls in Single Row */}
           <div className="h-12 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 shrink-0 z-10 relative">
             {/* Left: Tabs */}
             <div className="flex items-center space-x-6">
@@ -264,88 +272,55 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
               </button>
             </div>
 
-            {/* Right: Zoom Controls + Edit Controls */}
-            <div className="flex items-center">
-              {/* Zoom Controls (only show in preview mode) */}
-              {activeTab === 'preview' && (
-                <div className="flex items-center space-x-3 text-sm text-gray-400">
-                  <span>🔍 Zoom</span>
-                  <button
-                    onClick={() => setZoom(Math.max(50, zoom - 10))}
-                    className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
-                  >
-                    −
-                  </button>
-                  <span className="w-10 text-center font-mono">{zoom}%</span>
-                  <button
-                    onClick={() => setZoom(Math.min(200, zoom + 10))}
-                    className="px-2 py-1 hover:bg-slate-700 rounded transition font-bold"
-                  >
-                    +
-                  </button>
-                  <button
-                    onClick={() => setZoom(100)}
-                    className="px-2 py-1 ml-2 text-xs bg-slate-700 hover:bg-slate-600 rounded transition"
-                  >
-                    Reset
-                  </button>
-                </div>
-              )}
-
-              {/* Edit Controls - Rendered by Phase3Wrapper */}
-              <div id="edit-controls-container"></div>
-            </div>
+            {/* Right: Edit Controls — rendered via React Portal into this div */}
+            <div id="edit-controls-container" className="flex items-center" />
           </div>
 
-          {/* Phase 3: Edit Controls */}
+          {/* Phase 3: Wrapper with undo/redo/save/version history */}
           {data?.generation_id && (
             <Phase3Wrapper
               generationId={data.generation_id}
-              schema={data.schema}
+              schema={data.schema as any}
               onSchemaUpdate={(schema, code) => {
                 setData(prev => {
                   if (!prev) return null;
                   return {
                     ...prev,
-                    schema: schema || prev.schema,
+                    schema: (schema || prev.schema) as any,
                     code: code || prev.code,
                   };
                 });
               }}
               renderControls={(controls) => {
-                const container = document.getElementById('edit-controls-container');
-                if (container) {
-                  return <EditControls controls={controls} />;
-                }
-                return null;
+                // Use React Portal to render EditControls into the header's
+                // edit-controls-container div (already in the DOM at this point).
+                const container = editControlsContainerRef.current
+                  ?? document.getElementById('edit-controls-container');
+                if (!container) return null;
+                return createPortal(<EditControls controls={controls} />, container);
               }}
             >
               {(editMode, handleTextEdit) => (
                 activeTab === 'preview' && (
-                  <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 relative">
-                    <div className="flex-1 overflow-auto relative w-full h-full p-8">
-                      <div
-                        style={{
-                          width: zoom === 100 ? '100%' : `${100 * (100 / zoom)}%`,
-                          transform: `scale(${zoom / 100})`,
-                          transformOrigin: "top left",
-                        }}
-                        className="h-fit mx-auto bg-white rounded-lg shadow-xl border border-gray-200 min-h-full"
-                      >
-                        <SchemaRenderer
-                          schema={normalizeSchema(data?.schema)}
-                          editMode={editMode}
-                          onTextEdit={handleTextEdit}
-                        />
-                      </div>
+                  editMode ? (
+                    /* ── Edit Mode: schema-based renderer supporting inline editing ── */
+                    <div className="flex-1 overflow-auto bg-white">
+                      <SchemaRenderer
+                        schema={data?.schema as any}
+                        editMode={true}
+                        onTextEdit={handleTextEdit}
+                      />
                     </div>
-                  </div>
+                  ) : (
+                    /* ── Preview Mode: live Vite dev server in an iframe ── */
+                    <WebContainerPreview code={data?.code} />
+                  )
                 )
               )}
             </Phase3Wrapper>
           )}
 
-          {/* Code Tab (Unchanged) */}
+          {/* Code Tab */}
           {activeTab === 'code' && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="h-12 bg-slate-900 border-b border-slate-700 px-6 flex items-center justify-between shrink-0">

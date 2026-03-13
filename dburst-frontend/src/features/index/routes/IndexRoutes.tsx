@@ -6,6 +6,7 @@ import Demo from '@/features/index/pages/Demo';
 import About from '@/features/index/pages/About';
 import Contact from '@/features/index/pages/Contact';
 import GithubCallback from '@/features/index/pages/GithubCallback';
+import GoogleCallback from '@/features/index/pages/GoogleCallback';
 
 export default function IndexRoutes() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -30,6 +31,7 @@ export default function IndexRoutes() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/auth/github/callback" element={<GithubCallback />} />
+        <Route path="/auth/google/callback" element={<GoogleCallback />} />
       </Route>
     </Routes>
   );

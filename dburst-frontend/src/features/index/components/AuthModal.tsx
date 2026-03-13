@@ -1,12 +1,7 @@
 import { Github } from "lucide-react";
 import { Modal } from "@/shared/components/Modal";
 import { Button } from "@/shared/ui/button";
-import { toast } from "@/shared/hooks/useToast";
-import { useNavigate } from "react-router-dom";
-import { useGoogleLogin } from "@react-oauth/google";
-import { socialLogin } from "@/features/index/api/socialLogin";
-import { useDispatch } from "react-redux";
-import { setCredentials } from "@/core/redux/authSlice";
+
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -15,36 +10,19 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, title }: AuthModalProps) {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-  
-    console.log("at auth");
-  const handleGoogleLogin = useGoogleLogin({
-    flow: "auth-code",
-    
-    onSuccess: async ({ code }) => {
-      console.log("at google auth");
-      try {
-        const data = await socialLogin("google", code);
-        dispatch(
-          setCredentials({
-            user: data.user,
-          })
-        );
 
-        toast.success("Successfully logged in with Google");
-        onClose();
-        navigate("/dashboard");
-      } catch (error) {
-        console.error(error);
-        toast.error("Google login failed");
-      }
-    },
-    onError: (err) => {
-      console.error("Google login error:", err);
-      toast.error("Google login error");
-    },
-  });
+  // Redirect flow — no popup, so COOP: same-origin doesn't break it
+  const handleGoogleLogin = () => {
+    const params = new URLSearchParams({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      redirect_uri: `${window.location.origin}/auth/google/callback`,
+      response_type: 'code',
+      scope: 'openid email profile',
+      access_type: 'offline',
+      prompt: 'select_account',
+    });
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+  };
 
   const handleGithubLogin = () => {
     const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
