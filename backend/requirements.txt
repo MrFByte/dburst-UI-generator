@@ -3,6 +3,7 @@ cachetools==6.2.1
 certifi==2025.10.5
 cffi==2.0.0
 charset-normalizer==3.4.4
+colorama==0.4.6
 coverage==7.12.0
 cryptography==46.0.3
 dj-rest-auth==7.0.1
@@ -18,6 +19,7 @@ Faker==38.2.0
 google-auth==2.41.1
 google-auth-httplib2==0.2.1
 google-auth-oauthlib==1.2.3
+gunicorn==25.1.0
 httplib2==0.31.0
 idna==3.11
 inflection==0.5.1
@@ -51,8 +53,8 @@ requests-oauthlib==2.0.0
 rich==14.2.0
 rsa==4.9.1
 sqlparse==0.5.3
+structlog==24.4.0
 termcolor==3.2.0
 typing_extensions==4.15.0
 tzdata==2025.2
 urllib3==2.5.0
-structlog==24.4.0
