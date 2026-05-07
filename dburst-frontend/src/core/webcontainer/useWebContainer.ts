@@ -130,6 +130,9 @@ export function useWebContainer({ files, appCode }: UseWebContainerOptions): Use
                     setPreviewUrl(null);
                 }
 
+                if (!window.crossOriginIsolated) {
+                    throw new Error('Cross-Origin Isolation is not enabled. Check COOP/COEP headers in vite.config.ts.');
+                }
                 setStatus('booting');
                 appendLog('Booting WebContainer...');
                 const wc = await getOrBootWebContainer();

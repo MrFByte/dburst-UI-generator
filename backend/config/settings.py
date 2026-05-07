@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
+import dj_database_url
 
 
 load_dotenv()
@@ -30,18 +31,23 @@ APP_MODE = str(os.environ.get("APP_MODE", 'Development'))
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = ['*']
 
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
+    "https://dburst-ui-generator.vercel.app",
     "http://localhost:5173",
-    "http://127.0.0.1:5173",
     "https://localhost:5173",
-    "https://127.0.0.1:5173",
 ]
 
-CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    "https://dburst-ui-generator.vercel.app",
+    "https://dburst-ui-generator.onrender.com",
+    "http://localhost:5173",
+    "https://localhost:5173",
+]
 CORS_ALLOW_HEADERS = [
     "accept",
     "accept-encoding",
@@ -52,10 +58,12 @@ CORS_ALLOW_HEADERS = [
     "user-agent",
     "x-csrftoken",
     "x-requested-with",
+    "ngrok-skip-browser-warning",
 ]
 
-ACCESS_TOKEN_EXPIRY = 432000
-REFRESH_TOKEN_EXPIRY = 432000
+# 1 day for access, 7 days for refresh
+ACCESS_TOKEN_EXPIRY = 86400
+REFRESH_TOKEN_EXPIRY = 604800
 
 # Application definition
 
@@ -72,6 +80,7 @@ INSTALLED_APPS = [
     'projects',
     'generation',
     'patching',
+    'feedback',
     
     # third party apps
     'rest_framework',
@@ -84,6 +93,8 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'dj_rest_auth',
     'dj_rest_auth.registration',
+    # Enables runserver_plus and other Django extension commands.
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -122,12 +133,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(default=DATABASE_URL)
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -169,10 +187,14 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=365),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=365),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # NOTE: ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION require
+    # 'rest_framework_simplejwt.token_blacklist' in INSTALLED_APPS and
+    # running its migrations. Disabled until that is set up.
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': True,
 }
 
 REST_FRAMEWORK = {
@@ -206,9 +228,12 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
 # Session Security Settings
-SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True  # Set to True for HTTPS (ngrok)
 SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
-SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection
+SESSION_COOKIE_SAMESITE = 'None'  # Allow cross-site cookies
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_NAME = 'dburst_sessionid'  # Custom session cookie name
 SESSION_COOKIE_PATH = '/'
 SESSION_COOKIE_DOMAIN = None  # Use default domain
@@ -245,6 +270,27 @@ GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 
 GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET")
+
+# Whitelisted redirect URIs — backend validates against these.
+# Add your production URL and any local dev URLs here.
+_google_uris = os.environ.get(
+    "GOOGLE_ALLOWED_REDIRECT_URIS",
+    "postmessage,"
+    "http://localhost:5173/auth/google/callback,"
+    "https://localhost:5173/auth/google/callback,"
+    "https://dburst-ui-generator.onrender.com/auth/google/callback,"
+    "https://dburst-ui-generator.vercel.app/auth/google/callback"
+)
+GOOGLE_ALLOWED_REDIRECT_URIS = [u.strip() for u in _google_uris.split(",") if u.strip()]
+
+_github_uris = os.environ.get(
+    "GITHUB_ALLOWED_REDIRECT_URIS",
+    "http://localhost:5173/auth/github/callback,"
+    "https://localhost:5173/auth/github/callback,"
+    "https://dburst-ui-generator.onrender.com/auth/github/callback,"
+    "https://dburst-ui-generator.vercel.app/auth/github/callback"
+)
+GITHUB_ALLOWED_REDIRECT_URIS = [u.strip() for u in _github_uris.split(",") if u.strip()]
 
 GROQ_AI_API_KEY = os.environ.get("GROQ_AI_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -292,3 +338,5 @@ LOGGING = {
         "level": "INFO",
     },
 }
+
+DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")

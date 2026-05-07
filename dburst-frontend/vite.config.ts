@@ -25,10 +25,9 @@ export default defineConfig({
   },
   server: {
     headers: {
-      // same-origin + require-corp = crossOriginIsolated: true → WebContainer works.
-      // Google auth now uses redirect flow (not popup) so same-origin doesn't break it.
+      // Required for WebContainer (SharedArrayBuffer)
       'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
     },
     proxy: {
       '/api': {

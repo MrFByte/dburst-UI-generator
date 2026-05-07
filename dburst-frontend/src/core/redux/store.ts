@@ -16,12 +16,18 @@ const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
   reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      // redux-persist dispatches actions with function values (register, rehydrate).
+      // These are internal and safe to ignore for the serializable check.
+      serializableCheck: {
+        ignoredActions: ["persist/PERSIST", "persist/REHYDRATE", "persist/REGISTER", "persist/FLUSH", "persist/PAUSE", "persist/PURGE"],
+      },
+    }),
   devTools: {
     actionSanitizer: (action) => {
-      // Hide persist actions from DevTools
-      if (action.type?.startsWith('persist/')) {
-        return null; // Don't log persist actions
-      }
+      // Suppress redux-persist internal actions from DevTools noise
+      if (action.type?.startsWith("persist/")) return { ...action, type: "persist/[hidden]" };
       return action;
     },
   },

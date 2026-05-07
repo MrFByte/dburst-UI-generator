@@ -10,6 +10,7 @@ import { toast } from "@/shared/hooks/useToast";
 import { Phase3Wrapper } from '../components/Phase3Wrapper';
 import { EditControls } from '../components/EditControls';
 import { PromptBox } from '../components/PromptBox';
+import FeedbackModal from '../components/FeedbackModal';
 import { SchemaRenderer } from '../lib/renderer';
 import { WebContainerPreview } from '@/core/webcontainer';
 // Initialise WebContainer auth once at module load
@@ -21,6 +22,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
   const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [searchParams] = useSearchParams();
 
@@ -144,11 +146,10 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
   return (
     <div className="h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans flex flex-col overflow-hidden relative">
+      <FeedbackModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <Header
         mode="dashboard"
-      // isSidebarOpen={}
-      // setIsSidebarOpen={()=>void 0}
-      // setIsModalOpen={setIsModalOpen}
+        setIsModalOpen={setIsModalOpen}
       />
 
       {/* Main Layout */}

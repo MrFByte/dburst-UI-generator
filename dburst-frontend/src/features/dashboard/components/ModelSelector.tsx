@@ -9,13 +9,13 @@ export interface ModelOption {
 }
 
 const UI_MODELS: ModelOption[] = [
-    {
-        key: 'ui_gemini_2_5',
-        name: 'Gemini 2.5 Flash',
-        description: 'Latest Gemini - Fast with excellent output',
-        speed: 'fast',
-        quality: 'excellent'
-    },
+    // {
+    //     key: 'ui_gemini_2_5',
+    //     name: 'Gemini 2.5 Flash',
+    //     description: 'Latest Gemini - Fast with excellent output',
+    //     speed: 'fast',
+    //     quality: 'excellent'
+    // },
     {
         key: 'ui_llama_3_3',
         name: 'Llama 3.3 70B',
@@ -24,17 +24,10 @@ const UI_MODELS: ModelOption[] = [
         quality: 'excellent'
     },
     {
-        key: 'ui_llama_3_1',
-        name: 'Llama 3.1 8B',
-        description: 'Fastest generation',
+        key: 'ui_gemma_2_9b',
+        name: 'Gemma 2 9B',
+        description: 'Fast with excellent output',
         speed: 'fast',
-        quality: 'good'
-    },
-    {
-        key: 'ui_gpt_oss_120b',
-        name: 'GPT OSS 120B',
-        description: 'High quality, slower',
-        speed: 'medium',
         quality: 'excellent'
     }
 ];

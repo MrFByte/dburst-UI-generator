@@ -16,10 +16,10 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5
 LLM_MODELS = {
     "ui_gemini_2_5": "gemini-2.5-flash",
     "ui_llama_3_3": "llama-3.3-70b-versatile",
-    "ui_llama_3_1": "llama-3.1-8b-instant",
+    "ui_gemma_2_9b": "gemma-2-9b",
     "ui_gpt_oss_120b": "openai/gpt-oss-120b",
     
-    "plan_moonshot": "moonshotai/kimi-k2-instruct-0905",
+    "plan_moonshot": "openai/gpt-oss-120b",  #moonshot got Deprecated
     "plan_llama_4_scout": "meta-llama/llama-4-scout-17b-16e-instruct"
 }
 

@@ -16,6 +16,9 @@ function App() {
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
 
   useEffect(() => {
+    const isCallbackPage = window.location.pathname.startsWith("/auth/");
+    if (isCallbackPage) return;
+
     const verifyAuth = async () => {
       if (isAuthenticated) {
         try {
@@ -24,7 +27,6 @@ function App() {
         } catch (error) {
           console.error("Auth verification failed:", error);
           dispatch(logout());
-          window.location.href = "/";
         }
       }
     };

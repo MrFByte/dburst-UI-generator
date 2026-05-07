@@ -142,3 +142,31 @@
     box-shadow: 0 0 20px 0 rgba(0, 208, 255, 0.5);
   }
 }
+
+@keyframes dburstPulse {
+
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.3));
+    opacity: 1;
+  }
+
+  50% {
+    filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.7)) drop-shadow(0 0 20px rgba(6, 182, 212, 0.3));
+    opacity: 0.9;
+  }
+}
+
+@keyframes headerGlow {
+
+  0%,
+  100% {
+    border-bottom-color: rgba(139, 92, 246, 0.2);
+    box-shadow: 0 1px 12px 0 rgba(139, 92, 246, 0.05);
+  }
+
+  50% {
+    border-bottom-color: rgba(6, 182, 212, 0.35);
+    box-shadow: 0 1px 20px 0 rgba(6, 182, 212, 0.12);
+  }
+}

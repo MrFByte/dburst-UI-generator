@@ -25,13 +25,17 @@ export default function IndexRoutes() {
 
   return (
     <Routes>
+      {/* OAuth callback pages — rendered bare, intentionally no layout.
+          IndexLayout renders Header → useUserProfile → 401s → logout()
+          while login is in progress, causing a race condition.  */}
+      <Route path="/auth/google/callback" element={<GoogleCallback />} />
+      <Route path="/auth/github/callback" element={<GithubCallback />} />
+
       <Route path="/" element={<IndexLayout />}>
         <Route index element={<Home onStartBuilding={handleStartBuilding} />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/auth/github/callback" element={<GithubCallback />} />
-        <Route path="/auth/google/callback" element={<GoogleCallback />} />
       </Route>
     </Routes>
   );

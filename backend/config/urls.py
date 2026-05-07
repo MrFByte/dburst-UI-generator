@@ -24,6 +24,7 @@ api_routes = [
     path('projects/', include('projects.urls')),
     path('generation/', include('generation.urls')),
     path('patching/', include('patching.urls')),
+    path('feedback/', include('feedback.urls')),
 ]
 
 

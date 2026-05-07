@@ -45,8 +45,8 @@ export default function Demo() {
             />
             <DemoFeature
               icon={<Layers className="w-8 h-8 text-green-400" />}
-              title="Component Library"
-              description="Access hundreds of pre-built components"
+              title="Change version"
+              description="Load any version of ui generated"
             />
             <DemoFeature
               icon={<Play className="w-8 h-8 text-yellow-400" />}

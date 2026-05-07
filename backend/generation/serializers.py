@@ -28,7 +28,7 @@ class GenerateRequestSerializer(serializers.Serializer):
     Fields:
         prompt: User's UI generation prompt (required)
         ui_model: UI generation model selection (optional)
-            Options: ui_gemini_2_5, ui_llama_3_3, ui_llama_3_1, ui_gpt_oss_120b
+            Options: ui_gemini_2_5, ui_llama_3_3, ui_gemma_2_9b, ui_gpt_oss_120b
             Default: ui_gemini_2_5
     """
     prompt = serializers.CharField(
@@ -40,14 +40,14 @@ class GenerateRequestSerializer(serializers.Serializer):
         required=False,
         choices=[
             "ui_llama_3_3",
-            "ui_llama_3_1", 
+            "ui_gemma_2_9b", 
             "ui_gemini_2_5",
             "ui_gpt_oss_120b"
         ],
         default="ui_gemini_2_5",
         help_text="""
             Model to use for UI generation.
-            Options: ui_gemini_2_5, ui_llama_3_3, ui_llama_3_1, ui_gpt_oss_120b
+            Options: ui_gemini_2_5, ui_llama_3_3, ui_gemma_2_9b, ui_gpt_oss_120b
         """
     )
     project_id = serializers.UUIDField(

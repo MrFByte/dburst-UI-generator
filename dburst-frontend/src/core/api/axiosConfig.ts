@@ -9,7 +9,10 @@ export const baseUrl = import.meta.env.VITE_API_URL;
 export const api: AxiosInstance = axios.create({
   baseURL: baseUrl,
   withCredentials: true,
-  headers: { "Content-Type": "application/json" },
+  headers: { 
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true" //for development 
+  },
 });
 
 api.interceptors.request.use(

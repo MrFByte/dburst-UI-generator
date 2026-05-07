@@ -22,33 +22,52 @@ ACCESS_TOKEN_EXPIRY = settings.ACCESS_TOKEN_EXPIRY
 
 class GoogleAuthView(APIView):
     """
-    Authenticates or registers a user using Google OAuth `auth-code` flow.
+    Authenticates or registers a user using Google OAuth authorization-code flow.
 
-    Frontend sends a short-lived Google OAuth code → backend exchanges it
-    → validates the identity → creates/returns a User + JWT token pair.
+    Frontend sends a short-lived Google OAuth code + the redirect_uri it used
+    → backend validates redirect_uri against a whitelist, exchanges the code
+    for tokens, verifies the ID token, and returns a user + JWT cookie pair.
 
     Request Body:
-        - code (str): Google OAuth code, required.
+        - code (str): Google OAuth authorization code.
+        - redirect_uri (str): The exact redirect URI used in the auth request.
 
     Responses:
-        200: Google account authenticated, JWT returned.
+        200: Authenticated. JWT cookies set.
         400: Invalid or missing data.
-        500: Internal authentication error.
+        503: Google is unreachable.
+        500: Internal error.
     """
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        print("Working auth 1")
         code = request.data.get("code")
+        redirect_uri = request.data.get("redirect_uri")
+
+        print("Working auth 2")
         if not code:
+            print("Working auth 3")
             return Response({"error": "Missing OAuth code"}, status=status.HTTP_400_BAD_REQUEST)
+        if not redirect_uri:
+            print("Working auth 4")
+            return Response({"error": "Missing redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Server-side whitelist — never trust a redirect_uri from the client blindly
+        allowed_uris = getattr(settings, "GOOGLE_ALLOWED_REDIRECT_URIS", [])
+        if redirect_uri not in allowed_uris:
+            print("Working auth 5")
+            logger.warning(f"Google auth: rejected redirect_uri={redirect_uri!r}")
+            return Response({"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            print("Working auth 6")
             token_url = "https://oauth2.googleapis.com/token"
             payload = {
                 "code": code,
                 "client_id": settings.GOOGLE_CLIENT_ID,
                 "client_secret": settings.GOOGLE_CLIENT_SECRET,
-                "redirect_uri": "postmessage",
+                "redirect_uri": redirect_uri,
                 "grant_type": "authorization_code",
             }
 
@@ -64,7 +83,12 @@ class GoogleAuthView(APIView):
             google_user = verify_oauth2_token(id_token, google_requests.Request())
             email = google_user["email"]
 
+            if not google_user.get("email_verified"):
+                print("Working auth 7")
+                return Response({"error": "Google email not verified"}, status=status.HTTP_400_BAD_REQUEST)
+
             with transaction.atomic():
+                print("Working auth 8")
                 user, created = User.objects.get_or_create(
                     email=email,
                     defaults={
@@ -78,7 +102,7 @@ class GoogleAuthView(APIView):
                     provider=AuthProvider.Choices.GOOGLE,
                     provider_id=google_user["sub"],
                 )
-                
+
                 message = "User login successfully"
                 if created:
                     message = "User created successfully"
@@ -89,7 +113,7 @@ class GoogleAuthView(APIView):
                     "user": UserSerializer(user).data,
                     "message": message,
                 }, status=status.HTTP_200_OK)
-                
+
                 response.set_cookie(
                     key='refresh',
                     value=str(refresh),
@@ -98,7 +122,6 @@ class GoogleAuthView(APIView):
                     samesite='None',
                     max_age=REFRESH_TOKEN_EXPIRY,
                 )
-
                 response.set_cookie(
                     key='access',
                     value=str(refresh.access_token),
@@ -107,25 +130,6 @@ class GoogleAuthView(APIView):
                     samesite='None',
                     max_age=ACCESS_TOKEN_EXPIRY,
                 )
-
-                response.set_cookie(
-                    key='ua',
-                    value=request.META.get('HTTP_USER_AGENT', ''),
-                    httponly=False,
-                    secure=True,
-                    samesite='None',
-                    max_age=REFRESH_TOKEN_EXPIRY,
-                )
-
-                response.set_cookie(
-                    key='ip',
-                    value=request.META.get('REMOTE_ADDR', ''),
-                    httponly=False,
-                    secure=True,
-                    samesite='None',
-                    max_age=REFRESH_TOKEN_EXPIRY,
-                )
-
                 return response
 
         except requests.exceptions.RequestException as e:
@@ -143,33 +147,47 @@ class GoogleAuthView(APIView):
 
 class GithubAuthView(APIView):
     """
-    Authenticates/Registers a user using GitHub OAuth auth-code flow.
-    Frontend sends GitHub OAuth `code` → backend exchanges it for access token → 
-    fetch GitHub user → create/login user → return JWT cookies.
-    
+    Authenticates/Registers a user using GitHub OAuth authorization-code flow.
+
+    Frontend sends GitHub OAuth `code` + `redirect_uri` → backend validates
+    redirect_uri against a whitelist, exchanges code for access token, fetches
+    GitHub user profile, and returns JWT cookies.
+
     Request Body:
-        - code (str): GitHub OAuth code, required.
+        - code (str): GitHub OAuth authorization code.
+        - redirect_uri (str): The exact redirect URI used in the auth request.
 
     Responses:
-        200: GitHub account authenticated, JWT returned.
+        200: Authenticated. JWT cookies set.
         400: Invalid or missing data.
-        500: Internal authentication error.
+        500: Internal error.
     """
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         code = request.data.get("code")
+        redirect_uri = request.data.get("redirect_uri")
+
         if not code:
             return Response({"error": "Missing OAuth code"}, status=status.HTTP_400_BAD_REQUEST)
-        
+        if not redirect_uri:
+            return Response({"error": "Missing redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Server-side whitelist — never trust a redirect_uri from the client blindly
+        allowed_uris = getattr(settings, "GITHUB_ALLOWED_REDIRECT_URIS", [])
+        if redirect_uri not in allowed_uris:
+            logger.warning(f"GitHub auth: rejected redirect_uri={redirect_uri!r}")
+            return Response({"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             token_url = "https://github.com/login/oauth/access_token"
             payload = {
                 "client_id": settings.GITHUB_CLIENT_ID,
                 "client_secret": settings.GITHUB_CLIENT_SECRET,
                 "code": code,
+                "redirect_uri": redirect_uri,
             }
-            
+
             headers = {"Accept": "application/json"}
             token_res = requests.post(token_url, data=payload, headers=headers, timeout=10)
             token_res.raise_for_status()
@@ -187,7 +205,7 @@ class GithubAuthView(APIView):
             )
             user_res.raise_for_status()
             gh_user = user_res.json()
-            
+
             email = gh_user.get("email")
             if not email:
                 email_res = requests.get(
@@ -218,9 +236,10 @@ class GithubAuthView(APIView):
                 )
 
                 message = "User created successfully" if created else "User login successfully"
+                if created:
+                    logger.info(f"New user created via GitHub: {email}")
 
                 refresh = RefreshToken.for_user(user)
-
                 response = Response({
                     "user": UserSerializer(user).data,
                     "message": message,
@@ -234,7 +253,6 @@ class GithubAuthView(APIView):
                     samesite='None',
                     max_age=REFRESH_TOKEN_EXPIRY,
                 )
-
                 response.set_cookie(
                     key='access',
                     value=str(refresh.access_token),
@@ -243,25 +261,6 @@ class GithubAuthView(APIView):
                     samesite='None',
                     max_age=ACCESS_TOKEN_EXPIRY,
                 )
-
-                response.set_cookie(
-                    key='ua',
-                    value=request.META.get('HTTP_USER_AGENT', ''),
-                    httponly=False,
-                    secure=True,
-                    samesite='None',
-                    max_age=REFRESH_TOKEN_EXPIRY,
-                )
-
-                response.set_cookie(
-                    key='ip',
-                    value=request.META.get('REMOTE_ADDR', ''),
-                    httponly=False,
-                    secure=True,
-                    samesite='None',
-                    max_age=REFRESH_TOKEN_EXPIRY,
-                )
-
                 return response
 
         except Exception as e:
