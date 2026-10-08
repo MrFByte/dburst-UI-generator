@@ -42,6 +42,7 @@ export const useUserProfile = (): UseUserProfileResult => {
   return {
     user,
     isAuthenticated,
+    loggedOut,
     fetchProfile,
     error,
   };

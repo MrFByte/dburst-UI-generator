@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Github, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { Button } from "@/shared/ui/button";
@@ -8,17 +8,6 @@ import { setCredentials } from "@/core/redux/authSlice";
 import { toast } from "@/shared/hooks/useToast";
 import { requestOtp, verifyOtp } from "@/features/index/api/otpApi";
 import type { ApiError } from "@/core/api/apiHandler";
-
-/**
- * Generates a cryptographically random state token and stores it in
- * sessionStorage under the given key. Returns the generated state string.
- * Used for CSRF protection in OAuth redirect flows.
- */
-function generateOAuthState(key: string): string {
-  const state = crypto.randomUUID();
-  sessionStorage.setItem(key, state);
-  return state;
-}
 
 const OTP_LENGTH = 6;
 // Mirrors backend/config/settings.py's OTP_TTL_MINUTES — purely for the
@@ -56,44 +45,6 @@ export default function AuthPage({ mode }: AuthPageProps) {
       if (tickRef.current) clearInterval(tickRef.current);
     };
   }, [step]);
-
-  /**
-   * Google login using redirect-based authorization code flow.
-   * Google redirects back to /auth/google/callback, which exchanges the code.
-   */
-  const handleGoogleLogin = () => {
-    sessionStorage.removeItem("oauth_processing_google");
-
-    const state = generateOAuthState("oauth_state_google");
-    const redirectUri = `${window.location.origin}/auth/google/callback`;
-
-    const params = new URLSearchParams({
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      scope: "openid email profile",
-      state,
-      access_type: "offline",
-      prompt: "consent",
-    });
-
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
-  };
-
-  const handleGithubLogin = () => {
-    sessionStorage.removeItem("oauth_processing_github");
-
-    const state = generateOAuthState("oauth_state_github");
-    const redirectUri = `${window.location.origin}/auth/github/callback`;
-    const params = new URLSearchParams({
-      client_id: import.meta.env.VITE_GITHUB_CLIENT_ID,
-      redirect_uri: redirectUri,
-      scope: "user:email",
-      state,
-    });
-
-    window.location.href = `https://github.com/login/oauth/authorize?${params}`;
-  };
 
   const sendCode = async (targetEmail: string) => {
     setSending(true);
