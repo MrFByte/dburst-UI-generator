@@ -332,7 +332,11 @@ class LogoutView(APIView):
                 logger.warning(f"Failed to blacklist refresh token on logout: {e}")
 
         response = Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
-        response.delete_cookie("refresh")
-        response.delete_cookie("access")
+        # samesite must match how the cookies were set (issue_auth_cookies) — a
+        # Secure cookie can only be deleted by a Set-Cookie that is itself Secure
+        # ("Leave Secure Cookies Alone"), which Django only adds when samesite
+        # is explicitly "none". Omitting it here silently no-ops the deletion.
+        response.delete_cookie("refresh", samesite=settings.COOKIE_SAMESITE)
+        response.delete_cookie("access", samesite=settings.COOKIE_SAMESITE)
         return response
     

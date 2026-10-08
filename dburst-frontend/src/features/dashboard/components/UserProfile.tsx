@@ -2,18 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, LogOut } from 'lucide-react';
 import { useLogout } from '@/features/index/api/logoutApi';
 import type { User as UserType } from '@/shared/types/userTypes';
-import { useNavigate } from 'react-router-dom';
 
 interface UserProfileProps {
-  user: UserType | null; 
+  user: UserType | null;
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null); 
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const logoutAction = useLogout();
-
-  const navigate = useNavigate();
 
   if (!user) {
     return null; 
@@ -37,14 +34,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
   }, []);
 
   const handleLogout = () => {
-    console.log("Attempting logout...");
-    
-    setIsOpen(false); 
-    logoutAction(); 
-    navigate('/');
+    setIsOpen(false);
+    logoutAction(); // navigates to "/" itself once the logout call settles
   };
-  console.log(user);
-  
+
 
   return (
     <div className="relative" ref={dropdownRef}>
