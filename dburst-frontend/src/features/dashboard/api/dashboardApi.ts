@@ -29,7 +29,7 @@ export const generateUI = (
   return apiHandler(async () => {
     const payload = {
       prompt,
-      llm_provider: "groq",
+      llm_provider: provider,
       ui_model: ui_model || "ui_gemini_2_5",
     };
 

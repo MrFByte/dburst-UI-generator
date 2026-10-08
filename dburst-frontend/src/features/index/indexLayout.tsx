@@ -20,7 +20,7 @@ export default function IndexLayout() {
       onGetStartedClick={() => setGetStartedOpen(true)}
     />
 
-    <Outlet />
+    <Outlet context={{ onStartBuilding: () => setGetStartedOpen(true) } satisfies IndexOutletContext} />
 
     <Footer />
 

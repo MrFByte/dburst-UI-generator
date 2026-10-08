@@ -1,12 +1,6 @@
 import { Github } from "lucide-react";
-import { useGoogleLogin } from "@react-oauth/google";
 import { Modal } from "@/shared/components/Modal";
 import { Button } from "@/shared/ui/button";
-import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { setCredentials } from "@/core/redux/authSlice";
-import { loginWithGoogle } from "@/features/index/api/indexApi";
-import { toast } from "@/shared/hooks/useToast";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -26,43 +20,43 @@ function generateOAuthState(key: string): string {
 }
 
 export function AuthModal({ isOpen, onClose, title }: AuthModalProps) {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-
   /**
-   * Google login using popup-based authorization code flow.
-   * This bypasses Chrome's FedCM which intercepts redirect-based OAuth
-   * and strips the authorization code from the callback URL.
-   * 
-   * The useGoogleLogin hook opens a popup → user authenticates → 
-   * popup returns the auth code directly → we send it to our backend.
+   * Google login using redirect-based authorization code flow.
+   *
+   * We cannot use the popup flow here because Cross-Origin-Opener-Policy is
+   * set to 'same-origin' (required for WebContainer / SharedArrayBuffer).
+   * That header severs the postMessage channel the popup relies on to return
+   * the auth code to the parent window.
+   *
+   * Instead, we redirect the user to Google, Google redirects them back to
+   * /auth/google/callback, and GoogleCallback.tsx exchanges the code.
    */
-  const googleLogin = useGoogleLogin({
-    flow: "auth-code",
-    onSuccess: async (codeResponse) => {
-      console.log("Google login: code received", codeResponse.code ? "yes" : "no");
-      try {
-        const redirectUri = "postmessage"; // popup flow uses "postmessage" as redirect_uri
-        const data = await loginWithGoogle(codeResponse.code, redirectUri);
-        dispatch(setCredentials({ user: data.user }));
-        toast.success("Logged in with Google!");
-        onClose();
-        navigate("/dashboard", { replace: true });
-      } catch (err) {
-        console.error("Google login error:", err);
-        toast.error("Google login failed. Please try again.");
-      }
-    },
-    onError: (error) => {
-      console.error("Google OAuth error:", error);
-      toast.error("Google login failed. Please try again.");
-    },
-  });
+  const handleGoogleLogin = () => {
+    // Clear any stale processing flags
+    sessionStorage.removeItem("oauth_processing_google");
+
+    const state = generateOAuthState("oauth_state_google");
+    const redirectUri = `${window.location.origin}/auth/google/callback`;
+
+    const params = new URLSearchParams({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: "openid email profile",
+      state,
+      access_type: "offline",
+      prompt: "consent",
+    });
+
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+    console.log("AuthModal: Google OAuth URL:", url);
+    window.location.href = url;
+  };
 
   const handleGithubLogin = () => {
     // Clear any stale processing flags
     sessionStorage.removeItem("oauth_processing_github");
-    
+
     const state = generateOAuthState("oauth_state_github");
     const redirectUri = `${window.location.origin}/auth/github/callback`;
     const params = new URLSearchParams({
@@ -87,7 +81,7 @@ export function AuthModal({ isOpen, onClose, title }: AuthModalProps) {
         {/* GOOGLE LOGIN BUTTON */}
         <Button
           className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-medium py-6 flex items-center justify-center gap-3"
-          onClick={() => googleLogin()}
+          onClick={handleGoogleLogin}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 48 48">
             <path

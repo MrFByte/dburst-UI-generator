@@ -1,8 +1,25 @@
 .env
 db.sqlite3
+db.sqlite3-journal
 __pycache__
+*.pyc
+staticfiles/
 
 MANUAL_TESTING_GUIDE.md
 
 localhost+2.crt
 localhost+2.key
+
+# Virtual environment — was untracked but never actually ignored
+.venv_dburst/
+.venv/
+venv/
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log

@@ -6,7 +6,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import path from 'path'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     react({
       babel: {
@@ -16,7 +16,8 @@ export default defineConfig({
     tailwindcss(),
     // Serves the dev server over HTTPS so StackBlitz WebContainer API
     // accepts https://localhost:5173 as an allowed referrer.
-    basicSsl(),
+    // Dev only — production hosting (Vercel) provides real HTTPS.
+    ...(command === 'serve' ? [basicSsl()] : []),
   ],
   resolve: {
     alias: {
@@ -25,15 +26,20 @@ export default defineConfig({
   },
   server: {
     headers: {
-      // Required for WebContainer (SharedArrayBuffer)
+      // Required for WebContainer (SharedArrayBuffer).
+      // NOTE: 'same-origin' blocks OAuth popups — Google login uses redirect
+      // flow (not popup) to stay compatible with this header.
+      // For Login
+      // 'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      // For WebContainer
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'credentialless',
     },
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: 'https://localhost:8000',
         changeOrigin: true,
-        secure: false,
+        secure: false, // backend uses a local mkcert-signed cert, not a CA-trusted one
       }
     }
   },
@@ -42,4 +48,4 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
   },
-})
+}))

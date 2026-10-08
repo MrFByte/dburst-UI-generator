@@ -6,7 +6,11 @@ import {
 import FormField from './FormFiled';
 
 
-export default function AdvancedPromptForm({ onGenerate }) {
+interface AdvancedPromptFormProps {
+  onGenerate: (payload: string, type: string) => void;
+}
+
+export default function AdvancedPromptForm({ onGenerate }: AdvancedPromptFormProps) {
   const [formData, setFormData] = useState({
     instructions: 'Create a responsive landing page for a tech news website.',
     page_title: 'TechNews Home',
@@ -23,7 +27,7 @@ export default function AdvancedPromptForm({ onGenerate }) {
     examples: 'https://example.com/technews',
   });
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
       ...formData,
       [e.target.id]: e.target.value,
@@ -34,7 +38,7 @@ export default function AdvancedPromptForm({ onGenerate }) {
     let xml = '<advanced_prompt>';
     
     // Helper to wrap text fields in XML tags
-    const wrap = (tag, content) => content ? `<${tag}>${content}</${tag}>` : '';
+    const wrap = (tag: string, content: string) => content ? `<${tag}>${content}</${tag}>` : '';
 
     xml += wrap('instructions', formData.instructions);
     xml += wrap('page_title', formData.page_title);

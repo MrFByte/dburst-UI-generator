@@ -1,4 +1,14 @@
-export default function FormField({ label, id, value, onChange, placeholder, type = 'text', rows = 1 }) {
+interface FormFieldProps {
+    label: string;
+    id: string;
+    value: string;
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    placeholder?: string;
+    type?: string;
+    rows?: number;
+}
+
+export default function FormField({ label, id, value, onChange, placeholder, type = 'text', rows = 1 }: FormFieldProps) {
     return (
         <div className="mb-4">
             <label htmlFor={id} className="block text-sm font-medium text-gray-300 mb-1">

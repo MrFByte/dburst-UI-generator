@@ -33,7 +33,9 @@ export function usePatchManager(
         (newSchema: any): PatchOperation[] => {
             try {
                 setIsComputing(true);
-                const patch = compare(schemaRef.current, newSchema);
+                // fast-json-patch's Operation type includes an internal '_get'
+                // variant our PatchOperation (sent to the backend) doesn't model.
+                const patch = compare(schemaRef.current, newSchema) as unknown as PatchOperation[];
                 options.onPatchComputed?.(patch);
                 return patch;
             } catch (error) {
@@ -53,7 +55,7 @@ export function usePatchManager(
     const applyPatchToSchema = useCallback(
         (patch: PatchOperation[]): any => {
             try {
-                const result = applyPatch(schemaRef.current, patch, true, false);
+                const result = applyPatch(schemaRef.current, patch as unknown as Parameters<typeof applyPatch>[1], true, false);
                 const newSchema = result.newDocument;
                 setSchema(newSchema);
                 options.onPatchApplied?.(newSchema);

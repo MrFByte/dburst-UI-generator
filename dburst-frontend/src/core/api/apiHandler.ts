@@ -10,7 +10,7 @@ export async function apiHandler<T>(apiCall: () => Promise<T>): Promise<T> {
   try {
     return await apiCall();
   } catch (err) {
-    const error = err as AxiosError;
+    const error = err as AxiosError<{ message?: string }>;
 
     // Normalize error shape
     const normalizedError: ApiError = {

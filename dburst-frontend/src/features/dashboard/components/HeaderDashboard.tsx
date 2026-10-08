@@ -6,7 +6,12 @@ import {
 import UserProfile from '@/features/dashboard/components/UserProfile';
 import { useUserProfile } from '@/shared/hooks/useUserProfile';
 
-const Header = ({isSidebarOpen, setIsSidebarOpen, setIsModalOpen}) => {
+interface HeaderProps {
+  setIsSidebarOpen: (open: boolean) => void;
+  setIsModalOpen: (open: boolean) => void;
+}
+
+const Header = ({ setIsSidebarOpen, setIsModalOpen }: HeaderProps) => {
     const { user } = useUserProfile();
     if (!user) {
       return null; 

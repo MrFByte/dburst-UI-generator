@@ -17,7 +17,7 @@ import { ModelSelector } from '../components/ModelSelector';
 
 const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [, setIsSidebarOpen] = useState(true);
   const [isPrompting, setIsPrompting] = useState(true);
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -111,7 +111,6 @@ const Dashboard = () => {
 
       <Header
         mode="dashboard"
-        isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         setIsModalOpen={setIsModalOpen}
       />

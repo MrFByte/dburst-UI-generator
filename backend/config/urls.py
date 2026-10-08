@@ -16,10 +16,16 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import path, include
 
 
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
+
 api_routes = [
+    path('health/', health_check, name='health-check'),
     path('users/', include('users.urls')),
     path('projects/', include('projects.urls')),
     path('generation/', include('generation.urls')),
@@ -29,8 +35,8 @@ api_routes = [
 
 
 urlpatterns = [
-    path('dburst/admin-api/', admin.site.urls),    
-        
+    path('dburst/admin-api/', admin.site.urls),
+
     path('api/v1/', include([
         path('', include(api_routes)),
     ]))

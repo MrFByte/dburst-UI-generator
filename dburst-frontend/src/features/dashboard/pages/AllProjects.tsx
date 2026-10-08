@@ -15,8 +15,8 @@ interface PaginatedResponse {
 }
 
 const AllProjects = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [, setIsModalOpen] = useState(false);
+  const [, setIsSidebarOpen] = useState(true);
   const [projects, setProjects] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -56,7 +56,6 @@ const AllProjects = () => {
     <div className="min-h-screen bg-[#0A0A0A] font-sans">
       <Header
         mode="dashboard"
-        isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         setIsModalOpen={setIsModalOpen}
       />

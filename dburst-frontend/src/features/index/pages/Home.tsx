@@ -1,13 +1,10 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { HeroSection9 } from '@/features/index/components/hero-section-9';
+import type { IndexOutletContext } from '@/features/index/indexLayout';
 
-
-interface HomeProps {
-  onStartBuilding: () => void;
-}
-
-export default function Home({ onStartBuilding }: HomeProps) {
+export default function Home() {
   const navigate = useNavigate();
+  const { onStartBuilding } = useOutletContext<IndexOutletContext>();
 
   const handleViewDemo = () => {
     navigate('/demo');

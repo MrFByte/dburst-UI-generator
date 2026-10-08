@@ -1,0 +1,37 @@
+# Secrets — never bake these into an image layer
+.env
+.env.*
+
+# Virtual environment
+.venv_dburst/
+.venv/
+venv/
+
+# Local dev HTTPS certs (runserver_plus only, not used in the container)
+localhost+2.crt
+localhost+2.key
+
+# Local dev database
+db.sqlite3
+db.sqlite3-journal
+
+# Python artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Static files — collected fresh inside the container by start.sh
+staticfiles/
+
+# Logs
+logs/
+*.log
+
+# Docs / misc
+MANUAL_TESTING_GUIDE.md
+
+# VCS
+.git/
+.gitignore

@@ -1,6 +1,13 @@
 import { X } from 'lucide-react';
 
-export default function PanelPlaceholder({ title, side, isOpen, onClose }) {
+interface PanelPlaceholderProps {
+  title: string;
+  side: 'left' | 'right';
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function PanelPlaceholder({ title, side, isOpen, onClose }: PanelPlaceholderProps) {
   if (!isOpen) return null;
 
   // Header height is h-16 (4rem or 64px)

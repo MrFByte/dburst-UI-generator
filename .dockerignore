@@ -1,0 +1,43 @@
+# VCS
+.git/
+.gitignore
+.github/
+
+# Secrets — never bake these into an image layer
+.env
+**/.env
+**/.env.*
+!**/.env.example
+
+# Backend: virtual environment, local-dev artifacts
+backend/.venv_dburst/
+backend/.venv/
+backend/venv/
+backend/db.sqlite3
+backend/db.sqlite3-journal
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+backend/staticfiles/
+backend/logs/
+backend/*.log
+backend/localhost+2.crt
+backend/localhost+2.key
+backend/MANUAL_TESTING_GUIDE.md
+
+# Frontend: not needed inside the backend image at all
+dburst-frontend/node_modules/
+dburst-frontend/dist/
+dburst-frontend/dist-ssr/
+dburst-frontend/coverage/
+
+# Local dev TLS certs at repo root
+*.pem
+
+# Misc project scratch files
+Plan/
+.todo/
+if-login-fails-vite.config.ts

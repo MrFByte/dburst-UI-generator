@@ -48,7 +48,6 @@ export function Phase3Controls({ generationId, schema, onSchemaUpdate }: Phase3C
 
     // Optimistic Updates
     const {
-        data: optimisticSchema,
         applyOptimistic,
         isPending,
     } = useOptimisticUpdate(currentSchema);

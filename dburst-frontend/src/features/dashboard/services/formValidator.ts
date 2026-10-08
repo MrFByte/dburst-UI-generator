@@ -1,15 +1,11 @@
-export const validate = () => {
-    let valid = true;
-    const newErrors = { title: "" };
+const MAX_TITLE_LENGTH = 200;
 
-    if (!title.trim()) {
-      newErrors.title = "Project name is required.";
-      valid = false;
-    } else if (title.length > MAX_TITLE_LENGTH) {
-      newErrors.title = "Project name must be under 200 characters.";
-      valid = false;
-    }
-
-    setErrors(newErrors);
-    return valid;
-  };
+export const validateProjectTitle = (title: string): string => {
+  if (!title.trim()) {
+    return "Project name is required.";
+  }
+  if (title.length > MAX_TITLE_LENGTH) {
+    return "Project name must be under 200 characters.";
+  }
+  return "";
+};

@@ -23,7 +23,6 @@ export function EditableText({
     className,
     placeholder = 'Click to edit...',
     disabled = false,
-    debounceMs = 500,
     multiline = false,
 }: EditableTextProps) {
     const [isEditing, setIsEditing] = useState(false);
@@ -43,6 +42,11 @@ export function EditableText({
         // Focus after state update
         requestAnimationFrame(() => {
             if (editableRef.current) {
+                // Clear the placeholder text so it isn't selected/edited
+                if (!localContent) {
+                    editableRef.current.textContent = '';
+                }
+
                 editableRef.current.focus();
 
                 // Select all text
@@ -128,9 +132,9 @@ export function EditableText({
     // Don't update content while editing to preserve cursor
     useEffect(() => {
         if (!isEditing && editableRef.current) {
-            editableRef.current.textContent = localContent;
+            editableRef.current.textContent = localContent || placeholder;
         }
-    }, [localContent, isEditing]);
+    }, [localContent, isEditing, placeholder]);
 
     return (
         <div className="relative inline-block group">

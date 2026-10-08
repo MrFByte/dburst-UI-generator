@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework import permissions, status
 
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.settings import api_settings as simplejwt_settings
 
 from .models import User, AuthProvider
 from .serializers import UserSerializer
@@ -118,16 +119,16 @@ class GoogleAuthView(APIView):
                     key='refresh',
                     value=str(refresh),
                     httponly=True,
-                    secure=True,
-                    samesite='None',
+                    secure=settings.COOKIE_SECURE,
+                    samesite=settings.COOKIE_SAMESITE,
                     max_age=REFRESH_TOKEN_EXPIRY,
                 )
                 response.set_cookie(
                     key='access',
                     value=str(refresh.access_token),
                     httponly=True,
-                    secure=True,
-                    samesite='None',
+                    secure=settings.COOKIE_SECURE,
+                    samesite=settings.COOKIE_SAMESITE,
                     max_age=ACCESS_TOKEN_EXPIRY,
                 )
                 return response
@@ -249,16 +250,16 @@ class GithubAuthView(APIView):
                     key='refresh',
                     value=str(refresh),
                     httponly=True,
-                    secure=True,
-                    samesite='None',
+                    secure=settings.COOKIE_SECURE,
+                    samesite=settings.COOKIE_SAMESITE,
                     max_age=REFRESH_TOKEN_EXPIRY,
                 )
                 response.set_cookie(
                     key='access',
                     value=str(refresh.access_token),
                     httponly=True,
-                    secure=True,
-                    samesite='None',
+                    secure=settings.COOKIE_SECURE,
+                    samesite=settings.COOKIE_SAMESITE,
                     max_age=ACCESS_TOKEN_EXPIRY,
                 )
                 return response
@@ -301,21 +302,44 @@ class TokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        refresh = request.COOKIES.get("refresh")
-        if not refresh:
+        refresh_str = request.COOKIES.get("refresh")
+        if not refresh_str:
             return Response({"error": "Refresh token not found"}, status=status.HTTP_401_UNAUTHORIZED)
-        
+
         try:
-            token = RefreshToken(refresh)
+            token = RefreshToken(refresh_str)
             response = Response({"access": str(token.access_token)}, status=status.HTTP_200_OK)
             response.set_cookie(
                 key='access',
                 value=str(token.access_token),
                 httponly=True,
-                secure=True, 
-                samesite='None',
+                secure=settings.COOKIE_SECURE,
+                samesite=settings.COOKIE_SAMESITE,
                 max_age=ACCESS_TOKEN_EXPIRY,
             )
+
+            if simplejwt_settings.ROTATE_REFRESH_TOKENS:
+                if simplejwt_settings.BLACKLIST_AFTER_ROTATION:
+                    try:
+                        token.blacklist()
+                    except AttributeError:
+                        pass
+
+                # Re-sign the same token with a fresh jti/iat/exp rather than
+                # minting a new one, matching simplejwt's own rotation logic.
+                token.set_jti()
+                token.set_exp()
+                token.set_iat()
+
+                response.set_cookie(
+                    key='refresh',
+                    value=str(token),
+                    httponly=True,
+                    secure=settings.COOKIE_SECURE,
+                    samesite=settings.COOKIE_SAMESITE,
+                    max_age=REFRESH_TOKEN_EXPIRY,
+                )
+
             return response
         except Exception as e:
             logger.exception(f"Unexpected token refresh error: {e}")
@@ -335,6 +359,13 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        refresh_str = request.COOKIES.get("refresh")
+        if refresh_str:
+            try:
+                RefreshToken(refresh_str).blacklist()
+            except Exception as e:
+                logger.warning(f"Failed to blacklist refresh token on logout: {e}")
+
         response = Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
         response.delete_cookie("refresh")
         response.delete_cookie("access")

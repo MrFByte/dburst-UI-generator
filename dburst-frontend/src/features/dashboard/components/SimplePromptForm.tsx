@@ -5,7 +5,11 @@ import {
 } from 'lucide-react';
 
 
-export default function SimplePromptForm({ onGenerate }) {
+interface SimplePromptFormProps {
+  onGenerate: (prompt: string) => void;
+}
+
+export default function SimplePromptForm({ onGenerate }: SimplePromptFormProps) {
   const [prompt, setPrompt] = useState('');
 
   return (

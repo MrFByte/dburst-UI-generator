@@ -4,10 +4,11 @@ import {
   Menu,
   LogOut,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import UserProfile from "@/features/dashboard/components/UserProfile";
 import { Button } from "@/shared/ui/button";
 import { useUserProfile } from "@/shared/hooks/useUserProfile";
+import { useLogout } from "@/features/index/api/logoutApi";
 import dburstHomepageLogo from "@/assets/dburst-homepage-logo.png";
 
 interface SharedHeaderProps {
@@ -27,13 +28,8 @@ export default function Header({
   setIsSidebarOpen,
   setIsModalOpen,
 }: SharedHeaderProps) {
-  const { user, isAuthenticated, logout } = useUserProfile();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
+  const { user, isAuthenticated } = useUserProfile();
+  const handleLogout = useLogout();
 
   return (
     <header className="fixed top-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-md border-b border-violet-500/20 z-50 animate-[headerGlow_4s_ease-in-out_infinite]">

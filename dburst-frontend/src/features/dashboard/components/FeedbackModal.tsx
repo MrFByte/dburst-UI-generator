@@ -27,7 +27,7 @@ interface FeedbackModalProps {
 
 const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
   const [category, setCategory] = useState('Generated Output');
-  const [rating, setRating] = useState('ok');
+  const [rating, setRating] = useState<number | null>(null);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 

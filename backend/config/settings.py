@@ -33,33 +33,40 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1"
+).split(",")
 
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "https://dburst-ui-generator.vercel.app",
-    "http://localhost:5173",
-    "https://localhost:5173",
-]
+CORS_ALLOW_CREDENTIALS = os.environ.get("CORS_ALLOW_CREDENTIALS", "True") == "True"
+CORS_ALLOWED_ORIGINS = os.environ.get(
+    "CORS_ALLOWED_ORIGINS",
+    "https://dburst-ui-generator.vercel.app,"
+    "http://localhost:5173,"
+    "https://localhost:5173"
+).split(",")
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://dburst-ui-generator.vercel.app",
-    "https://dburst-ui-generator.onrender.com",
-    "http://localhost:5173",
-    "https://localhost:5173",
-]
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
-    "ngrok-skip-browser-warning",
-]
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    "CSRF_TRUSTED_ORIGINS",
+    "https://dburst-ui-generator.vercel.app,"
+    "https://dburst-ui-generator.onrender.com,"
+    "http://localhost:5173,"
+    "https://localhost:5173"
+).split(",")
+
+CORS_ALLOW_HEADERS = os.environ.get(
+    "CORS_ALLOW_HEADERS",
+    "accept,"
+    "accept-encoding,"
+    "authorization,"
+    "content-type,"
+    "dnt,"
+    "origin,"
+    "user-agent,"
+    "x-csrftoken,"
+    "x-requested-with,"
+    "ngrok-skip-browser-warning"
+).split(",")
 
 # 1 day for access, 7 days for refresh
 ACCESS_TOKEN_EXPIRY = 86400
@@ -85,6 +92,7 @@ INSTALLED_APPS = [
     # third party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'rest_framework.authtoken',
     'corsheaders',
     'allauth',
@@ -100,6 +108,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -179,7 +188,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -189,11 +204,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    # NOTE: ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION require
-    # 'rest_framework_simplejwt.token_blacklist' in INSTALLED_APPS and
-    # running its migrations. Disabled until that is set up.
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
 }
 
@@ -211,7 +223,7 @@ AUTH_USER_MODEL = "users.User"
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1", 
+        "LOCATION": os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CLOSE_CONNECTION": True,
@@ -229,11 +241,22 @@ SESSION_CACHE_ALIAS = "default"
 
 # Session Security Settings
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SESSION_COOKIE_SECURE = True  # Set to True for HTTPS (ngrok)
+
+# Cookies marked Secure are silently dropped by the browser unless the
+# response that sets them came over HTTPS, and SameSite=None requires
+# Secure or the cookie gets rejected outright — the two must move together.
+# Local dev runs the backend over HTTPS too (via `runserver_plus` + the
+# mkcert certs in this folder — see run.sh), so these stay True/None in
+# both environments. Override via env only if you deliberately run the
+# backend over plain HTTP (e.g. a quick one-off `runserver`).
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "True") == "True"
+COOKIE_SAMESITE = os.environ.get("COOKIE_SAMESITE", "None")
+
+SESSION_COOKIE_SECURE = COOKIE_SECURE
 SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
-SESSION_COOKIE_SAMESITE = 'None'  # Allow cross-site cookies
-CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SAMESITE = COOKIE_SAMESITE
+CSRF_COOKIE_SECURE = COOKIE_SECURE
+CSRF_COOKIE_SAMESITE = COOKIE_SAMESITE
 SESSION_COOKIE_NAME = 'dburst_sessionid'  # Custom session cookie name
 SESSION_COOKIE_PATH = '/'
 SESSION_COOKIE_DOMAIN = None  # Use default domain
@@ -273,9 +296,10 @@ GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET")
 
 # Whitelisted redirect URIs — backend validates against these.
 # Add your production URL and any local dev URLs here.
+# NOTE: 'postmessage' was used for popup flow — removed in favour of redirect flow
+# which is compatible with Cross-Origin-Opener-Policy: same-origin (WebContainer).
 _google_uris = os.environ.get(
     "GOOGLE_ALLOWED_REDIRECT_URIS",
-    "postmessage,"
     "http://localhost:5173/auth/google/callback,"
     "https://localhost:5173/auth/google/callback,"
     "https://dburst-ui-generator.onrender.com/auth/google/callback,"
@@ -340,3 +364,21 @@ LOGGING = {
 }
 
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
+
+# ========================================
+# ERROR MONITORING (SENTRY)
+# ========================================
+
+SENTRY_DSN = os.environ.get("SENTRY_DSN")
+
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        environment=APP_MODE,
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+    )
