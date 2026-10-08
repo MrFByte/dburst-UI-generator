@@ -10,10 +10,11 @@ import FeedbackModal from '@/features/dashboard/components/FeedbackModal';
 import ProjectCard from '@/features/dashboard/components/ProjectCard';
 import Header from '@/shared/components/Header';
 import Loader from '@/shared/components/Loader';
-import { createProject, getRecentProjects, generateUI } from '../api/dashboardApi';
+import { createProject, getRecentProjects, generateUI, getAvailableModels } from '../api/dashboardApi';
 import { toast } from "@/shared/hooks/useToast";
 import { setItem } from '@/shared/utils/storageManager';
 import { ModelSelector } from '../components/ModelSelector';
+import type { ModelOption } from '../components/ModelSelector';
 
 const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,7 +32,8 @@ const Dashboard = () => {
   });
 
   const MAX_TITLE_LENGTH = 200;
-  const [selectedModel, setSelectedModel] = useState('ui_gemini_2_5');
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [selectedModel, setSelectedModel] = useState('');
   const navigate = useNavigate();
 
 
@@ -67,6 +69,16 @@ const Dashboard = () => {
     setRecentProjects(data);
   };
 
+  const handleLoadModels = async () => {
+    try {
+      const data = await getAvailableModels();
+      setModels(data.models);
+      setSelectedModel(data.default);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load AI models");
+    }
+  };
+
   const handleCreateProject = async () => {
     if (!validate()) return;
 
@@ -86,10 +98,8 @@ const Dashboard = () => {
 
     try {
       setIsGenerating(true);
-      console.log('Selected model:', selectedModel, 'Type:', typeof selectedModel);
 
-      const modelString = String(selectedModel);
-      const project = await generateUI(prompt, "groq", modelString);
+      const project = await generateUI(prompt, selectedModel);
       setItem("lastGeneratedProject", project);
       toast.success("UI generation started successfully");
       navigate(`/dashboard/ui-generator/?projectId=${project.project_id}`);
@@ -103,6 +113,7 @@ const Dashboard = () => {
     if (recentProjects?.length === 0) {
       handleRecentProjects()
     }
+    handleLoadModels();
   }, []);
 
   return (
@@ -219,6 +230,7 @@ const Dashboard = () => {
               <ModelSelector
                 value={selectedModel}
                 onChange={setSelectedModel}
+                options={models}
                 disabled={false}
               />
             </div>

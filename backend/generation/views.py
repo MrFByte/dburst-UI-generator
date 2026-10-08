@@ -13,6 +13,7 @@ from rest_framework import permissions, status
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .llm import LLMClient
+from .llm_models import DEFAULT_UI_MODEL, available_models
 from .codegen import ReactCodeGenerator
 from .schema_validator import SchemaValidator
 from .models import Generations
@@ -97,8 +98,8 @@ class GenerateView(APIView):
         serializer.is_valid(raise_exception=True)
 
         prompt = serializer.validated_data["prompt"]
-        
-        ui_model = serializer.validated_data.get("ui_model", "ui_llama_3_3")
+
+        ui_model_id = serializer.validated_data.get("ui_model", DEFAULT_UI_MODEL)
         project_id = serializer.validated_data.get("project_id")
 
         if project_id:
@@ -110,7 +111,7 @@ class GenerateView(APIView):
             project = None
     
         try:
-            llm_client = LLMClient(ui_model=ui_model)
+            llm_client = LLMClient(ui_model_id=ui_model_id)
             
             logger.info(f"Starting two-stage generation for user: {request.user.id}")
             result = llm_client.generate_ui(prompt)
@@ -160,7 +161,7 @@ class GenerateView(APIView):
                 prompt=prompt,
                 ai_response=ai_response,
                 schema=schema,
-                llm_provider=result["models"]["ui_generation"],
+                llm_provider=result["models"]["provider"],
                 token_usage=total_tokens,
                 status=Generations.Status.SUCCESS,
                 metadata={
@@ -226,6 +227,33 @@ class GenerateView(APIView):
         except Exception as e:
             logger.error(f"Generation failed: {e}", exc_info=True)
             return Response({"error": str(e)}, status=500)
+
+
+class AvailableModelsView(APIView):
+    """
+    Lists the AI models selectable for UI generation.
+
+    Sourced from settings (which reads GROQ_UI_MODELS / GEMINI_UI_MODELS etc.
+    from .env) — see generation/llm_models.py. The frontend should render
+    this list rather than hardcoding model ids.
+
+    Responses:
+        200 OK:
+            {
+                "models": [
+                    {"id": "groq:openai/gpt-oss-20b", "provider": "groq", "model": "openai/gpt-oss-20b", "label": "GPT OSS 20B"},
+                    ...
+                ],
+                "default": "groq:openai/gpt-oss-20b"
+            }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "models": available_models(),
+            "default": DEFAULT_UI_MODEL,
+        })
 
 
 class GenerationDetailView(APIView):

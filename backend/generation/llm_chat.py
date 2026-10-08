@@ -6,30 +6,28 @@ from typing import Optional, Dict, Any
 from django.conf import settings
 
 # Import from existing llm.py
-from .llm import LLM_MODELS, DEFAULT_UI_MODEL, GROQ_API_KEY, GROQ_URL, GEMINI_API_KEY, GEMINI_URL
+from .llm import GROQ_API_KEY, GROQ_URL, GEMINI_API_KEY, GEMINI_BASE_URL
+from .llm_models import DEFAULT_UI_MODEL, parse_model_id
 
 logger = logging.getLogger(__name__)
 
 
 class LLMChat:
     """Handle conversational UI refinement"""
-    
-    def __init__(self, ui_model: str = None):
+
+    def __init__(self, ui_model_id: str = None):
         """
         Initialize chat client for UI refinements
-        
+
         Args:
-            ui_model: Model key for refinements (e.g., 'ui_gemini_2_5', 'ui_llama_3_3')
+            ui_model_id: Composite "provider:model" id (e.g.
+                "groq:openai/gpt-oss-20b"). Defaults to settings.DEFAULT_UI_MODEL.
         """
-        self.ui_model_key = ui_model if ui_model else DEFAULT_UI_MODEL
-        
-        if self.ui_model_key not in LLM_MODELS:
-            raise ValueError(f"Invalid UI model: {self.ui_model_key}")
-        
-        self.ui_model = LLM_MODELS[self.ui_model_key]
+        self.ui_model_id = ui_model_id if ui_model_id else DEFAULT_UI_MODEL
+        self.provider, self.ui_model = parse_model_id(self.ui_model_id)
         self.timeout = 60
-        
-        logger.info(f"LLMChat initialized with model: {self.ui_model_key} ({self.ui_model})")
+
+        logger.info(f"LLMChat initialized with model: {self.ui_model_id}")
     
     def refine_ui(self, current_schema: dict, user_request: str, conversation_history: list = None) -> dict:
         """
@@ -82,9 +80,9 @@ User Request: {user_request}
 Please update the schema based on the user's request and provide a brief explanation."""
         
         try:
-            # Call the appropriate API based on model
-            if self.ui_model_key.startswith("ui_gemini"):
-                result = self._call_gemini(refinement_prompt, system_prompt)
+            # Call the appropriate API based on provider
+            if self.provider == "gemini":
+                result = self._call_gemini(refinement_prompt, system_prompt, self.ui_model)
             else:
                 result = self._call_groq_api(refinement_prompt, system_prompt, self.ui_model)
             
@@ -134,10 +132,10 @@ Please update the schema based on the user's request and provide a brief explana
         
         return self._parse_response(content, usage)
     
-    def _call_gemini(self, prompt: str, system_prompt: str) -> dict:
+    def _call_gemini(self, prompt: str, system_prompt: str, model: str) -> dict:
         """Call Gemini API for refinement"""
         headers = {"Content-Type": "application/json"}
-        
+
         payload = {
             "contents": [
                 {
@@ -152,8 +150,8 @@ Please update the schema based on the user's request and provide a brief explana
                 "maxOutputTokens": 8192,
             }
         }
-        
-        url = f"{GEMINI_URL}?key={GEMINI_API_KEY}"
+
+        url = f"{GEMINI_BASE_URL}/{model}:generateContent?key={GEMINI_API_KEY}"
         response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
         
         if response.status_code != 200:

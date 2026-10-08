@@ -51,14 +51,14 @@ def test_generate_request_serializer_valid():
     payload = {
         "project_id": str(uuid.uuid4()),
         "prompt": "Create dashboard UI",
-        "ui_model": "ui_llama_3_3",
+        "ui_model": "groq:openai/gpt-oss-20b",
     }
 
     serializer = GenerateRequestSerializer(data=payload)
     assert serializer.is_valid(), serializer.errors
 
     assert serializer.validated_data["prompt"] == "Create dashboard UI"
-    assert serializer.validated_data["ui_model"] == "ui_llama_3_3"
+    assert serializer.validated_data["ui_model"] == "groq:openai/gpt-oss-20b"
 
 
 def test_generate_request_serializer_no_project_id():
@@ -66,7 +66,7 @@ def test_generate_request_serializer_no_project_id():
 
     payload = {
         "prompt": "Create component",
-        "ui_model": "ui_gemini_2_5",
+        "ui_model": "gemini:models/gemini-3.8-flash",
         "project_id": None,
     }
 
@@ -78,7 +78,7 @@ def test_generate_request_serializer_no_project_id():
 def test_generate_request_serializer_missing_prompt():
     """prompt is required and cannot be missing."""
 
-    payload = {"ui_model": "ui_llama_3_3"}
+    payload = {"ui_model": "groq:openai/gpt-oss-20b"}
 
     serializer = GenerateRequestSerializer(data=payload)
 
@@ -88,7 +88,7 @@ def test_generate_request_serializer_missing_prompt():
 
 
 def test_generate_request_serializer_invalid_model():
-    """Model must be a valid choice."""
+    """Model must be a valid, currently-configured model id."""
 
     payload = {
         "prompt": "generate UI",
@@ -108,10 +108,21 @@ def test_generate_request_serializer_invalid_uuid():
     payload = {
         "project_id": "not-a-uuid",
         "prompt": "Test UI",
-        "ui_model": "ui_llama_3_3",
+        "ui_model": "groq:openai/gpt-oss-20b",
     }
 
     serializer = GenerateRequestSerializer(data=payload)
 
     assert not serializer.is_valid()
     assert "project_id" in serializer.errors
+
+
+def test_generate_request_serializer_defaults_ui_model():
+    """ui_model is optional and falls back to settings.DEFAULT_UI_MODEL."""
+    from generation.llm_models import DEFAULT_UI_MODEL
+
+    payload = {"prompt": "Create dashboard UI"}
+
+    serializer = GenerateRequestSerializer(data=payload)
+    assert serializer.is_valid(), serializer.errors
+    assert serializer.validated_data["ui_model"] == DEFAULT_UI_MODEL

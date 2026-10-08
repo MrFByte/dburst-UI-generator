@@ -5,26 +5,15 @@ import requests
 from typing import Optional, Dict, Any
 from django.conf import settings
 
+from .llm_models import DEFAULT_UI_MODEL, make_model_id, parse_model_id, reasoning_model_for
+
 logger = logging.getLogger(__name__)
 
 GROQ_API_KEY = settings.GROQ_AI_API_KEY
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 GEMINI_API_KEY = settings.GEMINI_API_KEY
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-
-LLM_MODELS = {
-    "ui_gemini_2_5": "gemini-2.5-flash",
-    "ui_llama_3_3": "llama-3.3-70b-versatile",
-    "ui_gemma_2_9b": "gemma-2-9b",
-    "ui_gpt_oss_120b": "openai/gpt-oss-120b",
-    
-    "plan_moonshot": "openai/gpt-oss-120b",  #moonshot got Deprecated
-    "plan_llama_4_scout": "meta-llama/llama-4-scout-17b-16e-instruct"
-}
-
-DEFAULT_PLANNING_MODEL = "plan_moonshot"
-DEFAULT_UI_MODEL = "ui_gemini_2_5"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
 PLANNER_SYSTEM_PROMPT = """
 You are a reasoning-first UI architect.
@@ -323,32 +312,27 @@ DO NOT use placeholder text - always generate actual, meaningful content.
 class LLMClient:
     """Two-stage LLM: Strategic Planning → Precision Building"""
     
-    def __init__(self, ui_model: str = None, planning_model: str = None):
+    def __init__(self, ui_model_id: str = None):
         """
-        Initialize client with model selection
-        
+        Initialize client with model selection.
+
         Args:
-            ui_model: Model key for UI generation (e.g., 'ui_gemini_2_5', 'ui_llama_3_3')
-            planning_model: Model key for planning (defaults to 'plan_moonshot')
+            ui_model_id: Composite "provider:model" id (e.g.
+                "groq:openai/gpt-oss-20b", "gemini:models/gemini-3.8-flash").
+                Defaults to settings.DEFAULT_UI_MODEL. The planning/reasoning
+                model is always the configured reasoning model for that same
+                provider — never a different provider than the UI model.
         """
-        self.ui_model_key = ui_model if ui_model else DEFAULT_UI_MODEL
-        self.planning_model_key = planning_model if planning_model else DEFAULT_PLANNING_MODEL
-        
-        # Validate models exist
-        if self.ui_model_key not in LLM_MODELS:
-            raise ValueError(f"Invalid UI model: {self.ui_model_key}. Must be one of {list(LLM_MODELS.keys())}")
-        if self.planning_model_key not in LLM_MODELS:
-            raise ValueError(f"Invalid planning model: {self.planning_model_key}")
-        
-        self.ui_model = LLM_MODELS[self.ui_model_key]
-        self.planning_model = LLM_MODELS[self.planning_model_key]
-        
+        self.ui_model_id = ui_model_id if ui_model_id else DEFAULT_UI_MODEL
+        self.provider, self.ui_model = parse_model_id(self.ui_model_id)
+        self.planning_model = reasoning_model_for(self.provider)
+
         self.timeout = 60
-        
-        logger.info(f"LLMClient initialized:")
-        logger.info(f"  Planning model: {self.planning_model_key} ({self.planning_model})")
-        logger.info(f"  UI generation model: {self.ui_model_key} ({self.ui_model})")
-        
+
+        logger.info(f"LLMClient initialized: provider={self.provider}")
+        logger.info(f"  Planning model: {self.planning_model}")
+        logger.info(f"  UI generation model: {self.ui_model}")
+
     def generate_ui(self, user_prompt: str, retries: int = 3) -> Dict[str, Any]:
         """
         Two-stage generation:
@@ -387,15 +371,23 @@ class LLMClient:
                 "generation_tokens": ui_result.get("usage", {})
             },
             "models": {
-                "planning": self.planning_model_key,
-                "ui_generation": self.ui_model_key
+                "provider": self.provider,
+                "planning": make_model_id(self.provider, self.planning_model),
+                "ui_generation": self.ui_model_id
             }
         }
-    
+
     def _call_planner(self, prompt: str, retries: int) -> Dict[str, Any]:
-        """Stage 1: Strategic design planning with planning model"""
+        """Stage 1: Strategic design planning — same provider as the UI model."""
         for attempt in range(retries):
             try:
+                if self.provider == "gemini":
+                    return self._call_gemini(
+                        prompt=prompt,
+                        system_prompt=PLANNER_SYSTEM_PROMPT,
+                        model=self.planning_model,
+                        max_tokens=3500
+                    )
                 return self._call_groq_api(
                     prompt=prompt,
                     system_prompt=PLANNER_SYSTEM_PROMPT,
@@ -466,8 +458,13 @@ THEME MODE CRITICAL INSTRUCTIONS:
         
         for attempt in range(retries):
             try:
-                if self.ui_model_key.startswith("ui_gemini"):
-                    return self._call_gemini(enhanced_prompt, UI_GENERATOR_SYSTEM_PROMPT, max_tokens=8192)
+                if self.provider == "gemini":
+                    return self._call_gemini(
+                        prompt=enhanced_prompt,
+                        system_prompt=UI_GENERATOR_SYSTEM_PROMPT,
+                        model=self.ui_model,
+                        max_tokens=8192
+                    )
                 else:
                     return self._call_groq_api(
                         prompt=enhanced_prompt,
@@ -511,10 +508,10 @@ THEME MODE CRITICAL INSTRUCTIONS:
         
         return self._parse_response(content, usage)
     
-    def _call_gemini(self, prompt: str, system_prompt: str, max_tokens: int = 4096) -> Dict[str, Any]:
-        """Call Gemini API"""
+    def _call_gemini(self, prompt: str, system_prompt: str, model: str, max_tokens: int = 4096) -> Dict[str, Any]:
+        """Call Gemini API with the given model (e.g. "models/gemini-3.8-flash")"""
         headers = {"Content-Type": "application/json"}
-        
+
         payload = {
             "contents": [
                 {
@@ -529,9 +526,9 @@ THEME MODE CRITICAL INSTRUCTIONS:
                 "maxOutputTokens": max_tokens,
             }
         }
-        
-        url = f"{GEMINI_URL}?key={GEMINI_API_KEY}"
-        logger.info("Calling Gemini API")
+
+        url = f"{GEMINI_BASE_URL}/{model}:generateContent?key={GEMINI_API_KEY}"
+        logger.info(f"Calling Gemini API with model: {model}")
         response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
         
         if response.status_code != 200:

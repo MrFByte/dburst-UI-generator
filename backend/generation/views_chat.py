@@ -107,7 +107,8 @@ def refine_ui(request):
         )
         
         # Initialize LLMChat with the same model used for generation
-        chat_client = LLMChat(ui_model=generation.llm_provider)
+        ui_model_id = (generation.metadata or {}).get("ui_model")
+        chat_client = LLMChat(ui_model_id=ui_model_id)
         
         # Build conversation history (for now, just the initial prompt)
         conversation_history = [

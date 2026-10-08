@@ -73,7 +73,7 @@ def test_github_no_access_token(mock_post, api_client, url):
 @pytest.mark.django_db
 @patch("users.views.requests.get")
 @patch("users.views.requests.post")
-@patch("users.views.RefreshToken")
+@patch("users.services.RefreshToken")
 def test_github_existing_user(mock_refresh, mock_post, mock_get, api_client, url):
     mock_post.return_value = mock_token_response()
     mock_get.return_value = mock_user_response(email="test@example.com", github_id=222)
@@ -100,7 +100,7 @@ def test_github_existing_user(mock_refresh, mock_post, mock_get, api_client, url
 @pytest.mark.django_db
 @patch("users.views.requests.get")
 @patch("users.views.requests.post")
-@patch("users.views.RefreshToken")
+@patch("users.services.RefreshToken")
 def test_github_creates_user(mock_refresh, mock_post, mock_get, api_client, url):
     mock_post.return_value = mock_token_response()
     mock_get.return_value = mock_user_response(email="new@example.com", github_id=333)
@@ -124,7 +124,7 @@ def test_github_creates_user(mock_refresh, mock_post, mock_get, api_client, url)
 @pytest.mark.django_db
 @patch("users.views.requests.get")
 @patch("users.views.requests.post")
-@patch("users.views.RefreshToken")
+@patch("users.services.RefreshToken")
 def test_github_email_fallback(mock_refresh, mock_post, mock_get, api_client, url):
     mock_user = MagicMock()
     mock_user.json.return_value = {"id": 500, "email": None, "login": "abc"}

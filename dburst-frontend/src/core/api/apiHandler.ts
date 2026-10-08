@@ -10,12 +10,14 @@ export async function apiHandler<T>(apiCall: () => Promise<T>): Promise<T> {
   try {
     return await apiCall();
   } catch (err) {
-    const error = err as AxiosError<{ message?: string }>;
+    const error = err as AxiosError<{ message?: string; error?: string }>;
 
-    // Normalize error shape
+    // Normalize error shape — most of our DRF views return {"error": "..."}
+    // rather than {"message": "..."}, so check both.
     const normalizedError: ApiError = {
       message:
         error.response?.data?.message ||
+        error.response?.data?.error ||
         error.message ||
         "Something went wrong",
       status: error.response?.status,

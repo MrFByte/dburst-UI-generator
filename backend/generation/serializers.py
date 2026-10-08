@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Generations
+from .llm_models import DEFAULT_UI_MODEL, is_valid_model_id
 from projects.serializers import ProjectSerializer
 
 
@@ -24,40 +25,37 @@ class GenerationSerializer(serializers.ModelSerializer):
 class GenerateRequestSerializer(serializers.Serializer):
     """
     Request serializer for UI generation
-    
+
     Fields:
         prompt: User's UI generation prompt (required)
-        ui_model: UI generation model selection (optional)
-            Options: ui_gemini_2_5, ui_llama_3_3, ui_gemma_2_9b, ui_gpt_oss_120b
-            Default: ui_gemini_2_5
+        ui_model: Composite "provider:model" id (optional), e.g.
+            "groq:openai/gpt-oss-20b" or "gemini:models/gemini-3.8-flash".
+            Valid ids come from GET /generation/models/ — see llm_models.py.
+            Default: settings.DEFAULT_UI_MODEL
     """
     prompt = serializers.CharField(
         required=True,
         max_length=2000,
         help_text="Description of the UI to generate"
     )
-    ui_model = serializers.ChoiceField(
+    ui_model = serializers.CharField(
         required=False,
-        choices=[
-            "ui_llama_3_3",
-            "ui_gemma_2_9b", 
-            "ui_gemini_2_5",
-            "ui_gpt_oss_120b"
-        ],
-        default="ui_gemini_2_5",
-        help_text="""
-            Model to use for UI generation.
-            Options: ui_gemini_2_5, ui_llama_3_3, ui_gemma_2_9b, ui_gpt_oss_120b
-        """
+        default=DEFAULT_UI_MODEL,
+        help_text="Composite 'provider:model' id — see GET /generation/models/ for valid values."
     )
     project_id = serializers.UUIDField(
         required=False,
         allow_null=True,
         help_text="Optional project ID to attach generation to"
     )
-    
+
     def validate_prompt(self, value):
         """Ensure prompt is not empty"""
         if not value.strip():
             raise serializers.ValidationError("Prompt cannot be empty")
         return value.strip()
+
+    def validate_ui_model(self, value):
+        if not is_valid_model_id(value):
+            raise serializers.ValidationError(f"'{value}' is not a valid choice.")
+        return value

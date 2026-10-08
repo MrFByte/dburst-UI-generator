@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your DBurst verification code</title>
+</head>
+<body style="margin:0; padding:0; background-color:#18181b; font-family:'Segoe UI', Helvetica, Arial, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#18181b; padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; background-color:#09090b; border:1px solid #27272a; border-radius:16px; overflow:hidden;">
+
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding:32px 24px 16px 24px;">
+              <img src="cid:dburst-logo" alt="DBurst" width="44" height="44" style="display:inline-block; vertical-align:middle; border:0;" />
+              <span style="display:inline-block; vertical-align:middle; margin-left:4px; font-size:22px; font-weight:800; letter-spacing:0.5px; color:#a78bfa;">-BURST</span>
+            </td>
+          </tr>
+
+          <!-- Headline -->
+          <tr>
+            <td align="center" style="padding:8px 32px 0 32px;">
+              <p style="margin:0; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:#71717a;">
+                {% if purpose == "signup" %}Verify your email to create your account{% else %}Your sign-in code{% endif %}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Code -->
+          <tr>
+            <td align="center" style="padding:20px 32px 8px 32px;">
+              <div style="display:inline-block; padding:16px 28px; background-color:#18181b; border:1px solid #3f3f46; border-radius:12px;">
+                <span style="font-size:36px; font-weight:700; letter-spacing:10px; color:#f4f4f5; font-family:'Courier New', monospace;">{{ code }}</span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Expiry note -->
+          <tr>
+            <td align="center" style="padding:16px 32px 0 32px;">
+              <p style="margin:0; font-size:14px; color:#a1a1aa; line-height:1.5;">
+                This code expires in <strong style="color:#e4e4e7;">{{ expiry_minutes }} minutes</strong>.
+                If you didn't request this, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:28px 32px 0 32px;">
+              <div style="border-top:1px solid #27272a;"></div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:20px 32px 32px 32px;">
+              <p style="margin:0; font-size:12px; color:#52525b;">
+                DBurst · AI-powered UI builder · A product of MindBurst
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

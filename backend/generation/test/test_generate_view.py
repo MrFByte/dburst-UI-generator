@@ -39,8 +39,9 @@ def test_generate_success(
             "generation_tokens": {"total_tokens": 73}
         },
         "models": {
-            "planning": "plan_moonshot",
-            "ui_generation": "groq"
+            "provider": "groq",
+            "planning": "groq:openai/gpt-oss-120b",
+            "ui_generation": "groq:openai/gpt-oss-20b"
         }
     }
     mock_llm.return_value = mock_llm_instance
@@ -53,7 +54,7 @@ def test_generate_success(
 
     response = api_client.post(url, {
         "prompt": "Make a UI",
-        "llm_provider": "groq"
+        "ui_model": "groq:openai/gpt-oss-20b"
     })
 
     assert response.status_code == 201
@@ -65,6 +66,7 @@ def test_generate_success(
     gen = Generations.objects.first()
     assert gen is not None
     assert gen.status == "success"
+    assert gen.llm_provider == "groq"
 
     mock_cache.assert_called_once()
 

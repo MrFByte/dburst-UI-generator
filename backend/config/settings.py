@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     
     # local apps
     'users',
+    'otp_auth',
     'projects',
     'generation',
     'patching',
@@ -245,10 +246,11 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Cookies marked Secure are silently dropped by the browser unless the
 # response that sets them came over HTTPS, and SameSite=None requires
 # Secure or the cookie gets rejected outright — the two must move together.
-# Local dev runs the backend over HTTPS too (via `runserver_plus` + the
-# mkcert certs in this folder — see run.sh), so these stay True/None in
-# both environments. Override via env only if you deliberately run the
-# backend over plain HTTP (e.g. a quick one-off `runserver`).
+# Production (Render/Vercel, both HTTPS) wants True/None, which is the
+# default here. Local dev runs the backend over plain HTTP (see run.sh),
+# so backend/.env overrides these to False/Lax — same-site is still true
+# for localhost:5173 <-> localhost:8000 (same scheme + hostname, just a
+# different port), so Lax cookies still flow on cross-port XHR fine.
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "True") == "True"
 COOKIE_SAMESITE = os.environ.get("COOKIE_SAMESITE", "None")
 
@@ -318,6 +320,60 @@ GITHUB_ALLOWED_REDIRECT_URIS = [u.strip() for u in _github_uris.split(",") if u.
 
 GROQ_AI_API_KEY = os.environ.get("GROQ_AI_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
+# Selectable UI-generation models per provider, plus the "reasoning"/planner
+# model used alongside whichever one the user picks — see generation/llm_models.py.
+# Update these when a provider deprecates or renames a model; no code change needed.
+_split_csv = lambda value: [v.strip() for v in value.split(",") if v.strip()]
+
+GROQ_UI_MODELS = _split_csv(os.environ.get("GROQ_UI_MODELS", "openai/gpt-oss-20b,openai/gpt-oss-120b"))
+GROQ_REASONING_MODEL = os.environ.get("GROQ_REASONING_MODEL", "openai/gpt-oss-120b")
+
+GEMINI_UI_MODELS = _split_csv(os.environ.get("GEMINI_UI_MODELS", "models/gemini-3.8-flash,models/gemini-3.5-flash-lite"))
+GEMINI_REASONING_MODEL = os.environ.get("GEMINI_REASONING_MODEL", "models/gemini-3.8-flash")
+
+DEFAULT_UI_MODEL = os.environ.get("DEFAULT_UI_MODEL", "groq:openai/gpt-oss-20b")
+
+# ========================================
+# EMAIL (OTP delivery)
+# ========================================
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.environ.get("EMAIL_HOST")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+
+# ========================================
+# EMAIL OTP SIGN-IN
+# ========================================
+
+OTP_LENGTH = 6
+OTP_TTL_MINUTES = 3
+OTP_MAX_REQUESTS_PER_WINDOW = 5
+OTP_RATE_LIMIT_WINDOW_HOURS = 3
+OTP_MAX_VERIFY_ATTEMPTS = 5
+
+# ========================================
+# CELERY (async OTP email delivery)
+# ========================================
+
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1")
+# No result backend — OTP emails are fire-and-forget, nothing ever reads a
+# task's return value, so there's nothing worth paying a backend round-trip for.
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+
+# REDIS_URL can be a managed TLS instance (rediss://); without this, kombu
+# silently falls back to an unverified TLS connection and logs a warning
+# on every connect — this makes that explicit instead of implicit.
+if CELERY_BROKER_URL.startswith("rediss://"):
+    import ssl
+    CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
 
 # ========================================
 # LOGGING (STRUCTLOG)

@@ -7,4 +7,5 @@ export const ProjectsUrls = {
 
 export const GenerationUrls = {
     generateUI: 'generation/generate/',
+    availableModels: 'generation/models/',
 }

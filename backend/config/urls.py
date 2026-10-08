@@ -27,6 +27,7 @@ def health_check(request):
 api_routes = [
     path('health/', health_check, name='health-check'),
     path('users/', include('users.urls')),
+    path('otp/', include('otp_auth.urls')),
     path('projects/', include('projects.urls')),
     path('generation/', include('generation.urls')),
     path('patching/', include('patching.urls')),

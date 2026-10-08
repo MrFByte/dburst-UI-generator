@@ -3,4 +3,6 @@ export const indexUrl = {
     github: `users/auth/github/`,
     logout: `users/auth/logout/`,
     profile: `users/profile/`,
+    otpRequest: `otp/request/`,
+    otpVerify: `otp/verify/`,
 }

@@ -23,19 +23,20 @@ export const getRecentProjects = () => {
 
 export const generateUI = (
   prompt: string,
-  provider: string,
   ui_model?: string
 ) => {
   return apiHandler(async () => {
-    const payload = {
-      prompt,
-      llm_provider: provider,
-      ui_model: ui_model || "ui_gemini_2_5",
-    };
-
-    console.log('GenerateUI API payload:', payload);
+    const payload: Record<string, unknown> = { prompt };
+    if (ui_model) payload.ui_model = ui_model;
 
     const { data } = await api.post(GenerationUrls.generateUI, payload);
+    return data;
+  });
+};
+
+export const getAvailableModels = () => {
+  return apiHandler(async () => {
+    const { data } = await api.get(GenerationUrls.availableModels);
     return data;
   });
 };

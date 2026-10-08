@@ -15,6 +15,7 @@ from rest_framework_simplejwt.settings import api_settings as simplejwt_settings
 
 from .models import User, AuthProvider
 from .serializers import UserSerializer
+from .services import issue_auth_cookies
 
 logger = logging.getLogger(__name__)
 REFRESH_TOKEN_EXPIRY = settings.REFRESH_TOKEN_EXPIRY
@@ -109,29 +110,11 @@ class GoogleAuthView(APIView):
                     message = "User created successfully"
                     logger.info(f"New user created via Google: {email}")
 
-                refresh = RefreshToken.for_user(user)
                 response = Response({
                     "user": UserSerializer(user).data,
                     "message": message,
                 }, status=status.HTTP_200_OK)
-
-                response.set_cookie(
-                    key='refresh',
-                    value=str(refresh),
-                    httponly=True,
-                    secure=settings.COOKIE_SECURE,
-                    samesite=settings.COOKIE_SAMESITE,
-                    max_age=REFRESH_TOKEN_EXPIRY,
-                )
-                response.set_cookie(
-                    key='access',
-                    value=str(refresh.access_token),
-                    httponly=True,
-                    secure=settings.COOKIE_SECURE,
-                    samesite=settings.COOKIE_SAMESITE,
-                    max_age=ACCESS_TOKEN_EXPIRY,
-                )
-                return response
+                return issue_auth_cookies(response, user)
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error during Google token exchange: {e}")
@@ -240,29 +223,11 @@ class GithubAuthView(APIView):
                 if created:
                     logger.info(f"New user created via GitHub: {email}")
 
-                refresh = RefreshToken.for_user(user)
                 response = Response({
                     "user": UserSerializer(user).data,
                     "message": message,
                 }, status=200)
-
-                response.set_cookie(
-                    key='refresh',
-                    value=str(refresh),
-                    httponly=True,
-                    secure=settings.COOKIE_SECURE,
-                    samesite=settings.COOKIE_SAMESITE,
-                    max_age=REFRESH_TOKEN_EXPIRY,
-                )
-                response.set_cookie(
-                    key='access',
-                    value=str(refresh.access_token),
-                    httponly=True,
-                    secure=settings.COOKIE_SECURE,
-                    samesite=settings.COOKIE_SAMESITE,
-                    max_age=ACCESS_TOKEN_EXPIRY,
-                )
-                return response
+                return issue_auth_cookies(response, user)
 
         except Exception as e:
             logger.exception(f"GitHub OAuth error: {e}")

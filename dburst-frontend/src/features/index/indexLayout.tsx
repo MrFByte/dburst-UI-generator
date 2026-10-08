@@ -1,42 +1,25 @@
-import { Outlet } from 'react-router-dom';
-import { useState } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import Header from '@/shared/components/Header';
 import { Footer } from '@/shared/components/Footer';
-import { AuthModal } from "@/features/index/components/AuthModal";
 
 export type IndexOutletContext = {
   onStartBuilding: () => void;
 };
 
 export default function IndexLayout() {
-  const [isLoginModalOpen, setLoginModalOpen] = useState(false);
-  const [isGetStartedOpen, setGetStartedOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <>
-    <Header
-      mode="landing"
-      onLoginClick={() => setLoginModalOpen(true)}
-      onGetStartedClick={() => setGetStartedOpen(true)}
-    />
+      <Header
+        mode="landing"
+        onLoginClick={() => navigate('/login')}
+        onGetStartedClick={() => navigate('/signup')}
+      />
 
-    <Outlet context={{ onStartBuilding: () => setGetStartedOpen(true) } satisfies IndexOutletContext} />
+      <Outlet context={{ onStartBuilding: () => navigate('/signup') } satisfies IndexOutletContext} />
 
-    <Footer />
-
-    {/* Login Modal */}
-    <AuthModal
-      isOpen={isLoginModalOpen}
-      onClose={() => setLoginModalOpen(false)}
-      title="Login"
-    />
-
-    {/* Get Started Modal */}
-    <AuthModal
-      isOpen={isGetStartedOpen}
-      onClose={() => setGetStartedOpen(false)}
-      title="Get Started"
-    />
-  </>
-);
+      <Footer />
+    </>
+  );
 }

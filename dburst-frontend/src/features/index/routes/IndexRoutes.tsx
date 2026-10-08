@@ -6,6 +6,8 @@ import About from '@/features/index/pages/About';
 import Contact from '@/features/index/pages/Contact';
 import GithubCallback from '@/features/index/pages/GithubCallback';
 import GoogleCallback from '@/features/index/pages/GoogleCallback';
+import SignIn from '@/features/index/pages/SignIn';
+import SignUp from '@/features/index/pages/SignUp';
 
 export default function IndexRoutes() {
   return (
@@ -15,6 +17,11 @@ export default function IndexRoutes() {
           while login is in progress, causing a race condition.  */}
       <Route path="/auth/google/callback" element={<GoogleCallback />} />
       <Route path="/auth/github/callback" element={<GithubCallback />} />
+
+      {/* Auth pages — rendered bare, no landing Header/Footer, so the
+          nav's Login/Get Started buttons don't show up on top of them. */}
+      <Route path="/login" element={<SignIn />} />
+      <Route path="/signup" element={<SignUp />} />
 
       <Route path="/" element={<IndexLayout />}>
         <Route index element={<Home />} />

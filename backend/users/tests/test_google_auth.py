@@ -61,7 +61,7 @@ def test_google_no_id_token_returns_400(mock_post, api_client, url):
 @pytest.mark.django_db
 @patch("users.views.verify_oauth2_token")
 @patch("users.views.requests.post")
-@patch("users.views.RefreshToken")
+@patch("users.services.RefreshToken")
 def test_google_auth_existing_user(mock_refresh, mock_post, mock_verify, api_client, url):
     mock_post.return_value = mock_google_token_response()
     mock_verify.return_value = {
@@ -94,7 +94,7 @@ def test_google_auth_existing_user(mock_refresh, mock_post, mock_verify, api_cli
 @pytest.mark.django_db
 @patch("users.views.verify_oauth2_token")
 @patch("users.views.requests.post")
-@patch("users.views.RefreshToken")
+@patch("users.services.RefreshToken")
 def test_google_auth_creates_user(mock_refresh, mock_post, mock_verify, api_client, url):
     mock_post.return_value = mock_google_token_response()
     mock_verify.return_value = {
