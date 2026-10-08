@@ -4,7 +4,16 @@ import { store } from "@/core/redux/store";
 import { logout } from "@/core/redux/authSlice";
 import { refreshTokenApi } from "./refreshTokenApi";
 
-export const baseUrl = import.meta.env.VITE_API_URL;
+// In dev, go through Vite's own "/api" proxy (vite.config.ts) as a
+// same-origin relative path instead of the absolute VITE_API_URL. Vite's
+// proxy runs server-side and forwards to the backend regardless of what
+// host the browser thinks it's on, so this keeps working whether the page
+// is loaded via localhost or a tunnel (ngrok, etc.) — an absolute
+// http://localhost:8000 URL is cross-site from a tunnel's origin, which
+// makes the browser drop the SameSite=Lax auth cookies and silently log
+// the user out right after login. Production (static Vercel build) has no
+// such proxy, so it keeps using the absolute VITE_API_URL as before.
+export const baseUrl = import.meta.env.DEV ? "/api/v1/" : import.meta.env.VITE_API_URL;
 
 export const api: AxiosInstance = axios.create({
   baseURL: baseUrl,

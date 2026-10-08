@@ -388,7 +388,8 @@ class LLMClient:
                         prompt=prompt,
                         system_prompt=PLANNER_SYSTEM_PROMPT,
                         model=self.planning_model,
-                        max_tokens=3500
+                        max_tokens=4096,
+                        thinking_budget=-1,  # dynamic — planning quality benefits from thinking
                     )
                 return self._call_groq_api(
                     prompt=prompt,
@@ -465,7 +466,8 @@ THEME MODE CRITICAL INSTRUCTIONS:
                         prompt=enhanced_prompt,
                         system_prompt=UI_GENERATOR_SYSTEM_PROMPT,
                         model=self.ui_model,
-                        max_tokens=8192
+                        max_tokens=16384,
+                        thinking_budget=0,  # deterministic formatting — reserve the whole budget for output
                     )
                 else:
                     return self._call_groq_api(
@@ -510,9 +512,33 @@ THEME MODE CRITICAL INSTRUCTIONS:
         
         return self._parse_response(content, usage)
     
-    def _call_gemini(self, prompt: str, system_prompt: str, model: str, max_tokens: int = 4096) -> Dict[str, Any]:
-        """Call Gemini API with the given model (e.g. "models/gemini-3.8-flash")"""
+    def _call_gemini(
+        self,
+        prompt: str,
+        system_prompt: str,
+        model: str,
+        max_tokens: int = 4096,
+        thinking_budget: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Call Gemini API with the given model (e.g. "models/gemini-3.8-flash").
+
+        thinking_budget: forwarded as generationConfig.thinkingConfig.thinkingBudget
+            when given. Gemini 3.x models think by default, and thought tokens are
+            drawn from the same maxOutputTokens budget as the visible response —
+            left uncapped, a model can spend most of max_tokens thinking and
+            truncate the actual output mid-JSON. Pass -1 for dynamic/unbounded
+            thinking (planning stage, where reasoning quality matters) or 0 to
+            disable thinking entirely (UI-generation stage, a deterministic
+            formatting task where the full budget should go to visible output).
+        """
         headers = {"Content-Type": "application/json"}
+
+        generation_config = {
+            "temperature": 0.4,
+            "maxOutputTokens": max_tokens,
+        }
+        if thinking_budget is not None:
+            generation_config["thinkingConfig"] = {"thinkingBudget": thinking_budget}
 
         payload = {
             "contents": [
@@ -523,10 +549,7 @@ THEME MODE CRITICAL INSTRUCTIONS:
                     ]
                 }
             ],
-            "generationConfig": {
-                "temperature": 0.4,
-                "maxOutputTokens": max_tokens,
-            }
+            "generationConfig": generation_config
         }
 
         url = f"{GEMINI_BASE_URL}/{model}:generateContent?key={GEMINI_API_KEY}"

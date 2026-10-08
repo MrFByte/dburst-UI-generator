@@ -189,7 +189,14 @@ export default function {self.component_name}() {{
         
         # 4. Images
         elif node_type == "Image":
-            return f'{space}<img src="{src}" alt="{alt}"{class_attr}{id_attr_str} />'
+            # crossOrigin switches the browser's fetch from opaque no-cors mode
+            # (where Cross-Origin-Embedder-Policy only allows a load if the
+            # response sets Cross-Origin-Resource-Policy, which our image
+            # sources don't) to real CORS mode (where Access-Control-Allow-Origin
+            # is what's checked instead, and both Pixabay and placehold.co send
+            # "*"). Without this, every image is blocked inside the WebContainer
+            # live-preview, which runs under COEP for cross-origin isolation.
+            return f'{space}<img src="{src}" alt="{alt}" crossOrigin="anonymous"{class_attr}{id_attr_str} />'
         
         # 5. Buttons (Handle explicit content vs children)
         elif node_type == "Button":

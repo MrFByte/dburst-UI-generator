@@ -229,7 +229,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
 
             {/* Model Info */}
-            <div className="bg-slate-800 p-4 rounded-lg">
+            {/* <div className="bg-slate-800 p-4 rounded-lg">
               <p className="text-sm text-gray-400 mb-3"> Model Info:</p>
               <div className="space-y-2 text-xs text-gray-300">
                 <p>
@@ -242,7 +242,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
                   </span>
                 </p>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
 

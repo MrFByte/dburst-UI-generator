@@ -8,12 +8,16 @@ function isSchemaNode(child: SchemaNode | string): child is SchemaNode {
   return typeof child !== 'string';
 }
 
-// Deterministic fallback for an Image whose src 404s at render time (e.g. a
-// generation saved before backend image resolution existed, or a since-removed
-// photo). Mirrors the backend's Picsum fallback in generation/images.py.
+// Fallback for an Image whose src 404s at render time (e.g. a generation
+// saved before backend image resolution existed, or a since-removed photo).
+// Mirrors the backend's placehold.co fallback in generation/images.py.
+// Deliberately not picsum.photos: its seed URLs 302-redirect cross-origin
+// with no Cross-Origin-Resource-Policy header, which COEP:credentialless
+// blocks inside cross-origin-isolated contexts (e.g. the WebContainer
+// preview) with net::ERR_BLOCKED_BY_RESPONSE. placehold.co returns its
+// image directly, no redirect.
 function placeholderImageUrl(seed: string): string {
-  const slug = seed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'image';
-  return `https://picsum.photos/seed/${slug}/800/600`;
+  return `https://placehold.co/800x600?text=${encodeURIComponent(seed)}`;
 }
 
 interface SchemaRendererProps {
@@ -263,6 +267,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
           src={src || props.src || placeholderImageUrl(alt)}
           alt={alt}
           loading={props.loading || 'lazy'}
+          crossOrigin="anonymous"
           onError={(e) => {
             const fallback = placeholderImageUrl(alt);
             if (e.currentTarget.src !== fallback) {
