@@ -113,19 +113,19 @@ export default function Contact() {
               <ContactInfo
                 icon={<Mail className="w-6 h-6 text-blue-400" />}
                 title="Email"
-                content="hello@dburst.com"
+                content="dburst.mindburst@gmail.com"
                 description="Send us an email anytime"
               />
               <ContactInfo
                 icon={<MessageSquare className="w-6 h-6 text-purple-400" />}
                 title="Live Chat"
-                content="Available 24/7"
+                content="Not Available at the moment"
                 description="Get instant support from our team"
               />
               <ContactInfo
                 icon={<MapPin className="w-6 h-6 text-green-400" />}
                 title="Office"
-                content="San Francisco, CA"
+                content="Calicut, Kerala, India"
                 description="Visit us at our headquarters"
               />
 
@@ -136,8 +136,8 @@ export default function Contact() {
                 <p className="text-zinc-400 mb-4">
                   Check out our documentation or join our community forum for quick answers.
                 </p>
-                <Button variant="outline" size="sm">
-                  Visit Help Center
+                <Button variant="outline" disabled size="sm">
+                  Not Avilable Now
                 </Button>
               </div>
             </div>
