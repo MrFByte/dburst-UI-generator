@@ -21,9 +21,14 @@ export default defineConfig({
   },
   server: {
     headers: {
-      // NOTE: 'same-origin' blocks OAuth popups — Google login uses redirect
-      // flow (not popup) to stay compatible with this header.
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      // Required for WebContainer (crossOriginIsolated). Safe with OAuth
+      // here because both Google and GitHub login use full-page redirects,
+      // not window.open() popups — COOP:same-origin only severs
+      // window.opener, which a redirect flow never relies on. Mirrored in
+      // production via vercel.json's headers (vite's server.headers only
+      // applies to this dev server, not the deployed build).
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
     },
     proxy: {
       '/api': {
