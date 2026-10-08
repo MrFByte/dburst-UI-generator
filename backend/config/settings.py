@@ -334,6 +334,14 @@ GEMINI_REASONING_MODEL = os.environ.get("GEMINI_REASONING_MODEL", "models/gemini
 
 DEFAULT_UI_MODEL = os.environ.get("DEFAULT_UI_MODEL", "groq:openai/gpt-oss-20b")
 
+# Resolves real photos (via Unsplash search) for Image nodes in generated
+# schemas, from the "alt" text the UI-generator model writes — see
+# generation/images.py. Without a key, every image falls back to a
+# deterministic Picsum placeholder instead of a hallucinated, 404ing URL.
+UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY")
+UNSPLASH_MAX_CALLS_PER_GENERATION = int(os.environ.get("UNSPLASH_MAX_CALLS_PER_GENERATION", 10))
+IMAGE_CACHE_TTL_SECONDS = int(os.environ.get("IMAGE_CACHE_TTL_SECONDS", 604800))
+
 # ========================================
 # EMAIL (OTP delivery)
 # ========================================

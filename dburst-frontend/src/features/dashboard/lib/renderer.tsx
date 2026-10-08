@@ -8,6 +8,14 @@ function isSchemaNode(child: SchemaNode | string): child is SchemaNode {
   return typeof child !== 'string';
 }
 
+// Deterministic fallback for an Image whose src 404s at render time (e.g. a
+// generation saved before backend image resolution existed, or a since-removed
+// photo). Mirrors the backend's Picsum fallback in generation/images.py.
+function placeholderImageUrl(seed: string): string {
+  const slug = seed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'image';
+  return `https://picsum.photos/seed/${slug}/800/600`;
+}
+
 interface SchemaRendererProps {
   schema: SchemaNode;
   editMode?: boolean;
@@ -247,15 +255,23 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         </label>
       );
 
-    case 'Image':
+    case 'Image': {
+      const alt = props.alt || 'Image';
       return (
         <img
           className={className}
-          src={src || props.src || 'https://cdn.pixabay.com/photo/2017/11/10/04/47/image-2935360_1280.png'}
-          alt={props.alt || 'Image'}
+          src={src || props.src || placeholderImageUrl(alt)}
+          alt={alt}
           loading={props.loading || 'lazy'}
+          onError={(e) => {
+            const fallback = placeholderImageUrl(alt);
+            if (e.currentTarget.src !== fallback) {
+              e.currentTarget.src = fallback;
+            }
+          }}
         />
       );
+    }
 
     case 'Badge':
       return (

@@ -20,6 +20,11 @@ export default defineConfig({
     },
   },
   server: {
+    // Disables Vite's Host-header allowlist (DNS-rebinding protection) so
+    // the dev server accepts requests through a tunnel (ngrok, etc.) whose
+    // hostname changes on every run. Dev-only — vite.config.ts has no
+    // effect on the production build, which Vercel serves statically.
+    allowedHosts: true,
     headers: {
       // Required for WebContainer (crossOriginIsolated). Safe with OAuth
       // here because both Google and GitHub login use full-page redirects,

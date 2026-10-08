@@ -16,6 +16,7 @@ from .llm import LLMClient
 from .llm_models import DEFAULT_UI_MODEL, available_models
 from .codegen import ReactCodeGenerator
 from .schema_validator import SchemaValidator
+from .images import resolve_schema_images
 from .models import Generations
 from .cache import GenerationCache
 from django_redis import get_redis_connection
@@ -127,10 +128,15 @@ class GenerateView(APIView):
             except ValueError as e:
                 logger.error(f"Schema validation failed: {e}")
                 return Response(
-                    {"error": f"Schema validation failed: {str(e)}"}, 
+                    {"error": f"Schema validation failed: {str(e)}"},
                     status=400
                 )
-            
+
+            try:
+                schema = resolve_schema_images(schema)
+            except Exception as e:
+                logger.error(f"Image resolution failed, continuing with unresolved schema: {e}")
+
             if not project:
                 project = Project.objects.create(
                     user=request.user,

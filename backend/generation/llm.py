@@ -28,8 +28,7 @@ Your responsibilities:
 7. If the page represents a product that need to showcase image:
    - Generate a list of products
    - Each product MUST include:
-     { name, price, image_url }
-   - image_url MUST visually represent the product
+     { name, price }
    - Decorative images are forbidden
    
 8. COLOR THEME ANALYSIS - CRITICAL:
@@ -94,7 +93,10 @@ COMPONENT SCHEMA RULES
 3. NO Raw HTML: Never put <tags> inside a string. Use "type": "Link" or "Text".
 4. NO PLACEHOLDERS: Generate actual, realistic content based on the design plan.
 5. Text should never have white color.
-6. Instead of using placeholders in img src, use the links given in the prompt.
+6. NEVER invent an image URL. For every Image component, leave "src" as an empty string ("") and
+   instead write a concrete, specific "alt" text (3-8 words naming the actual subject, e.g.
+   "golden retriever puppy on green grass" — not "product image" or "placeholder"). The backend
+   resolves a real photo from that "alt" text after generation.
 
 Allowed Types:
 Root, Section, Container, Card, CardHeader, CardTitle, CardContent,
