@@ -366,28 +366,23 @@ OTP_RATE_LIMIT_WINDOW_HOURS = 3
 OTP_MAX_VERIFY_ATTEMPTS = 5
 
 # ========================================
-# CELERY (async OTP email delivery) — DISABLED
+# CELERY (async OTP email delivery)
 # ========================================
-# Running a Celery worker alongside gunicorn in the same container was
-# OOM-killing the Render free-tier instance. OTP email now sends
-# synchronously in-request instead (otp_auth/tasks.py). Left commented
-# rather than deleted in case a real Background Worker service (or a
-# bigger instance) makes async delivery worth reintroducing later.
-#
-# CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1")
-# # No result backend — OTP emails are fire-and-forget, nothing ever reads a
-# # task's return value, so there's nothing worth paying a backend round-trip for.
-# CELERY_ACCEPT_CONTENT = ["json"]
-# CELERY_TASK_SERIALIZER = "json"
-# CELERY_RESULT_SERIALIZER = "json"
-# CELERY_TIMEZONE = TIME_ZONE
-#
-# # REDIS_URL can be a managed TLS instance (rediss://); without this, kombu
-# # silently falls back to an unverified TLS connection and logs a warning
-# # on every connect — this makes that explicit instead of implicit.
-# if CELERY_BROKER_URL.startswith("rediss://"):
-#     import ssl
-#     CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
+
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1")
+# No result backend — OTP emails are fire-and-forget, nothing ever reads a
+# task's return value, so there's nothing worth paying a backend round-trip for.
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+
+# REDIS_URL can be a managed TLS instance (rediss://); without this, kombu
+# silently falls back to an unverified TLS connection and logs a warning
+# on every connect — this makes that explicit instead of implicit.
+if CELERY_BROKER_URL.startswith("rediss://"):
+    import ssl
+    CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
 
 # ========================================
 # LOGGING (STRUCTLOG)

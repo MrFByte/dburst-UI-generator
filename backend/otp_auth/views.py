@@ -25,15 +25,19 @@ class RequestOTPView(APIView):
         - purpose (str, optional): "login" or "signup" — only changes email copy.
 
     Responses:
-        200: OTP email sent.
+        200: OTP email queued.
         429: Too many OTP requests for this email in the current window.
     """
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        print("At RequestOTPView 1")
         serializer = RequestOTPSerializer(data=request.data)
+        print("At RequestOTPView 2")
         serializer.is_valid(raise_exception=True)
+        print("At RequestOTPView 3")
         email = serializer.validated_data["email"].lower()
+        print("At RequestOTPView 4")
         purpose = request.data.get("purpose", "login")
 
         try:
@@ -46,11 +50,13 @@ class RequestOTPView(APIView):
             )
 
         try:
-            send_otp_email(email, code, purpose)
+            send_otp_email.delay(email, code, purpose)
+            print("At RequestOTPView 5")
         except Exception:
-            # The OTP row already exists, but delivery failed — tell the
-            # caller plainly instead of a bare 500.
-            logger.exception(f"Failed to send OTP email for {email} (purpose={purpose})")
+            # Broker unreachable or similar — the OTP row already exists,
+            # but nothing will ever deliver it, so tell the caller plainly
+            # instead of a bare 500.
+            logger.exception(f"Failed to enqueue OTP email task for {email} (purpose={purpose})")
             return Response(
                 {"error": "Could not send the verification email right now. Please try again."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
