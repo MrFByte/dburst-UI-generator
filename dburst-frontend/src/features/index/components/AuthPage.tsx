@@ -165,8 +165,8 @@ export default function AuthPage({ mode }: AuthPageProps) {
             : "Sign up to start building amazing UIs."}
         </p>
 
-        <div className="space-y-4">
-          {/* GOOGLE BUTTON */}
+        {/* <div className="space-y-4">
+         
           <Button
             className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-medium py-6 flex items-center justify-center gap-3"
             onClick={handleGoogleLogin}
@@ -184,7 +184,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
             {isLogin ? <span>Continue with Google</span> : <span>Sign up with Google</span>}
           </Button>
 
-          {/* GITHUB BUTTON */}
+          
           <Button
             className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-medium py-6 flex items-center justify-center gap-3"
             onClick={handleGithubLogin}
@@ -192,13 +192,13 @@ export default function AuthPage({ mode }: AuthPageProps) {
             <Github className="w-5 h-5" />
             {isLogin ? <span>Continue with GitHub</span> : <span>Sign up with GitHub</span>}
           </Button>
-        </div>
+        </div> */}
 
-        <div className="flex items-center gap-3 my-6">
+        {/* <div className="flex items-center gap-3 my-6">
           <div className="flex-1 h-px bg-zinc-800" />
           <span className="text-xs text-zinc-500 whitespace-nowrap">or continue with email</span>
           <div className="flex-1 h-px bg-zinc-800" />
-        </div>
+        </div> */}
 
         {step === "email" ? (
           <form onSubmit={handleSendCode} className="space-y-3">
