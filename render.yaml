@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: dburst-backend
+    runtime: python
+    pythonVersion: "3.14"
+    plan: free
+
+    # Source code directory
+    rootDir: backend
+
+    # Build command
+    buildCommand: pip install -r requirements.txt
+
+    # Start command
+    startCommand: bash start.sh
+
+    # Port the service listens on
+    port: 8000
+
+    # Health check
+    healthCheckPath: /
+
+    # Environment variables (these should be set in Render dashboard)
+    # SECRET_KEY, DATABASE_URL, EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, etc.
+
+    # Auto-deploy on main branch push
+    autoDeploy: true
+
+    # Environment
+    envSlug: python
