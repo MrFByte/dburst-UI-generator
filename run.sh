@@ -11,15 +11,6 @@ echo "Starting backend server..."
   python manage.py runserver_plus 127.0.0.1:8000
 ) &
 
-# Celery worker — sends OTP sign-in emails async (see otp_auth/tasks.py).
-# Needs the same Redis instance as REDIS_URL in backend/.env as its broker.
-echo "Starting Celery worker..."
-(
-  cd "$(dirname "$0")/backend"
-  source .venv_dburst/bin/activate
-  celery -A config worker -l info
-) &
-
 # Navigate to frontend directory and run development server
 echo "Starting frontend server..."
 cd "$(dirname "$0")/dburst-frontend"
