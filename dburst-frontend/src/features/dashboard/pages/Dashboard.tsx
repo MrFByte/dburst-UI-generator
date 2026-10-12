@@ -99,7 +99,6 @@ const Dashboard = () => {
 
     try {
       setIsGenerating(true);
-      toast.loading("🍳 Cooking up your UI... Please wait while we generate your design");
 
       const project = await generateUI(prompt, selectedModel);
       setItem("lastGeneratedProject", project);
