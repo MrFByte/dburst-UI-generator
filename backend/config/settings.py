@@ -344,16 +344,11 @@ IMAGE_SEARCH_MAX_CALLS_PER_GENERATION = int(os.environ.get("IMAGE_SEARCH_MAX_CAL
 IMAGE_CACHE_TTL_SECONDS = int(os.environ.get("IMAGE_CACHE_TTL_SECONDS", 604800))
 
 # ========================================
-# EMAIL (OTP delivery)
+# EMAIL (OTP delivery via Resend)
 # ========================================
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.environ.get("EMAIL_HOST")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
-EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+RESEND_DEFAULT_EMAIL = os.environ.get("RESEND_DEFAULT_EMAIL")
 
 # ========================================
 # EMAIL OTP SIGN-IN
@@ -365,29 +360,6 @@ OTP_MAX_REQUESTS_PER_WINDOW = 5
 OTP_RATE_LIMIT_WINDOW_HOURS = 3
 OTP_MAX_VERIFY_ATTEMPTS = 5
 
-# ========================================
-# CELERY (async OTP email delivery) — DISABLED
-# ========================================
-# Running a Celery worker alongside gunicorn in the same container was
-# OOM-killing the Render free-tier instance. OTP email now sends
-# synchronously in-request instead (otp_auth/tasks.py). Left commented
-# rather than deleted in case a real Background Worker service (or a
-# bigger instance) makes async delivery worth reintroducing later.
-#
-# CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1")
-# # No result backend — OTP emails are fire-and-forget, nothing ever reads a
-# # task's return value, so there's nothing worth paying a backend round-trip for.
-# CELERY_ACCEPT_CONTENT = ["json"]
-# CELERY_TASK_SERIALIZER = "json"
-# CELERY_RESULT_SERIALIZER = "json"
-# CELERY_TIMEZONE = TIME_ZONE
-#
-# # REDIS_URL can be a managed TLS instance (rediss://); without this, kombu
-# # silently falls back to an unverified TLS connection and logs a warning
-# # on every connect — this makes that explicit instead of implicit.
-# if CELERY_BROKER_URL.startswith("rediss://"):
-#     import ssl
-#     CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
 
 # ========================================
 # LOGGING (STRUCTLOG)
@@ -452,3 +424,11 @@ if SENTRY_DSN:
         traces_sample_rate=0.1,
         send_default_pii=False,
     )
+
+
+# ========================================
+# RESEND CREDENTIALS
+# ========================================
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+RESEND_DEFAULT_EMAIL = os.getenv("RESEND_DEFAULT_EMAIL")
