@@ -9,6 +9,16 @@ from .llm_models import DEFAULT_UI_MODEL, make_model_id, parse_model_id, reasoni
 
 logger = logging.getLogger(__name__)
 
+
+class ModelUnavailableError(Exception):
+    """Raised when an LLM model is temporarily unavailable (e.g., 503, rate limit, high demand)."""
+    pass
+
+
+class RateLimitError(Exception):
+    """Raised when API rate limit is exceeded (429)."""
+    pass
+
 GROQ_API_KEY = settings.GROQ_AI_API_KEY
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -502,9 +512,15 @@ THEME MODE CRITICAL INSTRUCTIONS:
         
         logger.info(f"Calling Groq API with model: {model}")
         response = requests.post(GROQ_URL, json=payload, headers=headers, timeout=self.timeout)
-        
+
         if response.status_code != 200:
-            raise ValueError(f"Groq API Error ({response.status_code}): {response.text}")
+            error_text = response.text
+            if response.status_code == 429:
+                raise RateLimitError(f"Groq rate limit exceeded. Please try again in a few minutes or upgrade your plan.")
+            elif response.status_code == 503:
+                raise ModelUnavailableError(f"Groq API is temporarily unavailable. Please try again later.")
+            else:
+                raise ValueError(f"Groq API Error ({response.status_code}): {error_text}")
         
         data = response.json()
         content = data["choices"][0]["message"]["content"]
@@ -555,9 +571,15 @@ THEME MODE CRITICAL INSTRUCTIONS:
         url = f"{GEMINI_BASE_URL}/{model}:generateContent?key={GEMINI_API_KEY}"
         logger.info(f"Calling Gemini API with model: {model}")
         response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
-        
+
         if response.status_code != 200:
-            raise ValueError(f"Gemini API Error ({response.status_code}): {response.text}")
+            error_text = response.text
+            if response.status_code == 429:
+                raise RateLimitError(f"Gemini rate limit exceeded. Please try again in a few minutes or select a different model.")
+            elif response.status_code == 503:
+                raise ModelUnavailableError(f"Gemini model is experiencing high demand. Please try again later or select a different model.")
+            else:
+                raise ValueError(f"Gemini API Error ({response.status_code}): {error_text}")
         
         data = response.json()
         content = data["candidates"][0]["content"]["parts"][0]["text"]

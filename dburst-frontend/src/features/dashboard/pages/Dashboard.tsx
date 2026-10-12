@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import {
   MousePointerClick,
   ChevronRight,
-  PlusCircle
+  PlusCircle,
+  Loader2
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
@@ -98,14 +99,31 @@ const Dashboard = () => {
 
     try {
       setIsGenerating(true);
+      toast.loading("🍳 Cooking up your UI... Please wait while we generate your design");
 
       const project = await generateUI(prompt, selectedModel);
       setItem("lastGeneratedProject", project);
-      toast.success("UI generation started successfully");
+      toast.success("✨ UI generation complete! Redirecting...");
       navigate(`/dashboard/ui-generator/?projectId=${project.project_id}`);
     } catch (error: any) {
-      toast.error(error.message || "Failed to generate UI");
       setIsGenerating(false);
+
+      // Handle specific error types from backend (error.details contains the response data)
+      const errorType = error.details?.error_type;
+      const errorSuggestion = error.details?.suggestion;
+
+      if (error.status === 503 && errorType === "model_unavailable") {
+        toast.error(`⚠️ Model Unavailable: ${error.message}`);
+        toast.info(`💡 ${errorSuggestion || "Please try again later or select a different model."}`);
+      } else if (error.status === 429 && errorType === "rate_limit") {
+        toast.error(`⏱️ Rate Limit: ${error.message}`);
+        toast.info(`💡 ${errorSuggestion || "Please wait a few minutes before trying again."}`);
+      } else if (error.status === 500) {
+        toast.error(`Server Error: ${error.message}`);
+        toast.info("Please try again later or contact support if the problem persists.");
+      } else {
+        toast.error(error.message || "Failed to generate UI");
+      }
     }
   };
 
@@ -168,13 +186,22 @@ const Dashboard = () => {
                     Create Project
                   </button>
                   <button
-                    disabled={!prompt}
+                    disabled={!prompt || isGenerating}
                     onClick={handleStartPrompting}
                     className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
                      text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <MousePointerClick className="w-5 h-5" />
-                    Build Now
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <MousePointerClick className="w-5 h-5" />
+                        Build Now
+                      </>
+                    )}
                   </button>
                 </>
               )}

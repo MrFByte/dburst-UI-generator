@@ -12,7 +12,7 @@ from rest_framework import permissions, status
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .llm import LLMClient
+from .llm import LLMClient, ModelUnavailableError, RateLimitError
 from .llm_models import DEFAULT_UI_MODEL, available_models
 from .codegen import ReactCodeGenerator
 from .schema_validator import SchemaValidator
@@ -226,10 +226,26 @@ class GenerateView(APIView):
                 status=201,
             )
 
+        except ModelUnavailableError as e:
+            logger.warning(f"Model unavailable: {e}")
+            return Response({
+                "error": str(e),
+                "error_type": "model_unavailable",
+                "suggestion": "Try selecting a different model or wait a few minutes before retrying."
+            }, status=503)
+
+        except RateLimitError as e:
+            logger.warning(f"Rate limit hit: {e}")
+            return Response({
+                "error": str(e),
+                "error_type": "rate_limit",
+                "suggestion": "Please wait a few minutes before trying again, or select a different model to avoid rate limits."
+            }, status=429)
+
         except ValueError as e:
             logger.error(f"Validation error: {e}")
             return Response({"error": str(e)}, status=400)
-        
+
         except Exception as e:
             logger.error(f"Generation failed: {e}", exc_info=True)
             return Response({"error": str(e)}, status=500)
