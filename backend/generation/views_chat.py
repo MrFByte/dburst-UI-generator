@@ -123,14 +123,25 @@ def refine_ui(request):
             conversation_history=conversation_history
         )
         
+        # Same validation as the initial generation (views.py), before the
+        # refined schema is stored or turned into code.
+        try:
+            refined_schema = SchemaValidator.validate(refinement_result['schema'])
+        except ValueError as e:
+            logger.error(f"Schema validation failed: {e}")
+            return Response(
+                {"error": f"Schema validation failed: {str(e)}"},
+                status=400
+            )
+        refinement_result['schema'] = refined_schema
+
         # Update generation with new schema and AI response
-        generation.schema = refinement_result['schema']
+        generation.schema = refined_schema
         generation.ai_response = refinement_result['ai_response']
         generation.save()
         
         # Regenerate code from updated schema
-        from .codegen import ReactCodeGenerator
-        code_generator = ReactCodeGenerator(refinement_result['schema'])
+        code_generator = ReactCodeGenerator(refined_schema)
         react_code = code_generator.generate()
         
         # Update usage

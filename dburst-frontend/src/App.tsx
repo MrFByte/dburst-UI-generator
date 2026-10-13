@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/shared/ui/Toaster';
 import AuthProvider from "@/core/auth/AuthProvider";
+import LogoutOverlay from "@/core/auth/LogoutOverlay";
 import ProtectedRoute from "@/core/routes/ProtectedRoute";
 import PublicRoute from "@/core/routes/PublicRoutes";
 
@@ -24,6 +25,7 @@ function App() {
               <Route path="/dashboard/*" element={<DashboardRoutes />} />
             </Route>
           </Routes>
+          <LogoutOverlay />
         </AuthProvider>
 
         <Toaster />

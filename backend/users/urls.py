@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     CSRFTokenView, GoogleAuthView, GithubAuthView, OAuthStartView,
-    TokenRefreshView, LogoutView, GetProfileView
+    TokenRefreshView, LogoutView, ProfileView
 )
 from .session_views import (
     SessionAnalyticsView, CacheStatsView, ClearUserSessionsView
@@ -16,7 +16,7 @@ urlpatterns = [
     path("auth/github/", GithubAuthView.as_view(), name="github-auth"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
-    path("profile/", GetProfileView.as_view(), name="user-profile"),
+    path("profile/", ProfileView.as_view(), name="user-profile"),
     
     # Session management endpoints
     path("sessions/analytics/", SessionAnalyticsView.as_view(), name="session-analytics"),

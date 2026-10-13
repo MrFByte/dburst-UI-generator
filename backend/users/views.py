@@ -21,7 +21,7 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from config.authentication import CSRFProtectedMixin
 from . import oauth
 from .models import User, AuthProvider
-from .serializers import UserSerializer
+from .serializers import UserProfileUpdateSerializer, UserSerializer
 from .services import (
     clear_auth_cookies,
     issue_auth_cookies,
@@ -285,21 +285,42 @@ class CSRFTokenView(APIView):
         return Response({"detail": "CSRF cookie set"})
 
 
-class GetProfileView(APIView):
+class ProfileView(APIView):
     """
-    Returns the current user's profile. The frontend's session check.
+    The current user's profile.
 
-    Request Body:
-        - None
+    GET is the frontend's session check. PATCH updates the editable fields
+    (`name`, `avatar_url`); everything else in the body is ignored. PATCH is
+    CSRF-checked by CookieJWTAuthentication like every unsafe request.
+
+    Request Body (PATCH):
+        - name (str, optional): 1-120 chars, no control characters or < >.
+        - avatar_url (str|null, optional): absolute http(s) URL, max 2048
+          chars, no credentials, public host. Blank or null clears it. Never
+          fetched server-side.
 
     Responses:
-        200: User profile returned.
+        200: {"user": {...}}
+        400: Field errors, e.g. {"avatar_url": ["Enter a valid http(s) URL."]}
         401: User is not authenticated.
     """
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "profile"
+
+    def get_throttles(self):
+        # GET runs on every page load; only writes are rate limited.
+        if self.request.method == "PATCH":
+            return [ScopedRateThrottle()]
+        return []
 
     def get(self, request):
         user = request.user
+        return Response({"user": UserSerializer(user).data})
+
+    def patch(self, request):
+        serializer = UserProfileUpdateSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
         return Response({"user": UserSerializer(user).data})
 
 

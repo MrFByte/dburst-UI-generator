@@ -118,7 +118,7 @@ All backend configuration is read from `backend/.env`. See [backend/.env.example
 | Core | `SECRET_KEY`, `DEBUG`, `APP_MODE`, `DATABASE_URL`, `REDIS_URL` |
 | Network | `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` |
 | Auth cookies | `COOKIE_SECURE` (default `True`), `COOKIE_SAMESITE` (default `Lax`) |
-| Auth throttling | `THROTTLE_RATE_AUTH`, `THROTTLE_RATE_OTP`, `THROTTLE_RATE_TOKEN_REFRESH`, `THROTTLE_NUM_PROXIES` |
+| Auth throttling | `THROTTLE_RATE_AUTH`, `THROTTLE_RATE_OTP`, `THROTTLE_RATE_TOKEN_REFRESH`, `THROTTLE_RATE_PROFILE`, `THROTTLE_NUM_PROXIES` |
 | OAuth | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_ALLOWED_REDIRECT_URIS`, `GITHUB_ALLOWED_REDIRECT_URIS` |
 | LLM | `GROQ_AI_API_KEY`, `GEMINI_API_KEY`, `GROQ_UI_MODELS`, `GEMINI_UI_MODELS`, `GROQ_REASONING_MODEL`, `GEMINI_REASONING_MODEL`, `DEFAULT_UI_MODEL` |
 | Images | `PIXABAY_API_KEY`, `IMAGE_SEARCH_MAX_CALLS_PER_GENERATION`, `IMAGE_CACHE_TTL_SECONDS` |
@@ -138,7 +138,7 @@ All routes are prefixed with `/api/v1/`.
 | Area | Endpoints |
 |------|-----------|
 | Health | `GET health/` |
-| Users | `GET users/auth/csrf/`, `POST users/auth/oauth/start/`, `POST users/auth/google/`, `POST users/auth/github/`, `POST users/auth/refresh/`, `POST users/auth/logout/`, `GET users/profile/`, `POST users/sessions/clear/` |
+| Users | `GET users/auth/csrf/`, `POST users/auth/oauth/start/`, `POST users/auth/google/`, `POST users/auth/github/`, `POST users/auth/refresh/`, `POST users/auth/logout/`, `GET users/profile/`, `PATCH users/profile/`, `POST users/sessions/clear/` |
 | OTP | `POST otp/request/`, `POST otp/verify/` |
 | Projects | `POST projects/create-project/`, `GET projects/recent-projects/`, `GET projects/all-projects/`, `GET projects/<id>/` |
 | Generation | `POST generation/generate/`, `GET generation/models/`, `GET generation/details/<id>/`, `GET generation/chat/history/<id>/`, `POST generation/chat/refine/` |

@@ -1,5 +1,5 @@
 import re
-from typing import Set, Dict, Any
+from typing import Any, Dict, List
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,89 +45,16 @@ ALLOWED_COMPONENT_TYPES = {
     "header", "footer", "main", "aside", "table", "tbody", "thead", "tr", "td", "th"
 }
 
-# Whitelist of safe Tailwind class prefixes
-SAFE_TAILWIND_CLASSES = {
-    # Spacing
-    "p-", "px-", "py-", "pt-", "pb-", "pl-", "pr-",
-    "m-", "mx-", "my-", "mt-", "mb-", "ml-", "mr-",
-    "gap-", "space-x-", "space-y-",
-    
-    # Layout
-    "flex", "grid", "hidden", "block", "inline-block", "inline-flex",
-    "inline-grid", "absolute", "relative", "fixed", "sticky",
-    
-    # Flexbox & Grid
-    "flex-row", "flex-col", "flex-wrap", "flex-nowrap",
-    "items-", "justify-", "content-", "self-",
-    "grid-cols-", "grid-rows-", "col-span-", "row-span-",
-    "col-start-", "col-end-", "row-start-", "row-end-",
-    "auto-cols-", "auto-rows-",
-    
-    # Sizing
-    "w-", "h-", "min-w-", "max-w-", "min-h-", "max-h-",
-    
-    # Colors
-    "bg-", "text-", "border-", "ring-", "fill-", "stroke-",
-    
-    # Typography
-    "font-", "text-", "leading-", "tracking-", "line-clamp-",
-    "uppercase", "lowercase", "capitalize", "normal-case",
-    "italic", "not-italic", "underline", "line-through", "no-underline",
-    
-    # Borders
-    "border-", "rounded-", "divide-",
-    
-    # Effects
-    "shadow-", "opacity-", "mix-blend-", "bg-blend-",
-    
-    # Transitions & Animations
-    "transition-", "duration-", "ease-", "delay-",
-    "animate-", "transform", "scale-", "rotate-", "translate-",
-    "skew-",
-    
-    # Interactivity
-    "cursor-", "select-", "resize-", "pointer-events-",
-    
-    # Display utilities
-    "overflow-", "truncate", "whitespace-",
-    
-    # Position
-    "top-", "right-", "bottom-", "left-", "inset-", "z-",
-    
-    # Accessibility
-    "sr-only", "not-sr-only",
-    
-    # Gradients (CRITICAL for modern UI)
-    "from-", "via-", "to-",
-    
-    # Image behavior
-    "object-", "aspect-",
-    
-    # Backdrop / Glassmorphism
-    "backdrop-", "backdrop-blur-", "backdrop-filter",
-    
-    # Lists
-    "list-",
-    
-    # SVG/Icon specific
-    "stroke-", "fill-",
-    
-    # Specific borders
-    "border-t-", "border-b-", "border-l-", "border-r-",
-    "divide-x-", "divide-y-",
-}
+# Limits that keep a malicious or runaway schema from blowing up codegen
+# (recursion) or the response size.
+MAX_SCHEMA_DEPTH = 50
+MAX_SCHEMA_NODES = 2000
+MAX_CLASSNAME_LENGTH = 2000
 
-# State modifiers
-STATE_MODIFIERS = {
-    "hover", "focus", "active", "disabled", "visited",
-    "focus-within", "focus-visible", "checked", "group-hover",
-    "group-focus", "peer-focus", "peer-checked"
-}
+# Fallback for Image nodes without a usable src (see enforce_fixed_image).
+FIXED_IMAGE = "https://res.cloudinary.com/djv9jwwem/image/upload/v1765708366/Your_paragraph_text_2_twgtax.png"
 
-# Responsive prefixes
-RESPONSIVE_PREFIXES = {
-    "sm", "md", "lg", "xl", "2xl"
-}
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 class SchemaValidator:
@@ -136,20 +63,33 @@ class SchemaValidator:
     @staticmethod
     def validate(schema: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Validate schema structure and content
-        
+        Validate schema structure and normalize it in place.
+
+        This is structural validation only. Output safety (escaping, URL
+        schemes, tag/icon names) is ReactCodeGenerator's job, so it holds for
+        every schema that reaches codegen, validated or not.
+
         Args:
             schema: Component schema dictionary
-            
+
         Returns:
-            Validated and sanitized schema
-            
+            Validated schema
+
         Raises:
-            ValueError: If schema is invalid
+            ValueError: If schema is invalid or exceeds the depth/node limits
         """
+        return SchemaValidator._validate_node(schema, depth=1, counter=[0])
+
+    @staticmethod
+    def _validate_node(schema: Dict[str, Any], depth: int, counter: List[int]) -> Dict[str, Any]:
         if not isinstance(schema, dict):
             raise ValueError("Schema must be a dictionary")
-        
+        if depth > MAX_SCHEMA_DEPTH:
+            raise ValueError(f"Schema exceeds maximum depth of {MAX_SCHEMA_DEPTH}")
+        counter[0] += 1
+        if counter[0] > MAX_SCHEMA_NODES:
+            raise ValueError(f"Schema exceeds maximum of {MAX_SCHEMA_NODES} nodes")
+
         if "type" not in schema:
             # Auto-repair: treat string-only node as Text
             if "content" in schema:
@@ -157,9 +97,11 @@ class SchemaValidator:
             else:
                 logger.error(f"Schema node missing 'type': {schema}")
                 raise ValueError("Schema must have 'type' field")
-        
+
         component_type = schema["type"]
-        
+        if not isinstance(component_type, str) or not component_type:
+            raise ValueError("Schema 'type' must be a non-empty string")
+
         # Allow both capitalized and lowercase component types
         if component_type not in ALLOWED_COMPONENT_TYPES:
             # Try to normalize the type
@@ -169,48 +111,46 @@ class SchemaValidator:
                 schema["type"] = normalized_type
             else:
                 # Log warning but don't fail - allow unknown types to pass through
+                # (codegen only emits it as a tag if it's a safe identifier)
                 logger.warning(
                     f"Unknown component type: {component_type}. "
                     f"Allowing it to pass through."
                 )
-        
-        # Validate and sanitize props
+
+        # Validate props
         if "props" in schema:
             if not isinstance(schema["props"], dict):
                 raise ValueError("Props must be a dictionary")
-            
-            # Sanitize className
-            if "className" in schema["props"]:
-                schema["props"]["className"] = SchemaValidator._sanitize_classname(
-                    schema["props"]["className"]
-                )
-            
-            # Validate other props
             schema["props"] = SchemaValidator._validate_props(schema["props"], component_type)
-        
+
         # Validate content (if present)
         if "content" in schema:
             if not isinstance(schema["content"], str):
                 schema["content"] = str(schema["content"])
-        
+
         # Recursively validate children
         if "children" in schema:
             if isinstance(schema["children"], list):
                 validated_children = []
                 for child in schema["children"]:
                     if isinstance(child, dict):
-                        validated_children.append(SchemaValidator.validate(child))
+                        validated_children.append(
+                            SchemaValidator._validate_node(child, depth + 1, counter)
+                        )
                     elif isinstance(child, str):
                         # Allow string children (text content)
+                        counter[0] += 1
+                        if counter[0] > MAX_SCHEMA_NODES:
+                            raise ValueError(f"Schema exceeds maximum of {MAX_SCHEMA_NODES} nodes")
                         validated_children.append(child)
                     else:
                         logger.warning(f"Skipping invalid child type: {type(child)}")
                 schema["children"] = validated_children
             else:
                 raise ValueError("Children must be a list")
-        
+
         return schema
-    
+
     @staticmethod
     def _normalize_component_type(component_type: str) -> str:
         """
@@ -290,8 +230,7 @@ class SchemaValidator:
         
         for key, value in props.items():
             if key == "className":
-                # Already handled in main validate method
-                validated[key] = value
+                validated[key] = SchemaValidator._clean_classname(value)
             elif key == "id":
                 # Validate ID (alphanumeric, hyphens, underscores only)
                 if isinstance(value, str) and re.match(r'^[a-zA-Z0-9_-]+$', value):
@@ -318,74 +257,23 @@ class SchemaValidator:
         return validated
     
     @staticmethod
-    def _sanitize_classname(classname: str) -> str:
+    def _clean_classname(classname: Any) -> str:
         """
-        Sanitize Tailwind className to prevent injection
-        
-        Args:
-            classname: Space-separated class names
-            
-        Returns:
-            Sanitized class string
+        Normalize a className string. Classes are passed through untouched:
+        the preview has a full Tailwind build, and injection is prevented by
+        codegen escaping rather than by a class whitelist.
         """
-        if not classname or not isinstance(classname, str):
+        if not isinstance(classname, str):
             return ""
-        
-        classes = classname.split()
-        safe_classes = []
-        
-        for cls in classes:
-            if SchemaValidator._is_safe_class(cls):
-                safe_classes.append(cls)
-            else:
-                logger.warning(f"Removed potentially unsafe class: {cls}")
-        
-        return " ".join(safe_classes)
-    
+        classname = _CONTROL_CHARS.sub(" ", classname)
+        classname = " ".join(classname.split())
+        if len(classname) > MAX_CLASSNAME_LENGTH:
+            # Cut at a class boundary rather than mid-class.
+            classname = classname[:MAX_CLASSNAME_LENGTH].rsplit(" ", 1)[0]
+        return classname
+
     @staticmethod
-    def _is_safe_class(cls: str) -> bool:
-        """
-        Check if a class is safe to use
-        
-        Args:
-            cls: Single class name
-            
-        Returns:
-            True if safe, False otherwise
-        """
-        # Handle state modifiers (hover:, focus:, etc.)
-        parts = cls.split(":")
-        
-        if len(parts) > 1:
-            # Has prefix (responsive or state modifier)
-            prefix = parts[0]
-            base_class = ":".join(parts[1:])
-            
-            # Check if prefix is valid
-            if prefix not in RESPONSIVE_PREFIXES and prefix not in STATE_MODIFIERS:
-                return False
-            
-            # Recursively check base class
-            return SchemaValidator._is_safe_class(base_class)
-        
-        # No prefix, check against allowed classes
-        # Check if class starts with any safe prefix
-        for safe_prefix in SAFE_TAILWIND_CLASSES:
-            if cls.startswith(safe_prefix) or cls == safe_prefix.rstrip("-"):
-                return True
-        
-        # Check exact matches for utilities without prefixes
-        exact_matches = {
-            "flex", "grid", "hidden", "block", "inline", "absolute", "relative",
-            "fixed", "sticky", "static", "truncate", "uppercase", "lowercase",
-            "capitalize", "italic", "underline", "line-through", "no-underline",
-            "sr-only", "not-sr-only", "transform", "transition"
-        }
-        
-        return cls in exact_matches
-    
     def enforce_fixed_image(schema: dict):
-        FIXED_IMAGE = "https://res.cloudinary.com/djv9jwwem/image/upload/v1765708366/Your_paragraph_text_2_twgtax.png"
 
         def walk(node):
             if isinstance(node, dict):

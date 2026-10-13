@@ -215,11 +215,10 @@ class GetProjectDetail(APIView):
         
         if latest_generation:
             from generation.serializers import GenerationSerializer
-            from generation.codegen import ReactCodeGenerator
+            from generation.codegen import render_schema
             
             try:
-                code_generator = ReactCodeGenerator(latest_generation.schema)
-                react_code = code_generator.generate()
+                react_code = render_schema(latest_generation.schema)
             except Exception as e:
                 logger.error(f"Error generating code: {e}")
                 react_code = ""
@@ -338,11 +337,10 @@ class GetProjectDetail(APIView):
         
         if latest_generation:
             from generation.serializers import GenerationSerializer
-            from generation.codegen import ReactCodeGenerator
+            from generation.codegen import render_schema
             
             try:
-                code_generator = ReactCodeGenerator(latest_generation.schema)
-                react_code = code_generator.generate()
+                react_code = render_schema(latest_generation.schema)
             except Exception as e:
                 logger.error(f"Error generating code: {e}")
                 react_code = ""

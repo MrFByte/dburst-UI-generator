@@ -10,6 +10,7 @@ from django.conf import settings
 from functools import wraps
 from django_redis import get_redis_connection
 from .codegen import ReactCodeGenerator
+from .schema_validator import SchemaValidator
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,9 @@ class GenerationCache:
         
         try:
             patched_schema = jsonpatch.apply_patch(current_schema, patch)
+            # A patch can introduce anything; it gets the same structural
+            # validation as a freshly generated schema. ValueError -> None.
+            patched_schema = SchemaValidator.validate(patched_schema)
             
             cache.set(f"gen:{generation_id}:schema", json.dumps(patched_schema), GenerationCache.TTL_DEFAULT)
             

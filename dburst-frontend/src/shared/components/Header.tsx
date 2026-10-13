@@ -5,6 +5,7 @@ import {
   Menu,
   X,
   LogOut,
+  User,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import UserProfile from "@/features/dashboard/components/UserProfile";
@@ -12,6 +13,8 @@ import { Button } from "@/shared/ui/button";
 import { useUserProfile } from "@/shared/hooks/useUserProfile";
 import { useLogout } from "@/features/index/api/logoutApi";
 import { Logo } from "@/shared/components/Logo";
+import ProfileModal from "@/features/dashboard/components/ProfileModal";
+import { displayName } from "@/shared/utils/displayName";
 
 interface SharedHeaderProps {
   mode: "landing" | "dashboard";
@@ -31,8 +34,13 @@ export default function Header({
   setIsModalOpen,
 }: SharedHeaderProps) {
   const { user, isAuthenticated } = useUserProfile();
-  const handleLogout = useLogout();
+  const { logout: handleLogout, isLoggingOut } = useLogout();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const openProfile = () => {
+    setMenuOpen(false);
+    setProfileOpen(true);
+  };
   const closeMenu = () => setMenuOpen(false);
   const navLabels = ["Home", "Demo", "About", "Contact"] as const;
 
@@ -118,12 +126,13 @@ export default function Header({
                   variant="ghost"
                   className="max-w-40 truncate animate-[dburstPulse_5s_ease-in-out_infinite] hover:drop-shadow-[0_0_8px_rgba(139,92,246,0.5)] transition-all duration-300"
                 >
-                  {user?.name}
+                  {displayName(user)}
                 </Button>
               </Link>
               <Button
                 variant="outline"
                 onClick={handleLogout}
+                disabled={isLoggingOut}
                 className="hidden sm:inline-flex animate-[dburstPulse_6s_ease-in-out_infinite] hover:drop-shadow-[0_0_8px_rgba(139,92,246,0.5)] transition-all duration-300"
               >
                 <LogOut className="w-4 h-4 mr-1" /> Logout
@@ -164,7 +173,7 @@ export default function Header({
                 <Settings className="w-6 h-6" />
               </button>
 
-              <UserProfile user={user} />
+              <UserProfile user={user} onOpenProfile={openProfile} />
             </>
           )}
         </div>
@@ -187,11 +196,19 @@ export default function Header({
               <>
                 <Link to="/dashboard" onClick={closeMenu}>
                   <Button variant="ghost" className="w-full justify-start truncate">
-                    {user?.name}
+                    {displayName(user)}
                   </Button>
                 </Link>
-                <Button variant="outline" className="w-full" onClick={() => { closeMenu(); handleLogout(); }}>
-                  <LogOut className="w-4 h-4 mr-1" /> Logout
+                <Button variant="ghost" className="w-full min-h-11 justify-start" onClick={openProfile}>
+                  <User className="w-4 h-4 mr-1" /> Profile
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full min-h-11"
+                  disabled={isLoggingOut}
+                  onClick={() => { closeMenu(); handleLogout(); }}
+                >
+                  <LogOut className="w-4 h-4 mr-1" /> {isLoggingOut ? "Logging out..." : "Logout"}
                 </Button>
               </>
             ) : (
@@ -231,8 +248,19 @@ export default function Header({
             <MessageSquare className="w-5 h-5 text-gray-400" />
             Feedback
           </button>
+          {user && (
+            <button
+              className="flex items-center gap-2 min-h-11 px-3 rounded-lg text-base font-semibold text-gray-300 hover:text-violet-300 hover:bg-zinc-800"
+              onClick={openProfile}
+            >
+              <User className="w-5 h-5 text-gray-400" />
+              Profile
+            </button>
+          )}
         </nav>
       )}
+
+      <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </header>
   );
 }

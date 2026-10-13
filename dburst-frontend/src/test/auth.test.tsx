@@ -17,8 +17,13 @@ import api from "@/core/api/axiosConfig";
 
 const USER = { id: "u1", email: "a@b.c", name: "A", role: "user" };
 
-function makeStore(auth: AuthState) {
-  return configureStore({ reducer: { auth: authReducer }, preloadedState: { auth } });
+type TestAuth = Pick<AuthState, "user" | "status"> & Partial<AuthState>;
+
+function makeStore(auth: TestAuth) {
+  return configureStore({
+    reducer: { auth: authReducer },
+    preloadedState: { auth: { logoutPending: false, ...auth } },
+  });
 }
 
 function ShowLocation() {
@@ -26,7 +31,7 @@ function ShowLocation() {
   return <div data-testid="location">{location.pathname + location.search}</div>;
 }
 
-function renderRoutes(auth: AuthState, initialPath: string) {
+function renderRoutes(auth: TestAuth, initialPath: string) {
   return render(
     <Provider store={makeStore(auth)}>
       <MemoryRouter initialEntries={[initialPath]}>

@@ -235,8 +235,10 @@ REST_FRAMEWORK = {
         'auth': os.environ.get("THROTTLE_RATE_AUTH", "20/min"),
         'otp': os.environ.get("THROTTLE_RATE_OTP", "5/min"),
         'token_refresh': os.environ.get("THROTTLE_RATE_TOKEN_REFRESH", "30/min"),
+        'profile': os.environ.get("THROTTLE_RATE_PROFILE", "20/min"),
     },
     'NUM_PROXIES': int(_num_proxies) if _num_proxies else None,
+    'EXCEPTION_HANDLER': 'config.exception_handler.api_exception_handler',
 }
 
 AUTH_USER_MODEL = "users.User"

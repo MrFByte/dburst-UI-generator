@@ -38,3 +38,16 @@ export const getProfile = () =>
     const { data } = await api.get(indexUrl.profile);
     return data;
   });
+
+export interface ProfileUpdatePayload {
+  name?: string;
+  avatar_url?: string | null;
+}
+
+/** PATCH users/profile/. Returns {user}. On 400, the thrown ApiError's
+ * `details` holds DRF field errors, e.g. {avatar_url: ["..."]}. */
+export const updateProfile = (payload: ProfileUpdatePayload) =>
+  apiHandler(async () => {
+    const { data } = await api.patch(indexUrl.profile, payload);
+    return data;
+  });

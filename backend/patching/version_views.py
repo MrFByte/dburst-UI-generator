@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from generation.models import Generations
-from generation.codegen import ReactCodeGenerator
+from generation.codegen import render_schema
 from .models import Patch
 
 logger = logging.getLogger(__name__)
@@ -56,8 +56,7 @@ class GetVersionView(APIView):
                     continue
             
             try:
-                generator = ReactCodeGenerator(schema)
-                code = generator.generate()
+                code = render_schema(schema)
             except Exception as e:
                 logger.error(f"Failed to generate code: {e}")
                 code = ""
@@ -140,8 +139,7 @@ class UndoView(APIView):
                     continue
             
             try:
-                generator = ReactCodeGenerator(schema)
-                code = generator.generate()
+                code = render_schema(schema)
             except Exception as e:
                 logger.error(f"Failed to generate code: {e}")
                 code = ""

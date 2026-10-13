@@ -16,11 +16,16 @@ export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 export interface AuthState {
   user: User | null;
   status: AuthStatus;
+  // True from the Logout click until the app has landed on "/" logged out.
+  // Drives the LogoutOverlay, disables every Logout button, and stops the
+  // route guards from redirecting mid-logout (see LogoutOverlay).
+  logoutPending: boolean;
 }
 
 const initialState: AuthState = {
   user: null,
   status: "loading",
+  logoutPending: false,
 };
 
 export const authSlice = createSlice({
@@ -35,12 +40,21 @@ export const authSlice = createSlice({
       state.status = "authenticated";
     },
 
+    // Replaces the user after a profile edit, without touching session status.
+    setUser: (state, action: PayloadAction<User>) => {
+      if (state.status === "authenticated") state.user = action.payload;
+    },
+
     logout: (state) => {
       state.user = null;
       state.status = "unauthenticated";
     },
+
+    setLogoutPending: (state, action: PayloadAction<boolean>) => {
+      state.logoutPending = action.payload;
+    },
   },
 });
 
-export const { setCredentials, logout } = authSlice.actions;
+export const { setCredentials, setUser, logout, setLogoutPending } = authSlice.actions;
 export default authSlice.reducer;
