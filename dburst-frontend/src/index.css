@@ -1,4 +1,15 @@
 @import "tailwindcss";
+
+/* Edit mode (UIGenerator -> SchemaRenderer) renders LLM schemas with THIS
+   build, and Tailwind only emits classes it finds in source. Safelist the
+   palette colours for bg/text/border (+ hover bg/text). That also emits every
+   --color-{hue}-{shade} variable, which renderer.tsx uses to draw gradients
+   (from/via/to) and arbitrary [#hex] colours as inline styles: gradient-stop
+   utilities cost ~157 KB, so they're deliberately not safelisted.
+   The normal preview runs in the WebContainer with its own Tailwind build. */
+@source inline("{bg,text,border}-{slate,gray,zinc,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("hover:{bg,text}-{slate,gray,zinc,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
+@source inline("{bg,text,border}-{white,black,transparent}");
 @import "@fontsource/space-grotesk/400.css";
 @import "@fontsource/space-grotesk/500.css";
 @import "@fontsource/space-grotesk/700.css";

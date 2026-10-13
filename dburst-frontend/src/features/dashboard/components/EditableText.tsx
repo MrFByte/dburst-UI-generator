@@ -6,6 +6,7 @@ interface EditableTextProps {
     path: string;
     onEdit: (path: string, newContent: string) => void | Promise<void>;
     className?: string;
+    style?: React.CSSProperties;
     placeholder?: string;
     disabled?: boolean;
     debounceMs?: number;
@@ -21,6 +22,7 @@ export function EditableText({
     path,
     onEdit,
     className,
+    style,
     placeholder = 'Click to edit...',
     disabled = false,
     multiline = false,
@@ -151,6 +153,7 @@ export function EditableText({
                 aria-label="Editable text"
                 aria-disabled={disabled}
                 data-path={path}
+                style={style}
                 className={cn(
                     'outline-none transition-all duration-200',
                     className,

@@ -1,5 +1,10 @@
+import hashlib
 import json
 import logging
+import os
+import random
+import re
+import secrets
 import time
 import requests
 from typing import Optional, Dict, Any
@@ -25,6 +30,331 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GEMINI_API_KEY = settings.GEMINI_API_KEY
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
+# ===========================================================================
+# COLOUR THEMING
+#
+# Named palettes, chosen by the project's subject and mood. Each has a light
+# and a dark variant; both carry a saturated primary and a bold accent. The
+# planner gets a per-request palette hint (seeded from the prompt + a random
+# salt) so identical prompts don't converge on one look, and may override it.
+# Hex values are Tailwind palette colours; `families` are the Tailwind colour
+# families for secondary elements (all are safelisted in the frontend's
+# edit-mode build).
+# ===========================================================================
+
+PALETTES: Dict[str, Dict[str, Any]] = {
+    "ocean": {
+        "description": "deep sea blues with a coral accent; calm, trustworthy, fresh",
+        "families": ("sky", "blue", "cyan"),
+        "light": {"background": "#bae6fd", "surface": "#f0f9ff", "primary": "#0369a1", "secondary": "#1d4ed8", "accent": "#f97316", "hero": ("#0369a1", "#1d4ed8")},
+        "dark": {"background": "#082f49", "surface": "#0c4a6e", "primary": "#38bdf8", "secondary": "#22d3ee", "accent": "#fb923c", "hero": ("#0c4a6e", "#1e3a8a")},
+    },
+    "sunset": {
+        "description": "warm orange-to-rose glow with a violet accent; welcoming, energetic",
+        "families": ("orange", "rose", "amber"),
+        "light": {"background": "#fed7aa", "surface": "#fff7ed", "primary": "#c2410c", "secondary": "#be123c", "accent": "#7c3aed", "hero": ("#c2410c", "#be123c")},
+        "dark": {"background": "#431407", "surface": "#7c2d12", "primary": "#fb923c", "secondary": "#fb7185", "accent": "#fbbf24", "hero": ("#7c2d12", "#881337")},
+    },
+    "forest": {
+        "description": "lush greens with an amber accent; natural, healthy, sustainable",
+        "families": ("emerald", "green", "lime"),
+        "light": {"background": "#bbf7d0", "surface": "#f0fdf4", "primary": "#047857", "secondary": "#15803d", "accent": "#d97706", "hero": ("#047857", "#15803d")},
+        "dark": {"background": "#022c22", "surface": "#064e3b", "primary": "#34d399", "secondary": "#a3e635", "accent": "#fbbf24", "hero": ("#064e3b", "#14532d")},
+    },
+    "candy": {
+        "description": "bubblegum pinks and purples with a cyan pop; playful, sweet, youthful",
+        "families": ("pink", "fuchsia", "purple"),
+        "light": {"background": "#fbcfe8", "surface": "#fdf2f8", "primary": "#be185d", "secondary": "#9333ea", "accent": "#0891b2", "hero": ("#be185d", "#9333ea")},
+        "dark": {"background": "#500724", "surface": "#831843", "primary": "#f472b6", "secondary": "#c084fc", "accent": "#22d3ee", "hero": ("#831843", "#581c87")},
+    },
+    "neon": {
+        "description": "electric cyan and magenta with a lime spark; bold, techy, nightlife, gaming",
+        "families": ("cyan", "fuchsia", "lime"),
+        "light": {"background": "#a5f3fc", "surface": "#ecfeff", "primary": "#a21caf", "secondary": "#0e7490", "accent": "#65a30d", "hero": ("#a21caf", "#0e7490")},
+        "dark": {"background": "#1e1b4b", "surface": "#312e81", "primary": "#22d3ee", "secondary": "#e879f9", "accent": "#a3e635", "hero": ("#312e81", "#701a75")},
+    },
+    "earth": {
+        "description": "terracotta, clay and honey with a teal accent; grounded, artisanal, organic",
+        "families": ("amber", "orange", "yellow"),
+        "light": {"background": "#fde68a", "surface": "#fffbeb", "primary": "#b45309", "secondary": "#9a3412", "accent": "#0d9488", "hero": ("#b45309", "#9a3412")},
+        "dark": {"background": "#451a03", "surface": "#78350f", "primary": "#fbbf24", "secondary": "#fb923c", "accent": "#2dd4bf", "hero": ("#78350f", "#7c2d12")},
+    },
+    "berry": {
+        "description": "rich violets and raspberry with a gold accent; creative, luxurious, expressive",
+        "families": ("violet", "purple", "rose"),
+        "light": {"background": "#ddd6fe", "surface": "#f5f3ff", "primary": "#6d28d9", "secondary": "#be185d", "accent": "#d97706", "hero": ("#6d28d9", "#be185d")},
+        "dark": {"background": "#2e1065", "surface": "#4c1d95", "primary": "#a78bfa", "secondary": "#f472b6", "accent": "#fbbf24", "hero": ("#4c1d95", "#831843")},
+    },
+    "midnight": {
+        "description": "indigo and royal blue with an amber accent; confident, premium, corporate",
+        "families": ("indigo", "blue", "slate"),
+        "light": {"background": "#c7d2fe", "surface": "#eef2ff", "primary": "#4338ca", "secondary": "#1d4ed8", "accent": "#d97706", "hero": ("#4338ca", "#1d4ed8")},
+        "dark": {"background": "#0f172a", "surface": "#1e293b", "primary": "#818cf8", "secondary": "#60a5fa", "accent": "#fbbf24", "hero": ("#1e1b4b", "#1e3a8a")},
+    },
+    "citrus": {
+        "description": "zesty lime and lemon with an orange-pink kick; fresh, sporty, upbeat",
+        "families": ("lime", "yellow", "orange"),
+        "light": {"background": "#fef08a", "surface": "#fefce8", "primary": "#4d7c0f", "secondary": "#c2410c", "accent": "#db2777", "hero": ("#4d7c0f", "#c2410c")},
+        "dark": {"background": "#1a2e05", "surface": "#365314", "primary": "#a3e635", "secondary": "#facc15", "accent": "#fb923c", "hero": ("#365314", "#713f12")},
+    },
+    "monochrome": {
+        "description": "crisp zinc greys with one bold red accent; editorial, minimal, high-contrast",
+        "families": ("zinc", "slate", "red"),
+        "light": {"background": "#e4e4e7", "surface": "#fafafa", "primary": "#18181b", "secondary": "#3f3f46", "accent": "#dc2626", "hero": ("#18181b", "#3f3f46")},
+        "dark": {"background": "#09090b", "surface": "#27272a", "primary": "#fafafa", "secondary": "#a1a1aa", "accent": "#ef4444", "hero": ("#18181b", "#450a0a")},
+    },
+}
+
+# Subject keywords -> palettes that suit them. The hint picks among these (or
+# among all palettes when nothing matches). Order doesn't encode preference.
+SUBJECT_PALETTES = [
+    (("pet", "dog", "cat", "puppy", "vet", "animal"), ("candy", "earth", "citrus", "sunset")),
+    (("kid", "child", "school", "toy", "nursery", "learning", "education"), ("candy", "citrus", "sunset", "ocean")),
+    (("law", "legal", "attorney", "consult", "insurance", "accounting", "corporate", "agency", "b2b"), ("midnight", "ocean", "monochrome", "berry", "earth")),
+    (("fintech", "finance", "bank", "crypto", "trading", "invest", "payment", "saas", "dashboard", "analytics"), ("midnight", "ocean", "forest", "neon", "berry")),
+    (("yoga", "wellness", "spa", "meditation", "health", "fitness", "therapy", "mindful"), ("forest", "earth", "ocean", "berry")),
+    (("game", "gaming", "esport", "music", "festival", "club", "nightlife", "concert"), ("neon", "berry", "candy", "midnight")),
+    (("restaurant", "cafe", "coffee", "food", "bakery", "pizza", "bistro", "recipe", "kitchen"), ("sunset", "earth", "citrus", "berry")),
+    (("portfolio", "designer", "photograph", "artist", "creative", "blog", "magazine", "fashion"), ("monochrome", "berry", "sunset", "neon", "ocean")),
+    (("travel", "hotel", "beach", "surf", "tour", "airline", "resort"), ("ocean", "sunset", "citrus", "forest")),
+    (("eco", "garden", "farm", "plant", "organic", "solar", "climate", "outdoor", "hiking"), ("forest", "earth", "citrus")),
+    (("tech", "startup", "ai", "developer", "software", "app", "cloud", "cyber"), ("neon", "midnight", "ocean", "berry", "citrus")),
+    (("luxury", "jewel", "wine", "boutique", "wedding", "beauty", "cosmetic", "salon"), ("berry", "monochrome", "earth", "candy")),
+    (("sport", "gym", "running", "football", "soccer", "team", "athlet"), ("citrus", "sunset", "neon", "ocean")),
+]
+
+# Only an explicit request flips the mode; "modern/professional/sleek" don't.
+DARK_WORDS = ("dark mode", "dark theme", "dark ", "night", "black background", "noir", "cyberpunk", "neon")
+LIGHT_WORDS = ("light mode", "light theme", "bright", "airy", "white background")
+DEFAULT_DARK_PROBABILITY = 0.3
+DARK_LEANING_PALETTES = {"neon": 0.6, "midnight": 0.45}
+
+_HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+LIGHT_TEXT = "#f8fafc"
+DARK_TEXT = "#0f172a"
+LIGHT_MUTED = "#cbd5e1"
+DARK_MUTED = "#334155"
+
+
+def _is_hex(value: Any) -> bool:
+    return isinstance(value, str) and bool(_HEX_RE.match(value))
+
+
+def _rgb(hex_color: str):
+    h = hex_color.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+
+def relative_luminance(hex_color: str) -> float:
+    def channel(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (channel(c) for c in _rgb(hex_color))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast_ratio(a: str, b: str) -> float:
+    la, lb = sorted((relative_luminance(a), relative_luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def readable_text_on(background: str) -> str:
+    """Near-black or near-white, whichever contrasts more with `background`."""
+    return LIGHT_TEXT if contrast_ratio(LIGHT_TEXT, background) >= contrast_ratio(DARK_TEXT, background) else DARK_TEXT
+
+
+def _mentions(text: str, keyword: str) -> bool:
+    """Keyword at a word start ("pet" matches "pets", not "carpet"); short
+    keywords must be whole words ("ai" doesn't match "mail")."""
+    pattern = rf"\b{re.escape(keyword)}s?\b" if len(keyword) <= 3 else rf"\b{re.escape(keyword)}"
+    return re.search(pattern, text) is not None
+
+
+def choose_palette_hint(prompt: str, salt: Optional[str] = None) -> Dict[str, str]:
+    """Pick a palette + mode suggestion for this request.
+
+    Seeded from the prompt plus a random salt: the same prompt gets different
+    (but subject-appropriate) palettes across requests, while a fixed salt
+    makes the choice reproducible for tests and evaluation.
+    """
+    text = f" {(prompt or '').lower()} "
+    salt = secrets.token_hex(8) if salt is None else salt
+    rng = random.Random(hashlib.sha256(f"{salt}\0{text}".encode()).hexdigest())
+
+    # Palettes from the best-matching subject group(s): "pet store for dog
+    # toys" is about pets (2 hits), not kids ("toy", 1 hit).
+    scores = [(sum(_mentions(text, k) for k in keywords), palettes) for keywords, palettes in SUBJECT_PALETTES]
+    best = max(score for score, _ in scores)
+    candidates: list = []
+    for score, palettes in scores:
+        if best and score == best:
+            candidates.extend(p for p in palettes if p not in candidates)
+    reason = "subject match" if candidates else "no subject match; random palette"
+    palette = rng.choice(candidates or sorted(PALETTES))
+
+    if any(w in text for w in DARK_WORDS):
+        mode = "dark"
+    elif any(w in text for w in LIGHT_WORDS):
+        mode = "light"
+    else:
+        mode = "dark" if rng.random() < DARK_LEANING_PALETTES.get(palette, DEFAULT_DARK_PROBABILITY) else "light"
+    return {"palette": palette, "mode": mode, "reason": reason}
+
+
+def build_color_scheme(palette: str, mode: str) -> Dict[str, Any]:
+    """The full theme.color_scheme for a named palette variant.
+
+    Keeps the original contract (mode/background/surface/primary/accent) and
+    adds optional keys: palette, secondary, text, muted_text, on_primary, hero.
+    """
+    variant = PALETTES[palette]["dark" if mode == "dark" else "light"]
+    return _complete_scheme({**variant, "palette": palette, "mode": "dark" if mode == "dark" else "light"})
+
+
+def _complete_scheme(scheme: Dict[str, Any]) -> Dict[str, Any]:
+    """Derive text colours and hero stops so every scheme is readable."""
+    scheme = dict(scheme)
+    background = scheme["background"]
+    if not _is_hex(scheme.get("text")) or contrast_ratio(scheme["text"], background) < 4.5:
+        scheme["text"] = readable_text_on(background)
+    scheme["muted_text"] = DARK_MUTED if scheme["text"] == DARK_TEXT else LIGHT_MUTED
+    scheme["on_primary"] = readable_text_on(scheme["primary"])
+    hero = scheme.get("hero")
+    if not (isinstance(hero, (list, tuple)) and len(hero) == 2 and all(_is_hex(h) for h in hero)):
+        hero = (scheme["primary"], scheme["secondary"]) if scheme["mode"] == "light" else (scheme["surface"], scheme["background"])
+    scheme["hero"] = list(hero)
+    # Text over the whole gradient: whichever colour's worst stop is best.
+    scheme["on_hero"] = max((LIGHT_TEXT, DARK_TEXT), key=lambda c: min(contrast_ratio(c, h) for h in hero))
+    return scheme
+
+
+def normalize_color_scheme(design_plan: Dict[str, Any], hint: Dict[str, str]) -> Dict[str, Any]:
+    """Make theme.color_scheme complete and valid, in place.
+
+    The planner's own valid hex values always win (it may have honoured
+    user-specified colours). Missing/invalid keys are filled from the palette
+    it named, else from the hint. Text colours are re-derived for contrast.
+    """
+    theme = design_plan.get("theme")
+    if not isinstance(theme, dict):
+        theme = design_plan["theme"] = {}
+    planned = theme.get("color_scheme")
+    planned = planned if isinstance(planned, dict) else {}
+
+    palette = planned.get("palette") if planned.get("palette") in PALETTES else None
+    mode = planned.get("mode")
+    if mode not in ("light", "dark"):
+        # Old modes ("vibrant", "soft") or none: infer from the background.
+        bg = planned.get("background")
+        mode = ("dark" if relative_luminance(bg) < 0.2 else "light") if _is_hex(bg) else hint["mode"]
+
+    base = build_color_scheme(palette or hint["palette"], mode)
+    scheme = {**base}
+    for key in ("background", "surface", "primary", "secondary", "accent", "text"):
+        if _is_hex(planned.get(key)):
+            scheme[key] = planned[key]
+    # Canonical hero stops only while the colours are the palette's own;
+    # otherwise re-derive them from the (custom) colours.
+    if planned.get("hero") is not None:
+        scheme["hero"] = planned["hero"]
+    elif any(scheme[k] != base[k] for k in ("primary", "secondary", "surface", "background")):
+        scheme.pop("hero", None)
+    scheme["palette"] = palette or (planned.get("palette") if isinstance(planned.get("palette"), str) else None) or hint["palette"]
+    scheme["mode"] = mode
+    theme["color_scheme"] = _complete_scheme(scheme)
+    return theme["color_scheme"]
+
+
+def palette_catalog_text() -> str:
+    lines = []
+    for name, p in PALETTES.items():
+        light, dark = p["light"], p["dark"]
+        lines.append(
+            f'   - {name}: {p["description"]}. Tailwind families: {", ".join(p["families"])}.\n'
+            f'       light: background {light["background"]}, surface {light["surface"]}, primary {light["primary"]}, secondary {light["secondary"]}, accent {light["accent"]}\n'
+            f'       dark:  background {dark["background"]}, surface {dark["surface"]}, primary {dark["primary"]}, secondary {dark["secondary"]}, accent {dark["accent"]}'
+        )
+    return "\n".join(lines)
+
+
+def palette_hint_text(hint: Dict[str, str]) -> str:
+    return (
+        "\n\n---\n"
+        f"PALETTE HINT (for variety): palette \"{hint['palette']}\", mode \"{hint['mode']}\".\n"
+        "Use it unless the subject or the user's request clearly fits another palette or mode better, "
+        "or the user specified colours (then honour them and set palette to \"custom\")."
+    )
+
+
+def colour_guidance(scheme: Dict[str, Any]) -> str:
+    """Stage-2 colour system: exact arbitrary-value classes from the planner's
+    hex colours, plus Tailwind families for secondary elements, with a tiny
+    worked example in this palette."""
+    s = scheme
+    dark = s["mode"] == "dark"
+    families = PALETTES.get(s.get("palette"), {}).get("families") or ("indigo", "purple", "pink")
+    fam = families[0]
+    tint = f"bg-{fam}-900 text-{fam}-200 border-{fam}-700" if dark else f"bg-{fam}-100 text-{fam}-800 border-{fam}-300"
+    icon = f"text-{fam}-400" if dark else f"text-{fam}-600"
+    hero_from, hero_to = s["hero"]
+    example = json.dumps({
+        "type": "Hero",
+        "props": {"className": f"bg-gradient-to-br from-[{hero_from}] to-[{hero_to}] text-[{s['on_hero']}] rounded-2xl p-12"},
+        "children": [
+            {"type": "Text", "props": {"tag": "h1", "className": f"text-5xl font-bold text-[{s['on_hero']}]"}, "content": "…"},
+            {"type": "Button", "props": {"className": f"bg-[{s['accent']}] text-[{readable_text_on(s['accent'])}] font-semibold px-6 py-3 rounded-xl hover:opacity-90"}, "content": "…"},
+        ],
+    })
+    card = json.dumps({
+        "type": "Card",
+        "props": {"className": f"bg-[{s['surface']}] text-[{readable_text_on(s['surface'])}] rounded-xl p-6 shadow-md border border-{fam}-{'700' if dark else '200'}"},
+        "children": [
+            {"type": "Icon", "props": {"name": "Star", "className": f"w-8 h-8 {icon}"}},
+            {"type": "Text", "props": {"className": f"text-xs font-semibold px-2 py-1 rounded-full {tint}"}, "content": "…"},
+        ],
+    })
+    return f"""COLOUR SYSTEM (palette: {s.get('palette')}, mode: {s['mode']}) — use these exact classes:
+- Page background (Root): bg-[{s['background']}] with body text text-[{s['text']}], muted text text-[{s['muted_text']}]
+- Hero: bg-gradient-to-br from-[{hero_from}] to-[{hero_to}] with text-[{s['on_hero']}]
+- Primary buttons / CTAs: bg-[{s['primary']}] text-[{s['on_primary']}] hover:opacity-90
+- Bold accent (at least once per page: badges, highlights, key numbers, secondary CTA): bg-[{s['accent']}] / text-[{s['accent']}]
+- Secondary gradient (feature band, banners): from-[{s['primary']}] to-[{s['secondary']}]
+- Card surfaces: bg-[{s['surface']}] (white only for small cards on a coloured section)
+- Secondary elements (chips, icon tiles, borders, table stripes): Tailwind families {', '.join(families)}, e.g. {tint}; icons {icon}
+- Section rhythm: alternate page background bg-[{s['background']}], surface bg-[{s['surface']}], and a saturated band bg-[{s['primary']}] text-[{s['on_primary']}]; adjacent sections never share a background
+- Worked example (hero): {example}
+- Worked example (card): {card}"""
+
+
+_COLOR_TOKEN_RE = re.compile(r"\{\{\s*(background|surface|primary|secondary|accent|text|muted_text|on_primary|on_hero|hero_from|hero_to)\s*\}\}")
+
+
+def resolve_color_tokens(node: Any, scheme: Dict[str, Any]) -> Any:
+    """Replace {{primary}}-style tokens (from the system prompt's generic
+    examples) left in className strings with the scheme's hex values."""
+    values = {**scheme, "hero_from": scheme["hero"][0], "hero_to": scheme["hero"][1]}
+    if isinstance(node, dict):
+        props = node.get("props")
+        if isinstance(props, dict) and isinstance(props.get("className"), str):
+            props["className"] = _COLOR_TOKEN_RE.sub(lambda m: str(values[m.group(1)]), props["className"])
+        for child in node.get("children") or []:
+            resolve_color_tokens(child, scheme)
+    return node
+
+
+def _temperature(setting: str, default: float) -> float:
+    """settings.<SETTING> or the env var of the same name, clamped to 0-1.5."""
+    raw = getattr(settings, setting, None)
+    if raw is None:
+        raw = os.environ.get(setting)
+    try:
+        value = float(raw) if raw is not None else default
+    except (TypeError, ValueError):
+        return default
+    return min(max(value, 0.0), 1.5)
+
+
 PLANNER_SYSTEM_PROMPT = """
 You are a reasoning-first UI architect.
 
@@ -41,36 +371,33 @@ Your responsibilities:
      { name, price }
    - Decorative images are forbidden
    
-8. COLOR THEME ANALYSIS - CRITICAL:
-   Analyze user's aesthetic keywords and generate appropriate color_scheme:
-   
-   KEYWORD MAPPINGS:
-   - "dark", "elegant", "luxury", "professional", "sleek", "modern", "gaming", "tech" 
-     → Dark Theme: {"mode": "dark", "background": "#0a0a0a", "surface": "#1a1a2e", "primary": "#9333ea", "accent": "#fbbf24"}
-   
-   - "colorful", "vibrant", "fun", "playful", "kids", "bright", "energetic"
-     → Vibrant Theme: {"mode": "vibrant", "background": "#667eea", "surface": "#ffffff", "primary": "#ec4899", "accent": "#f59e0b"}
-   
-   - "minimal", "clean", "calm", "serene", "meditation", "wellness"
-     → Soft Theme: {"mode": "soft", "background": "#ede9fe", "surface": "#faf5ff", "primary": "#8b5cf6", "accent": "#06b6d4"}
-   
-   - "crypto", "finance", "trading", "dashboard"
-     → Dark Financial: {"mode": "dark", "background": "#0f172a", "surface": "#1e293b", "primary": "#10b981", "accent": "#ef4444"}
-   
-   DEFAULT (if no keywords):
-     → Light Colored: {"mode": "light", "background": "#faf5ff", "surface": "#ffffff", "primary": "#9333ea", "accent": "#06b6d4"}
-   
-   NEVER use pure white (#ffffff) as background unless explicitly requested.
-   
-   Output this in theme.color_scheme:
+8. COLOR THEME — pick ONE named palette and a mode:
+   Choose the palette from the project's SUBJECT and mood (what it is about,
+   who it is for), not from generic style words. "modern", "professional",
+   "sleek", "clean" or "elegant" do NOT imply dark mode. Use dark only when the
+   user asks for it or the subject is genuinely night-time (gaming, nightlife,
+   cinema). Every variant has a saturated primary and a bold accent; light
+   variants have a clearly coloured page background, never white.
+
+   PALETTES:
+__PALETTE_CATALOG__
+
+   The user message ends with a PALETTE HINT chosen for variety. Follow it
+   unless the subject clearly suits another palette or mode better. If the user
+   specifies colours (e.g. a <color_scheme> block or named colours), honour
+   them, derive the remaining colours to match, and set palette to "custom".
+
+   Output this in theme.color_scheme (copy the chosen variant's hex values):
    {
-     "mode": "dark" | "vibrant" | "soft" | "light",
+     "palette": "<palette name or custom>",
+     "mode": "light" | "dark",
      "background": "#hex",
      "surface": "#hex",
      "primary": "#hex",
+     "secondary": "#hex",
      "accent": "#hex"
    }
-   
+
 You must DISCOVER the layout — not assume it.
 
 The key "design_plan.sections" MUST always be a list of objects:
@@ -79,7 +406,7 @@ The key "design_plan.sections" MUST always be a list of objects:
 Do NOT include login/signup unless explicitly requested.
 
 RETURN ONLY VALID JSON.
-"""
+""".replace("__PALETTE_CATALOG__", palette_catalog_text())
 
 
 UI_GENERATOR_SYSTEM_PROMPT = """You are an expert React/Tailwind developer specializing in modern, polished UI design.
@@ -92,7 +419,7 @@ STRICT OUTPUT FORMAT
   "title": "Page Title",
   "schema": { ...Root Component... },
   "code": "",
-  "metadata": { "framework": "react", "tailwindVersion": "3.4" }
+  "metadata": { "framework": "react", "tailwindVersion": "4" }
 }
 
 -------------------------------------------
@@ -102,7 +429,8 @@ COMPONENT SCHEMA RULES
 2. Text Content: Use "content": "Text" (Do not use children for raw text).
 3. NO Raw HTML: Never put <tags> inside a string. Use "type": "Link" or "Text".
 4. NO PLACEHOLDERS: Generate actual, realistic content based on the design plan.
-5. Text should never have white color.
+5. Text must contrast with what it sits on: dark text on light surfaces, light text (white is fine)
+   on dark or saturated backgrounds.
 6. NEVER invent an image URL. For every Image component, leave "src" as an empty string ("") and
    instead write a concrete, specific "alt" text (3-8 words naming the actual subject, e.g.
    "golden retriever puppy on green grass" — not "product image" or "placeholder"). The backend
@@ -112,6 +440,25 @@ Allowed Types:
 Root, Section, Container, Card, CardHeader, CardTitle, CardContent,
 Form, Label, Input, Button, Text, Link, Icon, Image, Div,
 Hero, Timeline, TimelineItem, Grid, Flex
+
+-------------------------------------------
+COLOURS
+-------------------------------------------
+The user message contains a COLOUR SYSTEM with exact hex values for this page. Build colours from it
+with Tailwind arbitrary values (Tailwind v4): bg-[#0f172a], text-[#fbbf24], border-[#334155],
+bg-gradient-to-br from-[#667eea] to-[#ec4899]. In the examples below, {{background}}, {{surface}},
+{{primary}}, {{secondary}}, {{accent}}, {{text}}, {{muted_text}}, {{on_primary}}, {{on_hero}},
+{{hero_from}} and {{hero_to}} stand for those hex values: write the hex value (e.g. bg-[#0369a1]).
+Rules:
+- Root gets the COLOUR SYSTEM page background. Never bg-white, from-white, via-white or from-gray-50
+  on Root, Hero or Section backgrounds.
+- The Hero is a saturated gradient (hero_from -> hero_to), never a pale or white one.
+- Every page uses the bold accent at least once.
+- Adjacent sections never share the same background: alternate page background, surface, and a
+  saturated primary band.
+- Light themes use saturated 400-700 shades for colour and tinted (not white) section backgrounds;
+  white is only for small card surfaces.
+- Keep text readable: dark text on light surfaces, light text on dark or saturated ones.
 
 -------------------------------------------
 CRITICAL: GENERATE REAL CONTENT, NOT PLACEHOLDERS
@@ -132,17 +479,17 @@ MODERN UI PATTERNS (IMPLEMENT THESE)
    - An Icon at the top (use appropriate icon: Users, TrendingUp, Star, Award, Target, etc.)
    - A large, bold number (use text-3xl or text-4xl font-bold)
    - A descriptive label below (text-sm text-muted-foreground)
-   - Modern styling: rounded-xl, shadow-md, border, bg-gradient-to-br or solid color
-   - Icon should be colored (e.g., text-purple-600, text-blue-600)
+   - Modern styling: rounded-xl, shadow-md, the COLOUR SYSTEM card surface
+   - Icon in the accent or a palette family colour
    
    Example structure:
    {
      "type": "Card",
-     "props": {"className": "p-6 rounded-xl shadow-md border bg-gradient-to-br from-white to-purple-50"},
+     "props": {"className": "p-6 rounded-xl shadow-md bg-[{{surface}}]"},
      "children": [
-       {"type": "Icon", "props": {"name": "Users", "className": "w-8 h-8 text-purple-600 mb-3"}},
-       {"type": "Text", "props": {"className": "text-4xl font-bold text-gray-900 mb-1"}, "content": "12k+"},
-       {"type": "Text", "props": {"className": "text-sm text-gray-600"}, "content": "Active Users"}
+       {"type": "Icon", "props": {"name": "Users", "className": "w-8 h-8 text-[{{accent}}] mb-3"}},
+       {"type": "Text", "props": {"className": "text-4xl font-bold text-[{{text}}] mb-1"}, "content": "12k+"},
+       {"type": "Text", "props": {"className": "text-sm text-[{{muted_text}}]"}, "content": "Active Users"}
      ]
    }
 
@@ -157,19 +504,19 @@ MODERN UI PATTERNS (IMPLEMENT THESE)
    Example:
    {
      "type": "Card",
-     "props": {"className": "p-6 rounded-xl shadow-md border bg-gradient-to-br from-yellow-50 to-amber-50 hover:shadow-lg transition-shadow"},
+     "props": {"className": "p-6 rounded-xl shadow-md bg-[{{surface}}] border-l-4 border-[{{accent}}] hover:shadow-lg transition-shadow"},
      "children": [
-       {"type": "Icon", "props": {"name": "Trophy", "className": "w-12 h-12 text-yellow-600 mb-3"}},
-       {"type": "Text", "props": {"className": "text-lg font-semibold text-gray-900"}, "content": "World Cup 2022"},
-       {"type": "Text", "props": {"className": "text-sm text-gray-600 mt-1"}, "content": "FIFA World Cup Champion"}
+       {"type": "Icon", "props": {"name": "Trophy", "className": "w-12 h-12 text-[{{accent}}] mb-3"}},
+       {"type": "Text", "props": {"className": "text-lg font-semibold text-[{{text}}]"}, "content": "World Cup 2022"},
+       {"type": "Text", "props": {"className": "text-sm text-[{{muted_text}}] mt-1"}, "content": "FIFA World Cup Champion"}
      ]
    }
 
 3. HERO SECTIONS:
    Use type "Hero" for hero sections:
    - Large, prominent heading (text-5xl or text-6xl font-bold)
-   - Descriptive subtitle (text-xl text-gray-600)
-   - Background gradient: bg-gradient-to-br from-blue-50 via-white to-purple-50
+   - Descriptive subtitle (text-xl, same text colour as the heading at opacity-90)
+   - Background: the COLOUR SYSTEM hero gradient (saturated, never pale or white)
    - Centered or left-aligned layout
    - Generous padding (p-12 or p-16)
    - Rounded corners: rounded-2xl
@@ -178,10 +525,11 @@ MODERN UI PATTERNS (IMPLEMENT THESE)
    Example:
    {
      "type": "Hero",
-     "props": {"className": "bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12 text-center"},
+     "props": {"className": "bg-gradient-to-br from-[{{hero_from}}] to-[{{hero_to}}] rounded-2xl shadow-lg p-12 text-center"},
      "children": [
-       {"type": "Text", "props": {"className": "text-5xl font-bold text-gray-900 mb-4"}, "content": "Lionel Messi: The Record Breaker"},
-       {"type": "Text", "props": {"className": "text-xl text-gray-600"}, "content": "A legendary career marked by unparalleled achievements"}
+       {"type": "Text", "props": {"className": "text-5xl font-bold text-[{{on_hero}}] mb-4"}, "content": "Lionel Messi: The Record Breaker"},
+       {"type": "Text", "props": {"className": "text-xl text-[{{on_hero}}] opacity-90"}, "content": "A legendary career marked by unparalleled achievements"},
+       {"type": "Button", "props": {"className": "mt-8 bg-[{{accent}}] font-semibold px-6 py-3 rounded-xl hover:opacity-90"}, "content": "Explore the records"}
      ]
    }
 
@@ -190,20 +538,20 @@ MODERN UI PATTERNS (IMPLEMENT THESE)
    - Timeline container: Use "Timeline" type with relative positioning and left border
    - Each timeline item: Use "TimelineItem" type
    - Year/date prominently displayed (text-2xl font-bold)
-   - Achievement description (text-sm text-gray-600)
+   - Achievement description (text-sm, muted text colour)
    - Each item should be a Card with gradient background
    
    Example:
    {
      "type": "Timeline",
-     "props": {"className": "relative pl-8 border-l-2 border-blue-200 space-y-8"},
+     "props": {"className": "relative pl-8 border-l-2 border-[{{primary}}] space-y-8"},
      "children": [
        {
          "type": "TimelineItem",
-         "props": {"className": "relative"},
+         "props": {"className": "relative bg-[{{surface}}] rounded-lg p-6 shadow-md border-l-4 border-[{{accent}}]"},
          "children": [
-           {"type": "Text", "props": {"className": "text-2xl font-bold text-gray-900 mb-1"}, "content": "2004"},
-           {"type": "Text", "props": {"className": "text-sm text-gray-600"}, "content": "Debut for Barcelona"}
+           {"type": "Text", "props": {"className": "text-2xl font-bold text-[{{primary}}] mb-1"}, "content": "2004"},
+           {"type": "Text", "props": {"className": "text-sm text-[{{muted_text}}]"}, "content": "Debut for Barcelona"}
          ]
        }
      ]
@@ -228,56 +576,17 @@ MODERN UI PATTERNS (IMPLEMENT THESE)
    - ArrowRight, ArrowLeft, ChevronRight (for navigation)
    - Check, X, AlertCircle (for status)
    
-   Format: {"type": "Icon", "props": {"name": "IconName", "className": "w-6 h-6 text-purple-600"}}
+   Format: {"type": "Icon", "props": {"name": "IconName", "className": "w-6 h-6 text-[{{accent}}]"}}
 
 7. MODERN STYLING GUIDELINES:
    - Use rounded-xl or rounded-2xl for modern card corners
    - Apply shadow-md or shadow-lg for depth
-   - Use gradient backgrounds: bg-gradient-to-br from-color1 to-color2
-   - Color scheme: Use purple, blue, indigo for primary actions (text-purple-600, bg-purple-50)
+   - Colours: follow the COLOUR SYSTEM in the user message (see COLOURS above); secondary elements
+     use the palette's Tailwind families listed there
    - Spacing: Use p-6 or p-8 for card padding, gap-6 for grid spacing
    - Typography: Use font-bold for headings, font-semibold for subheadings
    - Text sizes: text-4xl or text-5xl for hero numbers, text-2xl for section titles
-   
-   - BACKGROUNDS (THEME-AWARE):
-     
-     IF design_plan.theme.color_scheme.mode == "dark":
-       * Root: bg-gray-900 OR bg-slate-900 OR bg-gray-950
-       * Cards: bg-gray-800 OR bg-slate-800/90 with border-gray-700
-       * Gradients: bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900
-       * Text: text-gray-100 OR text-white (light text on dark background)
-       * Secondary text: text-gray-300 OR text-gray-400
-       * Hero sections: bg-gradient-to-br from-gray-900 to-slate-800
-     
-     IF design_plan.theme.color_scheme.mode == "vibrant":
-       * Root: bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500
-       * Cards: bg-white/90 backdrop-blur-sm with shadow-xl
-       * Sections: bg-white/80 backdrop-blur-sm with colored borders
-       * Text: text-gray-900 (dark text on light cards)
-       * Buttons: Use bright colors (bg-pink-500, bg-purple-500, etc.)
-     
-     IF design_plan.theme.color_scheme.mode == "soft":
-       * Root: bg-gradient-to-br from-purple-100 via-blue-50 to-indigo-100
-       * Cards: bg-white/90 backdrop-blur-sm OR bg-gradient-to-br from-white to-purple-50
-       * Gradients: bg-gradient-to-br from-purple-50 to-blue-50
-       * Text: text-gray-900
-       * Hero: bg-gradient-to-br from-purple-100 to-blue-100
-     
-     IF design_plan.theme.color_scheme.mode == "light" (DEFAULT):
-       * Root: bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 (COLORFUL, not gray!)
-       * Cards: bg-white with shadow-lg OR bg-gradient-to-br from-white to-purple-50
-       * Hero: bg-gradient-to-br from-blue-100 to-purple-100 (NOT white or pale gray!)
-       * Text: text-gray-900
-       * Sections: Can use bg-gradient-to-br from-purple-50/50 to-blue-50/50
-     
-     CRITICAL RULES:
-     - NEVER use bg-white alone for Root or Hero sections
-     - NEVER use from-gray-50 via-white to-slate-50 (this is too pale and looks white!)
-     - ALWAYS check the color_scheme.mode from design_plan and apply the correct theme
-     - For dark mode, ALWAYS use light text colors (text-gray-100, text-white)
-     - For vibrant mode, use bold saturated backgrounds with high contrast cards
-     - If you see examples with bg-white in Root, replace with appropriate gradient
-   
+
    - SECTION STRUCTURE: Always wrap sections with proper padding (py-12 px-4 sm:px-6 lg:px-8)
    - CONTAINERS: Use max-w-7xl mx-auto for main containers to prevent content from stretching too wide
 
@@ -285,14 +594,9 @@ MODERN UI PATTERNS (IMPLEMENT THESE)
    Follow the Shadcn pattern:
    Card -> CardHeader (optional) -> CardContent -> CardFooter (optional).
    
-   CRITICAL: Apply theme-aware backgrounds based on color_scheme.mode:
-   - Dark mode: bg-gray-800 or bg-slate-800 with border-gray-700
-   - Vibrant mode: bg-white with colored shadows and borders
-   - Soft mode: bg-white OR bg-gradient-to-br from-white to-purple-50
-   - Light mode: bg-white OR bg-gradient-to-br from-white to-blue-50
-   
-   Use: 'shadow-md', 'border border-gray-200' (or border-gray-700 for dark), 'rounded-xl', 'p-6'
-   NEVER use pure bg-white for cards in dark mode - use bg-gray-800 instead
+   Card background: the COLOUR SYSTEM card surface bg-[{{surface}}] with text-[{{text}}].
+   On a saturated band, white cards are fine. Use 'shadow-md', 'rounded-xl', 'p-6', and a palette-family
+   or accent border for emphasis.
 
 9. LAYOUT:
    - Use responsive grids: grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6
@@ -308,7 +612,7 @@ CONTENT GENERATION RULES
 3. Generate realistic data that matches the context (e.g., if it says "800+ goals", use "800+" not "Stats Counter")
 4. Create meaningful labels and descriptions
 5. Use appropriate icons that match the content theme
-6. Apply modern color schemes and styling
+6. Apply the COLOUR SYSTEM from the user message
 
 -------------------------------------------
 EXECUTION
@@ -340,6 +644,10 @@ class LLMClient:
         self.planning_model = reasoning_model_for(self.provider)
 
         self.timeout = 60
+        # UI stage runs warmer for visual variety; planning stays steadier.
+        # Override with LLM_UI_TEMPERATURE / LLM_PLANNER_TEMPERATURE (settings or env).
+        self.ui_temperature = _temperature("LLM_UI_TEMPERATURE", 0.65)
+        self.planner_temperature = _temperature("LLM_PLANNER_TEMPERATURE", 0.4)
 
         logger.info(f"LLMClient initialized: provider={self.provider}")
         logger.info(f"  Planning model: {self.planning_model}")
@@ -353,7 +661,11 @@ class LLMClient:
         """
         # STAGE 1: Planning with Moonshot (or other planning model)
         logger.info("🎨 STAGE 1: Creating strategic design plan...")
-        design_plan = self._call_planner(user_prompt, retries)
+        palette_hint = choose_palette_hint(user_prompt)
+        logger.info(f"  Palette hint: {palette_hint}")
+        design_plan = self._call_planner(user_prompt + palette_hint_text(palette_hint), retries)
+        # Fill/repair theme.color_scheme so stage 2 always has usable colours.
+        normalize_color_scheme(design_plan, palette_hint)
         
         print(design_plan)
         print(":::::::::::::::::::::: NEXT :::::::::::::::::::")
@@ -366,6 +678,8 @@ class LLMClient:
         logger.info("🔨 STAGE 2: Building UI from design plan...")
         ui_prompt = self._compile_ui_prompt(design_plan)
         ui_result = self._call_ui_generator(ui_prompt, design_plan, retries)
+        if isinstance(ui_result.get("schema"), dict):
+            resolve_color_tokens(ui_result["schema"], design_plan["theme"]["color_scheme"])
         
         print(ui_result)
         
@@ -400,12 +714,14 @@ class LLMClient:
                         model=self.planning_model,
                         max_tokens=4096,
                         thinking_budget=-1,  # dynamic — planning quality benefits from thinking
+                        temperature=self.planner_temperature,
                     )
                 return self._call_groq_api(
                     prompt=prompt,
                     system_prompt=PLANNER_SYSTEM_PROMPT,
                     model=self.planning_model,
-                    max_tokens=3500
+                    max_tokens=3500,
+                    temperature=self.planner_temperature,
                 )
             except Exception as e:
                 logger.error(f"Planner attempt {attempt + 1}/{retries} failed: {e}")
@@ -417,58 +733,8 @@ class LLMClient:
     def _call_ui_generator(self, prompt: str, design_plan: Dict, retries: int) -> Dict[str, Any]:
         """Stage 2: UI generation with user-selected model"""
         
-        # SAFELY extract nested values with defaults
-        theme = design_plan.get('theme', {})
-        colors = theme.get('color_scheme', {})
-        typography = theme.get('typography', {})
-        
-        # Use .get() for design_system to prevent KeyError crash
-        design_system = design_plan.get("design_system", {})
-        spacing = design_system.get("spacing", "p-4 gap-4")
-        radius = design_system.get("border_radius") or design_system.get("radius", "rounded-lg")
+        enhanced_prompt = self._build_ui_request(prompt, design_plan)
 
-        # Get project context
-        project_name = design_plan.get('project_name', '')
-        project_description = design_plan.get('project_description', '')
-        
-        # Inject design context safely
-        enhanced_prompt = f"""PROJECT CONTEXT:
-Project Name: {project_name}
-Project Description: {project_description}
-
-DESIGN SPECIFICATIONS:
-THEME: {theme.get('style', 'modern')}
-MODE: {colors.get('mode', 'light')}
-PRIMARY COLOR: {colors.get('primary', '#000000')}
-BACKGROUND COLOR: {colors.get('background', '#faf5ff')}
-SURFACE COLOR: {colors.get('surface', '#ffffff')}
-ACCENT COLOR: {colors.get('accent', '#06b6d4')}
-TYPOGRAPHY SCALE: Hero: {typography.get('heading', 'text-2xl font-bold')}, Body: {typography.get('body', 'text-sm')}
-
-SPACING SYSTEM: {spacing}
-BORDER RADIUS: {radius}
-
-BUILD INSTRUCTIONS:
-{prompt}
-
-CRITICAL REMINDERS:
-1. Generate REAL CONTENT - extract actual numbers, achievements, and data from section descriptions
-2. Use appropriate icons from lucide-react (see icon suggestions in sections above)
-3. Apply modern styling: rounded-xl, shadow-md, gradients, proper spacing (p-6, gap-6)
-4. DO NOT use placeholder text - always generate meaningful, realistic content
-5. Use EXACT Tailwind classes
-6. Build nested structures (Root → Section → Grid → Components)
-7. Create polished, production-ready UI that matches modern design standards
-
-THEME MODE CRITICAL INSTRUCTIONS:
-- Current theme mode is: {colors.get('mode', 'light')}
-- If mode is "dark": Use dark backgrounds (bg-gray-900, bg-slate-900) and light text (text-gray-100, text-white)
-- If mode is "vibrant": Use bold saturated gradient backgrounds with high-contrast white cards
-- If mode is "soft": Use soft pastel gradients (purple-100, blue-50, indigo-100)
-- If mode is "light": Use colored gradients (purple-50, blue-50, indigo-50) - NOT white or gray!
-- NEVER ignore the color_scheme - it's based on the user's intent from their prompt
-- NEVER use "from-gray-50 via-white to-slate-50" - this appears white and is forbidden"""
-        
         for attempt in range(retries):
             try:
                 if self.provider == "gemini":
@@ -478,13 +744,15 @@ THEME MODE CRITICAL INSTRUCTIONS:
                         model=self.ui_model,
                         max_tokens=16384,
                         thinking_budget=0,  # deterministic formatting — reserve the whole budget for output
+                        temperature=self.ui_temperature,
                     )
                 else:
                     return self._call_groq_api(
                         prompt=enhanced_prompt,
                         system_prompt=UI_GENERATOR_SYSTEM_PROMPT,
                         model=self.ui_model,
-                        max_tokens=8192
+                        max_tokens=8192,
+                        temperature=self.ui_temperature,
                     )
             except Exception as e:
                 logger.error(f"UI Generator attempt {attempt + 1}/{retries} failed: {e}")
@@ -493,7 +761,59 @@ THEME MODE CRITICAL INSTRUCTIONS:
                 else:
                     raise
     
-    def _call_groq_api(self, prompt: str, system_prompt: str, model: str, max_tokens: int = 4096) -> Dict[str, Any]:
+    def _build_ui_request(self, prompt: str, design_plan: Dict[str, Any]) -> str:
+        """Stage-2 user message: project context, the colour system built from
+        the planner's hex colours, and the compiled section instructions."""
+        theme = design_plan.get('theme') if isinstance(design_plan.get('theme'), dict) else {}
+        typography = theme.get('typography', {}) if isinstance(theme.get('typography'), dict) else {}
+        scheme = theme.get('color_scheme')
+        if not (isinstance(scheme, dict) and {"hero", "on_hero", "muted_text", "on_primary"} <= scheme.keys()):
+            # Not normalised yet (e.g. called directly): repair a copy.
+            scheme = normalize_color_scheme(
+                {"theme": {"color_scheme": dict(scheme) if isinstance(scheme, dict) else {}}},
+                choose_palette_hint(design_plan.get('project_name', '')),
+            )
+
+        # Use .get() for design_system to prevent KeyError crash
+        design_system = design_plan.get("design_system", {})
+        spacing = design_system.get("spacing", "p-4 gap-4")
+        radius = design_system.get("border_radius") or design_system.get("radius", "rounded-lg")
+
+        return f"""PROJECT CONTEXT:
+Project Name: {design_plan.get('project_name', '')}
+Project Description: {design_plan.get('project_description', '')}
+
+DESIGN SPECIFICATIONS:
+THEME: {theme.get('style', 'modern')}
+MODE: {scheme['mode']}
+PALETTE: {scheme.get('palette')}
+PRIMARY COLOR: {scheme['primary']}
+SECONDARY COLOR: {scheme['secondary']}
+BACKGROUND COLOR: {scheme['background']}
+SURFACE COLOR: {scheme['surface']}
+ACCENT COLOR: {scheme['accent']}
+TYPOGRAPHY SCALE: Hero: {typography.get('heading', 'text-2xl font-bold')}, Body: {typography.get('body', 'text-sm')}
+
+SPACING SYSTEM: {spacing}
+BORDER RADIUS: {radius}
+
+{colour_guidance(scheme)}
+
+BUILD INSTRUCTIONS:
+{prompt}
+
+CRITICAL REMINDERS:
+1. Generate REAL CONTENT - extract actual numbers, achievements, and data from section descriptions
+2. Use appropriate icons from lucide-react (see icon suggestions in sections above)
+3. Apply modern styling: rounded-xl, shadow-md, gradients, proper spacing (p-6, gap-6)
+4. DO NOT use placeholder text - always generate meaningful, realistic content
+5. Use EXACT Tailwind classes; colours come from the COLOUR SYSTEM above as arbitrary values like bg-[{scheme['primary']}]
+6. Build nested structures (Root → Section → Grid → Components)
+7. Create polished, production-ready UI that matches modern design standards
+8. The page must be clearly colourful: coloured page background, saturated hero, at least one bold accent,
+   and no two adjacent sections with the same background. Never a white or near-white page."""
+
+    def _call_groq_api(self, prompt: str, system_prompt: str, model: str, max_tokens: int = 4096, temperature: float = 0.4) -> Dict[str, Any]:
         """Call Groq API (supports multiple models via Groq)"""
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -506,7 +826,7 @@ THEME MODE CRITICAL INSTRUCTIONS:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
             ],
-            "temperature": 0.4,
+            "temperature": temperature,
             "max_tokens": max_tokens,
         }
         
@@ -535,6 +855,7 @@ THEME MODE CRITICAL INSTRUCTIONS:
         model: str,
         max_tokens: int = 4096,
         thinking_budget: Optional[int] = None,
+        temperature: float = 0.4,
     ) -> Dict[str, Any]:
         """Call Gemini API with the given model (e.g. "models/gemini-3.8-flash").
 
@@ -550,7 +871,7 @@ THEME MODE CRITICAL INSTRUCTIONS:
         headers = {"Content-Type": "application/json"}
 
         generation_config = {
-            "temperature": 0.4,
+            "temperature": temperature,
             "maxOutputTokens": max_tokens,
         }
         if thinking_budget is not None:

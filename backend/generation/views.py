@@ -146,7 +146,7 @@ class GenerateView(APIView):
                 logger.info(f"Created project: {project.id} - {project.title}")
 
 
-            code_generator = ReactCodeGenerator(schema)
+            code_generator = ReactCodeGenerator(schema, theme=design_plan.get("theme"))
             print(code_generator)
             react_code = code_generator.generate()
 

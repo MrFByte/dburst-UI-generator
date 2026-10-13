@@ -25,6 +25,7 @@ _JSX_TEXT_ESCAPES = {"{": "&#123;", "}": "&#125;", "<": "&lt;", ">": "&gt;", "&"
 _JSX_TEXT_SPECIAL = re.compile(r"[{}<>&]")
 
 IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
+HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 SAFE_URL_SCHEMES = {"http", "https", "mailto", "tel"}
 _URL_SCHEME = re.compile(r"^([a-z][a-z0-9+.\-]*):")
 
@@ -87,13 +88,13 @@ def is_identifier(name: Any) -> bool:
     return isinstance(name, str) and bool(IDENTIFIER.match(name))
 
 
-def render_schema(schema: Dict[str, Any], component_name: str = "GeneratedUI") -> str:
+def render_schema(schema: Dict[str, Any], component_name: str = "GeneratedUI", theme: Any = None) -> str:
     """Validate (a copy of) `schema` and generate its code — for paths that
     regenerate from stored or patched schemas. Raises ValueError if invalid."""
     from .schema_validator import SchemaValidator
 
     validated = SchemaValidator.validate(copy.deepcopy(schema))
-    return ReactCodeGenerator(validated, component_name).generate()
+    return ReactCodeGenerator(validated, component_name, theme=theme).generate()
 
 class ReactCodeGenerator:
     """Generate modern React code from schema with proper nesting support"""
@@ -119,9 +120,10 @@ class ReactCodeGenerator:
         "TableHead": "shadcn/ui",
     }
     
-    def __init__(self, schema: Dict[str, Any], component_name: str = "GeneratedUI"):
+    def __init__(self, schema: Dict[str, Any], component_name: str = "GeneratedUI", theme: Any = None):
         self.schema = schema if isinstance(schema, dict) else {}
         self.component_name = component_name if is_identifier(component_name) else "GeneratedUI"
+        self.colors = self._theme_colors(theme)
         self.used_components = set()
         self.used_icons = set()
         self.indent_size = 2
@@ -213,34 +215,40 @@ export default function {self.component_name}() {{
         
         return "\n".join(imports)
     
-    def _replace_bg_white(self, className: str, node_type: str = "") -> str:
-        """Replace bg-white with gradients to reduce white overuse"""
-        if not className:
-            return className
-        
-        # Replace bg-white with appropriate gradients based on component type
-        if "bg-white" in className and "bg-gradient" not in className:
-            # For hero sections, use more colorful gradient
-            if node_type == "Hero":
-                className = className.replace("bg-white", "bg-gradient-to-br from-blue-50 via-white to-purple-50")
-            # For cards, use subtle gradient
-            elif node_type == "Card":
-                className = className.replace("bg-white", "bg-gradient-to-br from-white to-gray-50")
-            # For timeline items, use subtle gradient
-            elif node_type == "TimelineItem":
-                className = className.replace("bg-white", "bg-gradient-to-br from-white to-gray-50")
-            # For timeline container, usually no bg needed but if present use subtle
-            elif node_type == "Timeline":
-                className = className.replace("bg-white", "bg-gradient-to-br from-white to-gray-50")
-            # For root, use page-level gradient
-            elif node_type == "Root":
-                className = className.replace("bg-white", "bg-gradient-to-br from-gray-50 via-white to-slate-50")
-            # Default: subtle gradient
-            else:
-                className = className.replace("bg-white", "bg-gradient-to-br from-white to-gray-50")
-        
-        return className
-    
+    @staticmethod
+    def _theme_colors(theme: Any) -> Dict[str, Any]:
+        """Valid hex colours from a design_plan theme or its color_scheme.
+        Anything that isn't a plain #hex is dropped, so these are safe to put
+        in arbitrary-value classes."""
+        if isinstance(theme, dict) and isinstance(theme.get("color_scheme"), dict):
+            theme = theme["color_scheme"]
+        if not isinstance(theme, dict):
+            return {}
+        colors = {
+            key: theme[key]
+            for key in ("background", "surface", "primary", "secondary", "accent", "on_hero")
+            if isinstance(theme.get(key), str) and HEX_COLOR.match(theme[key])
+        }
+        hero = theme.get("hero")
+        if isinstance(hero, (list, tuple)) and len(hero) == 2 and all(isinstance(h, str) and HEX_COLOR.match(h) for h in hero):
+            colors["hero"] = tuple(hero)
+        return colors
+
+    def _default_classes(self) -> Dict[str, str]:
+        """Default colour classes for Hero/Timeline when the schema gives none:
+        the theme's colours if known, else a clearly coloured gradient."""
+        c = self.colors
+        hero = c.get("hero") or ((c["primary"], c.get("secondary") or c.get("accent")) if c.get("primary") and (c.get("secondary") or c.get("accent")) else None)
+        return {
+            "hero": f"bg-gradient-to-br from-[{hero[0]}] to-[{hero[1]}] text-[{c.get('on_hero', '#ffffff')}]" if hero
+                    else "bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white",
+            "timeline_border": f"border-[{c['primary']}]" if c.get("primary") else "border-indigo-400",
+            "timeline_item": f"bg-[{c['surface']}] border-l-4 border-[{c.get('accent') or c.get('primary')}]"
+                             if c.get("surface") and (c.get("accent") or c.get("primary"))
+                             else "bg-indigo-50 border-l-4 border-pink-500",
+            "timeline_dot": f"bg-[{c['accent']}]" if c.get("accent") else "bg-pink-500",
+        }
+
     def _render_component(self, node: Dict[str, Any], indent: int = 1) -> str:
         """Recursively render component tree"""
         space = "  " * indent
@@ -253,8 +261,10 @@ export default function {self.component_name}() {{
         
         # Extract props
         className = self._str(props.get("className", ""))
-        # Replace bg-white with gradients based on component type
-        className = self._replace_bg_white(className, node_type)
+        defaults = self._default_classes()
+        # With a theme, a Root without its own background gets the page colour.
+        if node_type == "Root" and self.colors.get("background") and "bg-" not in className:
+            className = f"{className} bg-[{self.colors['background']}]".strip()
         id_attr = self._str(props.get("id", ""))
         # Specific props
         src = safe_url(props.get("src", ""), fallback=FIXED_IMAGE)
@@ -342,12 +352,9 @@ export default function {self.component_name}() {{
 
         # 7. Hero, Timeline, TimelineItem (render as divs with special styling)
         elif node_type == "Hero":
-            # Hero gets special default styling if bg- not present (className already has bg-white replaced)
+            # Hero gets a saturated default (theme colours, else indigo->pink) if it has no bg-
             if "bg-" not in className:
-                if className:
-                    className = f"{className} bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12"
-                else:
-                    className = "bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12"
+                className = f"{className} {defaults['hero']} rounded-2xl shadow-lg p-12".strip()
             elif "rounded" not in className:
                 className = f"{className} rounded-2xl shadow-lg p-12"
             class_attr = jsx_attr("className", className)
@@ -357,26 +364,20 @@ export default function {self.component_name}() {{
         elif node_type == "Timeline":
             # Timeline gets special default styling (className already processed)
             if "border-l" not in className:
-                if className:
-                    className = f"{className} relative pl-8 border-l-2 border-blue-200 space-y-8"
-                else:
-                    className = "relative pl-8 border-l-2 border-blue-200 space-y-8"
+                className = f"{className} relative pl-8 border-l-2 {defaults['timeline_border']} space-y-8".strip()
             class_attr = jsx_attr("className", className)
             children_html = self._render_children(children, indent + 1)
             return f'{space}<div{class_attr}{id_attr_str}>\n{children_html}\n{space}</div>'
         
         elif node_type == "TimelineItem":
-            # TimelineItem gets special styling with dot indicator
-            # Ensure it has a gradient background if bg-white was replaced
+            # TimelineItem gets a tinted card with an accent edge and a dot indicator
             if not className or "bg-" not in className:
-                if className:
-                    className = f"{className} bg-gradient-to-br from-white to-gray-50 rounded-lg p-6 shadow-md border border-gray-200"
-                else:
-                    className = "bg-gradient-to-br from-white to-gray-50 rounded-lg p-6 shadow-md border border-gray-200"
+                className = f"{className} {defaults['timeline_item']} rounded-lg p-6 shadow-md".strip()
             class_attr = jsx_attr("className", className)
             children_html = self._render_children(children, indent + 1)
             # Wrap in a container with the dot
-            return f'{space}<div className="relative">\n{space}  <div className="absolute -left-[2.1rem] top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-md"></div>\n{space}  <div{class_attr}{id_attr_str}>\n{children_html}\n{space}  </div>\n{space}</div>'
+            dot_attr = jsx_attr("className", f"absolute -left-[2.1rem] top-0 w-4 h-4 {defaults['timeline_dot']} rounded-full border-4 border-white shadow-md")
+            return f'{space}<div className="relative">\n{space}  <div{dot_attr}></div>\n{space}  <div{class_attr}{id_attr_str}>\n{children_html}\n{space}  </div>\n{space}</div>'
         
         # 8. Generic Container / Shadcn Components
         # If it has children, render them

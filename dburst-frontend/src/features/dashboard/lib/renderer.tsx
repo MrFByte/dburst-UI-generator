@@ -2,6 +2,8 @@ import React from 'react';
 import type { SchemaNode } from '../types/renderType';
 import { DynamicIcon, type IconName } from 'lucide-react/dynamic';
 import { EditableText } from '../components/EditableText';
+import { classStyle } from './classStyle';
+import { safeHref, safeLinkTarget, safeUrl } from '@/shared/utils/safeUrl';
 
 // Type guard to ensure we only pass SchemaNode objects to RenderNode
 function isSchemaNode(child: SchemaNode | string): child is SchemaNode {
@@ -42,7 +44,11 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
   if (!node) return null;
 
   const { type, props = {}, children = [], content = '', src } = node;
-  const className = props.className || '';
+  const className = typeof props.className === 'string' ? props.className : '';
+  // className plus the inline-style fallback for colours this build can't
+  // generate (gradient stops, [#hex] values — see classStyle.ts), merged
+  // under any explicit schema style.
+  const sx = (cls: string) => ({ className: cls, style: classStyle(cls, props.style) });
 
   // Function to render children, filtering out strings for container elements
   const renderChildren = () => (
@@ -88,7 +94,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         rootClass = `${className} bg-gradient-to-br from-gray-50 via-white to-slate-50`;
       }
       return (
-        <main className={`${rootClass} h-fit w-full min-h-screen`}>
+        <main {...sx(`${rootClass} h-fit w-full min-h-screen`)}>
           {renderChildren()}
         </main>
       );
@@ -99,7 +105,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         ? className
         : `${className} py-12 px-4 sm:px-6 lg:px-8`;
       return (
-        <section className={sectionClass}>
+        <section {...sx(sectionClass)}>
           {renderChildren()}
         </section>
       );
@@ -110,7 +116,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         ? className
         : `${className} grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`;
       return (
-        <div className={gridClass}>
+        <div {...sx(gridClass)}>
           {renderChildren()}
         </div>
       );
@@ -131,42 +137,42 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         ? cardClass
         : `${cardClass} rounded-xl border border-gray-200 shadow-md hover:shadow-lg transition-shadow`;
       return (
-        <div className={cardDefaults}>
+        <div {...sx(cardDefaults)}>
           {renderChildren()}
         </div>
       );
 
     case 'CardHeader':
       return (
-        <div className={`${className} flex flex-col space-y-1.5 p-6`}>
+        <div {...sx(`${className} flex flex-col space-y-1.5 p-6`)}>
           {renderChildren()}
         </div>
       );
 
     case 'CardTitle':
       return (
-        <h3 className={`${className} text-2xl font-semibold leading-none tracking-tight`}>
+        <h3 {...sx(`${className} text-2xl font-semibold leading-none tracking-tight`)}>
           {renderTextContent()}
         </h3>
       );
 
     case 'CardDescription':
       return (
-        <p className={`${className} text-sm text-gray-500`}>
+        <p {...sx(`${className} text-sm text-gray-500`)}>
           {renderTextContent()}
         </p>
       );
 
     case 'CardContent':
       return (
-        <div className={`${className} p-6 pt-0`}>
+        <div {...sx(`${className} p-6 pt-0`)}>
           {renderChildren()}
         </div>
       );
 
     case 'CardFooter':
       return (
-        <div className={`${className} flex items-center p-6 pt-0`}>
+        <div {...sx(`${className} flex items-center p-6 pt-0`)}>
           {renderChildren()}
         </div>
       );
@@ -175,7 +181,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
       // CRITICAL FIX: Ensure Flex always has flex class
       const flexClass = className.includes('flex') ? className : `flex ${className}`;
       return (
-        <div className={flexClass}>
+        <div {...sx(flexClass)}>
           {renderChildren()}
         </div>
       );
@@ -186,7 +192,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         ? className
         : `${className} max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`;
       return (
-        <div className={containerClass}>
+        <div {...sx(containerClass)}>
           {renderChildren()}
         </div>
       );
@@ -201,13 +207,13 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
             content={textContent}
             path={`${path}/content`}
             onEdit={onTextEdit}
-            className={className}
+            {...sx(className)}
           />
         );
       }
 
       return (
-        <TextTag className={className}>
+        <TextTag {...sx(className)}>
           {renderTextContent()}
         </TextTag>
       );
@@ -216,7 +222,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     case 'Button':
       return (
         <button
-          className={className}
+          {...sx(className)}
           onClick={props.onClick}
           // Note: The fix for type safety here is still dependent on SchemaProps definition
           type={props.type as 'button' | 'submit' | 'reset' || 'button'}
@@ -229,7 +235,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     case 'Input':
       return (
         <input
-          className={className}
+          {...sx(className)}
           type={props.type || 'text'}
           placeholder={props.placeholder}
           defaultValue={props.defaultValue}
@@ -242,7 +248,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     case 'Textarea':
       return (
         <textarea
-          className={className}
+          {...sx(className)}
           placeholder={props.placeholder}
           defaultValue={props.defaultValue}
           disabled={props.disabled}
@@ -254,7 +260,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
 
     case 'Label':
       return (
-        <label className={className} htmlFor={props.htmlFor}>
+        <label {...sx(className)} htmlFor={props.htmlFor}>
           {renderTextContent()}
         </label>
       );
@@ -263,8 +269,8 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
       const alt = props.alt || 'Image';
       return (
         <img
-          className={className}
-          src={src || props.src || placeholderImageUrl(alt)}
+          {...sx(className)}
+          src={safeUrl(src || props.src) ?? placeholderImageUrl(alt)}
           alt={alt}
           loading={props.loading || 'lazy'}
           crossOrigin="anonymous"
@@ -280,14 +286,15 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
 
     case 'Badge':
       return (
-        <span className={`${className} inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold`}>
+        <span {...sx(`${className} inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold`)}>
           {content}
         </span>
       );
 
     case 'Icon': {
       // Dynamic icon rendering from lucide-react
-      const iconName = props.name || content || 'Circle';
+      const rawName = props.name || content || 'Circle';
+      const iconName = typeof rawName === 'string' ? rawName : 'Circle';
       const kebabName = String(iconName)
         .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
         .replace(/([A-Za-z])([0-9])/g, '$1-$2')
@@ -299,9 +306,9 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
       return (
         <DynamicIcon
           name={kebabName}
-          className={iconClass}
+          {...sx(iconClass)}
           fallback={() => (
-            <span className={`${iconClass} inline-flex items-center justify-center`}>
+            <span {...sx(`${iconClass} inline-flex items-center justify-center`)}>
               ●
             </span>
           )}
@@ -310,19 +317,18 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     }
 
     case 'Separator':
-      return <hr className={`${className} border-t border-gray-200`} />;
+      return <hr {...sx(`${className} border-t border-gray-200`)} />;
 
     case 'Skeleton':
-      return <div className={`${className} animate-pulse bg-gray-200 rounded`} />;
+      return <div {...sx(`${className} animate-pulse bg-gray-200 rounded`)} />;
 
     case 'Link':
     case 'Link/A':
       return (
         <a
-          className={className}
-          href={props.href || '#'}
-          target={props.target}
-          rel={props.rel}
+          {...sx(className)}
+          href={safeHref(props.href)}
+          {...safeLinkTarget(props.target)}
         >
           {renderTextContent()}
         </a>
@@ -330,21 +336,21 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
 
     case 'List':
       return (
-        <ul className={className}>
+        <ul {...sx(className)}>
           {renderChildren()}
         </ul>
       );
 
     case 'ListItem':
       return (
-        <li className={className}>
+        <li {...sx(className)}>
           {renderTextContent()}
         </li>
       );
 
     case 'Form':
       return (
-        <form className={className} onSubmit={props.onSubmit}>
+        <form {...sx(className)} onSubmit={props.onSubmit}>
           {renderChildren()}
         </form>
       );
@@ -352,7 +358,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     // TABLE COMPONENTS (NEW)
     case 'Table':
       return (
-        <table className={className}>
+        <table {...sx(className)}>
           <tbody>
             {renderChildren()}
           </tbody>
@@ -361,28 +367,28 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
 
     case 'TableRow':
       return (
-        <tr className={className}>
+        <tr {...sx(className)}>
           {renderChildren()}
         </tr>
       );
 
     case 'TableCell':
       return (
-        <td className={className}>
+        <td {...sx(className)}>
           {renderTextContent()}
         </td>
       );
 
     case 'TableHeader':
       return (
-        <thead className={className}>
+        <thead {...sx(className)}>
           {renderChildren()}
         </thead>
       );
 
     case 'TableHead':
       return (
-        <th className={className}>
+        <th {...sx(className)}>
           {renderTextContent()}
         </th>
       );
@@ -394,7 +400,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     case 'PieChart':
     case 'AreaChart':
       return (
-        <div className={`${className} flex items-center justify-center bg-gray-100 rounded-lg border-2 border-dashed border-gray-300`}>
+        <div {...sx(`${className} flex items-center justify-center bg-gray-100 rounded-lg border-2 border-dashed border-gray-300`)}>
           <div className="text-center p-8">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -409,7 +415,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
       // Add better default styling for Div elements
       const divClass = className || '';
       return (
-        <div className={divClass}>
+        <div {...sx(divClass)}>
           {renderChildren()}
         </div>
       );
@@ -420,7 +426,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         ? className
         : `${className} bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12`;
       return (
-        <div className={heroClass}>
+        <div {...sx(heroClass)}>
           {renderChildren()}
         </div>
       );
@@ -431,7 +437,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         ? className
         : `${className} relative pl-8 border-l-2 border-blue-200 space-y-8`;
       return (
-        <div className={timelineClass}>
+        <div {...sx(timelineClass)}>
           {renderChildren()}
         </div>
       );
@@ -439,7 +445,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     case 'TimelineItem':
       // Individual timeline item with dot indicator
       return (
-        <div className={`${className} relative`}>
+        <div {...sx(`${className} relative`)}>
           {/* Timeline dot */}
           <div className="absolute -left-[2.1rem] top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-md"></div>
           <div className="bg-gradient-to-br from-white to-gray-50 rounded-lg p-6 shadow-md border border-gray-200">
@@ -452,7 +458,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     default:
       console.warn(`Unknown component type: ${type}`);
       return (
-        <div className={className}>
+        <div {...sx(className)}>
           {renderTextContent() || null}
         </div>
       );
