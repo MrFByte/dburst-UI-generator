@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SchemaNode } from '../types/renderType';
-import * as LucideIcons from 'lucide-react';
+import { DynamicIcon, type IconName } from 'lucide-react/dynamic';
 import { EditableText } from '../components/EditableText';
 
 // Type guard to ensure we only pass SchemaNode objects to RenderNode
@@ -288,18 +288,24 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     case 'Icon': {
       // Dynamic icon rendering from lucide-react
       const iconName = props.name || content || 'Circle';
-      const IconComponent = (LucideIcons as any)[iconName] as React.ComponentType<{ className?: string }> | undefined;
+      const kebabName = String(iconName)
+        .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+        .replace(/([A-Za-z])([0-9])/g, '$1-$2')
+        .toLowerCase() as IconName;
       const iconClass = className || 'w-6 h-6 text-gray-600';
 
-      if (IconComponent) {
-        return <IconComponent className={iconClass} />;
-      }
-
-      // Fallback for unknown icons
+      // DynamicIcon loads each icon on demand, so the full lucide set is not
+      // bundled. Unknown names render the fallback dot.
       return (
-        <span className={`${iconClass} inline-flex items-center justify-center`}>
-          ●
-        </span>
+        <DynamicIcon
+          name={kebabName}
+          className={iconClass}
+          fallback={() => (
+            <span className={`${iconClass} inline-flex items-center justify-center`}>
+              ●
+            </span>
+          )}
+        />
       );
     }
 

@@ -8,4 +8,6 @@ export const ProjectsUrls = {
 export const GenerationUrls = {
     generateUI: 'generation/generate/',
     availableModels: 'generation/models/',
+    chatHistory: (generationId: string) => `generation/chat/history/${generationId}/`,
+    refineUI: 'generation/chat/refine/',
 }

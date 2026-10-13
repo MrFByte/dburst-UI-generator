@@ -57,3 +57,22 @@ export const getProjectDetail = (projectId: string) => {
   });
 };
 
+
+
+export const getChatHistory = (generationId: string) => {
+  return apiHandler(async () => {
+    const { data } = await api.get(GenerationUrls.chatHistory(generationId));
+    return data;
+  });
+};
+
+
+export const refineUI = (generationId: string, message: string) => {
+  return apiHandler(async () => {
+    const { data } = await api.post(GenerationUrls.refineUI, {
+      generation_id: generationId,
+      message,
+    });
+    return data;
+  });
+};

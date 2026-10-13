@@ -1,28 +1,24 @@
-import { useDispatch } from "react-redux";
-import { logout } from "@/core/redux/authSlice";
+import { useNavigate } from "react-router-dom";
+import { clearClientSession } from "@/core/auth/session";
 import { logoutUser } from "@/features/index/api/indexApi";
 import { toast } from "@/shared/hooks/useToast";
-import { useNavigate } from "react-router-dom";
 
 export function useLogout() {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
+      // Server blacklists the refresh token, revokes the access token and
+      // clears the httpOnly cookies — JS can't touch them itself.
       await logoutUser();
-      
-      dispatch(logout());
-      
       toast.success("Logged out successfully");
-      navigate("/");
     } catch (error) {
       console.error("Logout error:", error);
-      
-      dispatch(logout());
       toast.error("Logout failed, but you've been signed out locally");
-      navigate("/");
     }
+
+    clearClientSession();
+    navigate("/", { replace: true });
   };
 
   return handleLogout;

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, MessageSquare } from 'lucide-react';
 import Loader from '@/shared/components/Loader';
+import { getChatHistory, refineUI } from '../api/dashboardApi';
 
 interface ChatMessage {
     role: 'user' | 'assistant';
@@ -28,18 +29,7 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
     const loadChatHistory = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch(`/api/v1/generation/chat/history/${generationId}/`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to load chat history');
-            }
-
-            const data = await response.json();
+            const data = await getChatHistory(generationId);
             setMessages(data.messages || []);
         } catch (error) {
             console.error('Failed to load chat history:', error);
@@ -63,23 +53,7 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
         setIsSending(true);
 
         try {
-            const response = await fetch('/api/v1/generation/chat/refine/', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    generation_id: generationId,
-                    message: messageText
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to refine UI');
-            }
-
-            const result = await response.json();
+            const result = await refineUI(generationId, messageText);
 
             const aiMessage: ChatMessage = {
                 role: 'assistant',

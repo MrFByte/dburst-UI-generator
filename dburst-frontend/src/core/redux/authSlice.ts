@@ -1,7 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name: string;
@@ -9,21 +9,18 @@ interface User {
   role: string;
 }
 
+// "loading" until the first GET /users/profile/ settles. The server is the
+// only source of truth: this state lives in memory and is never persisted.
+export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+
 export interface AuthState {
   user: User | null;
-  isAuthenticated: boolean;
-  // Distinguishes "explicitly logged out" from "haven't checked auth yet" —
-  // both leave user:null/isAuthenticated:false, but only the latter should
-  // trigger useUserProfile's auto-refetch. Without this, any component that
-  // mounts right after logout (e.g. the post-redirect landing header) would
-  // immediately re-fetch the profile and could re-authenticate the user.
-  loggedOut: boolean;
+  status: AuthStatus;
 }
 
 const initialState: AuthState = {
   user: null,
-  isAuthenticated: false,
-  loggedOut: false,
+  status: "loading",
 };
 
 export const authSlice = createSlice({
@@ -35,14 +32,12 @@ export const authSlice = createSlice({
       action: PayloadAction<{ user: User }>
     ) => {
       state.user = action.payload.user;
-      state.isAuthenticated = true;
-      state.loggedOut = false;
+      state.status = "authenticated";
     },
 
     logout: (state) => {
       state.user = null;
-      state.isAuthenticated = false;
-      state.loggedOut = true;
+      state.status = "unauthenticated";
     },
   },
 });

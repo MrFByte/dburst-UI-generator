@@ -2,15 +2,28 @@ import api from "@/core/api/axiosConfig";
 import { apiHandler } from "@/core/api/apiHandler";
 import { indexUrl } from "./indexApiMapper";
 
-export const loginWithGoogle = (code: string, redirectUri: string) =>
+export type OAuthProvider = "google" | "github";
+
+export const startOAuthLogin = (provider: OAuthProvider, redirectUri: string) =>
   apiHandler(async () => {
-    const { data } = await api.post(indexUrl.google, { code, redirect_uri: redirectUri });
+    const { data } = await api.post<{ authorization_url: string }>(indexUrl.oauthStart, {
+      provider,
+      redirect_uri: redirectUri,
+    });
     return data;
   });
 
-export const loginWithGithub = (code: string, redirectUri: string) =>
+// `state` is checked server-side against the httpOnly dburst_oauth cookie
+// set by startOAuthLogin; the redirect_uri comes from that cookie too.
+export const loginWithGoogle = (code: string, state: string) =>
   apiHandler(async () => {
-    const { data } = await api.post(indexUrl.github, { code, redirect_uri: redirectUri });
+    const { data } = await api.post(indexUrl.google, { code, state });
+    return data;
+  });
+
+export const loginWithGithub = (code: string, state: string) =>
+  apiHandler(async () => {
+    const { data } = await api.post(indexUrl.github, { code, state });
     return data;
   });
 

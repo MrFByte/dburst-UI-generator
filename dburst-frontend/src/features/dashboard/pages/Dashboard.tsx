@@ -67,13 +67,15 @@ const Dashboard = () => {
 
   const handleRecentProjects = async () => {
     const data = await getRecentProjects();
-    setRecentProjects(data);
+    // A non-array body (e.g. the SPA's index.html when VITE_API_URL is unset)
+    // must not reach .map() and crash the page.
+    setRecentProjects(Array.isArray(data) ? data : []);
   };
 
   const handleLoadModels = async () => {
     try {
       const data = await getAvailableModels();
-      setModels(data.models);
+      setModels(Array.isArray(data?.models) ? data.models : []);
       setSelectedModel(data.default);
     } catch (error: any) {
       toast.error(error.message || "Failed to load AI models");

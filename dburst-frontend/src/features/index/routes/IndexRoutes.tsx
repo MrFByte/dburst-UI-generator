@@ -1,16 +1,18 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import IndexLayout from '@/features/index/indexLayout';
 import Home from "@/features/index/pages/Home";
-import Demo from '@/features/index/pages/Demo';
-import About from '@/features/index/pages/About';
-import Contact from '@/features/index/pages/Contact';
-import GithubCallback from '@/features/index/pages/GithubCallback';
-import GoogleCallback from '@/features/index/pages/GoogleCallback';
-import SignIn from '@/features/index/pages/SignIn';
-import SignUp from '@/features/index/pages/SignUp';
+const Demo = lazy(() => import('@/features/index/pages/Demo'));
+const About = lazy(() => import('@/features/index/pages/About'));
+const Contact = lazy(() => import('@/features/index/pages/Contact'));
+const GithubCallback = lazy(() => import('@/features/index/pages/GithubCallback'));
+const GoogleCallback = lazy(() => import('@/features/index/pages/GoogleCallback'));
+const SignIn = lazy(() => import('@/features/index/pages/SignIn'));
+const SignUp = lazy(() => import('@/features/index/pages/SignUp'));
 
 export default function IndexRoutes() {
   return (
+    <Suspense fallback={null}>
     <Routes>
       {/* OAuth callback pages — rendered bare, intentionally no layout.
           IndexLayout renders Header → useUserProfile → 401s → logout()
@@ -30,5 +32,6 @@ export default function IndexRoutes() {
         <Route path="/contact" element={<Contact />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 };

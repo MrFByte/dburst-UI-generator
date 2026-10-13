@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { Button } from "@/shared/ui/button";
 import { Logo } from "@/shared/components/Logo";
 import { setCredentials } from "@/core/redux/authSlice";
+import { safeRedirect } from "@/core/auth/safeRedirect";
 import { toast } from "@/shared/hooks/useToast";
 import { requestOtp, verifyOtp } from "@/features/index/api/otpApi";
 import type { ApiError } from "@/core/api/apiHandler";
@@ -23,6 +24,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
   const isLogin = mode === "login";
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
 
   const [step, setStep] = useState<"email" | "otp">("email");
   const [email, setEmail] = useState("");
@@ -82,7 +84,8 @@ export default function AuthPage({ mode }: AuthPageProps) {
       const data = await verifyOtp(email, code);
       dispatch(setCredentials({ user: data.user }));
       toast.success(isLogin ? "Logged in!" : "Account created!");
-      navigate("/dashboard", { replace: true });
+      // ?next= is set by ProtectedRoute; only internal paths are honoured.
+      navigate(safeRedirect(searchParams.get("next")), { replace: true });
     } catch (err) {
       toast.error((err as ApiError)?.message || "Invalid or expired code. Please try again.");
     } finally {

@@ -35,9 +35,13 @@ export default defineConfig({
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'credentialless',
     },
+    // Same-origin API (mirrors vercel.json's /api rewrite in production):
+    // the browser only ever talks to this dev server, so the httpOnly auth
+    // cookies are first-party. 127.0.0.1, not localhost — run.sh binds
+    // Django to 127.0.0.1 and Node may resolve localhost to ::1 first.
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       }
     }
