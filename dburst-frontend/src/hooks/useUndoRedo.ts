@@ -1,10 +1,12 @@
 // Local Undo/Redo Manager Hook
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 
 interface UndoRedoState<T> {
     past: T[];
     present: T;
     future: T[];
+    /** Last saved/reset value; unsaved means present !== saved. */
+    saved: T;
 }
 
 export function useUndoRedo<T>(initialState: T) {
@@ -12,17 +14,16 @@ export function useUndoRedo<T>(initialState: T) {
         past: [],
         present: initialState,
         future: [],
+        saved: initialState,
     });
-
-    const hasChanges = useRef(false);
 
     const set = useCallback((newPresent: T) => {
         setState((currentState) => ({
+            ...currentState,
             past: [...currentState.past, currentState.present],
             present: newPresent,
             future: [],
         }));
-        hasChanges.current = true;
     }, []);
 
     const undo = useCallback(() => {
@@ -33,6 +34,7 @@ export function useUndoRedo<T>(initialState: T) {
             const newPast = currentState.past.slice(0, currentState.past.length - 1);
 
             return {
+                ...currentState,
                 past: newPast,
                 present: previous,
                 future: [currentState.present, ...currentState.future],
@@ -48,6 +50,7 @@ export function useUndoRedo<T>(initialState: T) {
             const newFuture = currentState.future.slice(1);
 
             return {
+                ...currentState,
                 past: [...currentState.past, currentState.present],
                 present: next,
                 future: newFuture,
@@ -60,8 +63,8 @@ export function useUndoRedo<T>(initialState: T) {
             past: [],
             present: newPresent,
             future: [],
+            saved: newPresent,
         });
-        hasChanges.current = false;
     }, []);
 
     const canUndo = state.past.length > 0;
@@ -75,6 +78,8 @@ export function useUndoRedo<T>(initialState: T) {
         reset,
         canUndo,
         canRedo,
-        hasUnsavedChanges: hasChanges.current,
+        // Derived from state (not a ref read during render): undoing back to
+        // the saved version clears it.
+        hasUnsavedChanges: state.present !== state.saved,
     };
 }

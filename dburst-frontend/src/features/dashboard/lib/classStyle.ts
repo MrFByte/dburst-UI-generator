@@ -11,6 +11,10 @@ import type { CSSProperties } from 'react';
  *   safelisted in index.css (~157 KB of CSS). Their colours come from the
  *   --color-* theme variables that the bg/text/border safelist already emits.
  *
+ * - opacity colours: bg-blue-500/50, text-white/80, border-[#0f172a]/40,
+ *   from-rose-500/30 (the safelist has no opacity variants), drawn with
+ *   color-mix() over the same colour.
+ *
  * Only unprefixed classes are handled: variants like hover:/md: can't be
  * expressed inline and are left to Tailwind.
  */
@@ -41,8 +45,18 @@ function arbitraryHex(value: string): string | null {
   return m && HEX.test(m[1]) ? m[1] : null;
 }
 
-/** A gradient-stop colour: [#hex], palette hue-shade, or white/black/transparent. */
+/** "<colour>/<0-100>" -> color-mix() of that colour; null if not an opacity colour. */
+function withOpacity(value: string): string | null {
+  const m = value.match(/^(.+)\/(\d{1,3})$/);
+  if (!m || Number(m[2]) > 100) return null;
+  const base = stopColor(m[1]);
+  if (!base || base === 'transparent') return null;
+  return `color-mix(in oklab, ${base} ${Number(m[2])}%, transparent)`;
+}
+
+/** A gradient-stop colour: [#hex], palette hue-shade, white/black/transparent, or any of those /opacity. */
 function stopColor(value: string): string | null {
+  if (value.includes('/')) return withOpacity(value);
   const hex = arbitraryHex(value);
   if (hex) return hex;
   if (value in KEYWORD_COLORS) return KEYWORD_COLORS[value];
@@ -79,7 +93,9 @@ export function classStyle(className: string | undefined, explicit?: unknown): C
       continue;
     }
 
-    const hex = arbitraryHex(value);
+    // Arbitrary hex, or an opacity colour (palette classes without opacity
+    // are safelisted and need no inline style).
+    const hex = arbitraryHex(value) ?? withOpacity(value);
     if (!hex) continue;
     if (utility === 'bg') style.backgroundColor = hex;
     else if (utility === 'text') style.color = hex;

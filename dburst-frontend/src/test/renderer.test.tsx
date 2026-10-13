@@ -177,3 +177,71 @@ describe("SchemaRenderer", () => {
     expect(() => renderSchema({ type: "Card", props: { className: 42 } })).not.toThrow();
   });
 });
+
+describe("classStyle opacity colours", () => {
+  it("maps palette, keyword and hex colours with /opacity to color-mix", () => {
+    expect(classStyle("bg-blue-500/50 text-white/80 border-[#0f172a]/40")).toEqual({
+      backgroundColor: "color-mix(in oklab, var(--color-blue-500) 50%, transparent)",
+      color: "color-mix(in oklab, var(--color-white) 80%, transparent)",
+      borderColor: "color-mix(in oklab, #0f172a 40%, transparent)",
+    });
+  });
+
+  it("supports opacity on gradient stops", () => {
+    expect(classStyle("bg-gradient-to-r from-rose-500/30 to-[#000]/0")!.backgroundImage).toBe(
+      "linear-gradient(to right, color-mix(in oklab, var(--color-rose-500) 30%, transparent), color-mix(in oklab, #000 0%, transparent))"
+    );
+  });
+
+  it.each(["bg-blue-500/150", "text-sm/6", "bg-neutral-500/50", "w-1/2", "bg-transparent/50", "bg-blue-500"])(
+    "ignores %s", (cls) => expect(classStyle(cls)).toBeUndefined()
+  );
+});
+
+describe("SchemaRenderer defaults match codegen", () => {
+  it("Hero without a background gets the saturated gradient with white text", () => {
+    const { container } = renderSchema({ type: "Hero", children: [] });
+    const cls = container.firstElementChild!.className;
+    expect(cls).toContain("from-indigo-500 via-purple-500 to-pink-500 text-white");
+    expect(cls).not.toMatch(/from-blue-50|via-white/);
+  });
+
+  it("Hero with its own background keeps it and gains rounded/shadow/padding", () => {
+    const { container } = renderSchema({ type: "Hero", props: { className: "bg-[#0369a1]" }, children: [] });
+    expect(container.firstElementChild!.className).toBe("bg-[#0369a1] rounded-2xl shadow-lg p-12");
+  });
+
+  it("Root and Card no longer rewrite bg-white into a pale gradient", () => {
+    const { container } = renderSchema({ type: "Root", props: { className: "bg-white" }, children: [
+      { type: "Card", props: { className: "bg-white p-4" }, children: [] },
+      { type: "Card", children: [] },
+    ] });
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/from-gray-50|from-white|via-white/);
+    expect(container.querySelector("main")!.className).toContain("bg-white");
+  });
+
+  it("Timeline and TimelineItem use the coloured defaults", () => {
+    const { container } = renderSchema({ type: "Timeline", children: [{ type: "TimelineItem", children: [] }] });
+    const html = container.innerHTML;
+    expect(html).toContain("border-indigo-400");
+    expect(html).toContain("bg-indigo-50 border-l-4 border-pink-500");
+    expect(html).toContain("bg-pink-500 rounded-full");
+    expect(html).not.toMatch(/border-blue-200|from-white/);
+  });
+});
+
+describe("edit-mode text layout", () => {
+  it("block text (p/h1) is block-level in edit mode, spans stay inline", () => {
+    const { container } = renderSchema({ type: "Root", children: [
+      { type: "Text", props: { tag: "h1" }, content: "Title" },
+      { type: "Text", content: "Body" },
+      { type: "Text", props: { tag: "span" }, content: "inline" },
+    ] }, true);
+    const wrappers = Array.from(container.querySelectorAll('[role="textbox"]')).map((t) => t.parentElement!.className);
+    expect(wrappers[0]).toContain("block");
+    expect(wrappers[0]).not.toContain("inline-block");
+    expect(wrappers[1]).not.toContain("inline-block");
+    expect(wrappers[2]).toContain("inline-block");
+  });
+});

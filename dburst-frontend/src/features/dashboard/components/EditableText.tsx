@@ -11,6 +11,8 @@ interface EditableTextProps {
     disabled?: boolean;
     debounceMs?: number;
     multiline?: boolean;
+    /** Inline text (a span) flows with its siblings; everything else is a block like the real p/h1. */
+    inline?: boolean;
 }
 
 /**
@@ -26,6 +28,7 @@ export function EditableText({
     placeholder = 'Click to edit...',
     disabled = false,
     multiline = false,
+    inline = false,
 }: EditableTextProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [localContent, setLocalContent] = useState(content);
@@ -139,7 +142,7 @@ export function EditableText({
     }, [localContent, isEditing, placeholder]);
 
     return (
-        <div className="relative inline-block group">
+        <div className={cn('relative group', inline ? 'inline-block' : 'block')}>
             <div
                 ref={editableRef}
                 contentEditable={isEditing && !disabled}

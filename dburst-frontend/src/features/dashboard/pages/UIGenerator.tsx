@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import type { APIResponse } from '../types/apiResponseType';
@@ -8,7 +8,7 @@ import Header from '@/shared/components/Header';
 import { getProjectDetail } from '../api/dashboardApi';
 import { toast } from "@/shared/hooks/useToast";
 import { Phase3Wrapper } from '../components/Phase3Wrapper';
-import { EditControls } from '../components/EditControls';
+import { EditControls, UNAVAILABLE_CONTROLS } from '../components/EditControls';
 import { PromptBox } from '../components/PromptBox';
 import FeedbackModal from '../components/FeedbackModal';
 import { SchemaRenderer } from '../lib/renderer';
@@ -16,7 +16,42 @@ import { WebContainerPreview } from '@/core/webcontainer';
 // Initialise WebContainer auth once at module load
 import '@/core/webcontainer/webcontainerAuth';
 
+interface ProjectDetailResponse {
+  project?: { id: string };
+  latest_generation?: {
+    id: string;
+    schema: APIResponse["schema"];
+    code?: string;
+    token_usage?: number;
+    metadata?: {
+      provider?: string;
+      ui_model?: string;
+      planning_tokens?: { prompt_tokens?: number };
+      generation_tokens?: { completion_tokens?: number };
+    };
+  } | null;
+}
 
+/** Project-detail response -> page data (null if the project has no generation). */
+function toPageData(response: ProjectDetailResponse): APIResponse | null {
+  const generation = response?.latest_generation;
+  if (!generation) return null;
+  return {
+    project_id: response.project?.id ?? "",
+    generation_id: generation.id,
+    schema: generation.schema,
+    code: generation.code || "",
+    meta: {
+      provider: generation.metadata?.provider || "unknown",
+      model: generation.metadata?.ui_model,
+      usage: {
+        total_tokens: generation.token_usage || 0,
+        prompt_tokens: generation.metadata?.planning_tokens?.prompt_tokens,
+        completion_tokens: generation.metadata?.generation_tokens?.completion_tokens,
+      }
+    }
+  } as APIResponse;
+}
 
 export default function UIGenerator({ initialData }: UIGeneratorProps) {
   const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
@@ -30,8 +65,9 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
   const [data, setData] = useState<APIResponse | null>(initialData ?? null);
 
-  // Ref to the edit-controls container div in the header
-  const editControlsContainerRef = useRef<HTMLDivElement | null>(null);
+  // Portal target for the edit controls, set by a ref callback so the controls
+  // render whenever the container mounts (no mount-time DOM lookup).
+  const [editControlsTarget, setEditControlsTarget] = useState<HTMLDivElement | null>(null);
 
   const copyCode = useCallback(() => {
     if (data?.code) {
@@ -91,58 +127,42 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
       return;
     }
 
+    let cancelled = false;
+    const loadProject = async (id: string) => {
+      const pageData = toPageData(await getProjectDetail(id));
+      if (!cancelled) {
+        if (pageData) setData(pageData);
+        else toast.info("This project doesn't have a UI generation yet.");
+      }
+    };
+
     if (projectId) {
-      const loadProjectData = async () => {
-        try {
-          const response = await getProjectDetail(projectId);
+      loadProject(projectId).catch((error: any) => {
+        console.error("Error loading project:", error);
+        toast.error(error.message || "Failed to load project");
 
-          if (response.latest_generation) {
-            const transformedData = {
-              project_id: response.project.id,
-              generation_id: response.latest_generation.id,
-              schema: response.latest_generation.schema,
-              code: response.latest_generation.code || "",
-              meta: {
-                provider: response.latest_generation.metadata?.provider || "unknown",
-                model: response.latest_generation.metadata?.ui_model,
-                usage: {
-                  total_tokens: response.latest_generation.token_usage || 0,
-                  prompt_tokens: response.latest_generation.metadata?.planning_tokens?.prompt_tokens,
-                  completion_tokens: response.latest_generation.metadata?.generation_tokens?.completion_tokens,
-                }
-              }
-            } as APIResponse;
-            setData(transformedData);
-          } else {
-            toast.info("This project doesn't have a UI generation yet.");
-          }
-        } catch (error: any) {
-          console.error("Error loading project:", error);
-          toast.error(error.message || "Failed to load project");
-
-          const lastProject = getItem("lastGeneratedProject");
-          if (lastProject && lastProject.project_id === projectId) {
-            setData(lastProject);
-          }
+        const lastProject = getItem<APIResponse>("lastGeneratedProject");
+        if (!cancelled && lastProject && lastProject.project_id === projectId) {
+          setData(lastProject);
         }
-      };
-
-      loadProjectData();
+      });
     } else {
-      const lastProject = getItem("lastGeneratedProject");
+      const lastProject = getItem<APIResponse>("lastGeneratedProject");
       if (lastProject) {
         setData(lastProject);
+        // Editing needs the generation id; resolve it from the project
+        // rather than hiding the feature.
+        if (!lastProject.generation_id && lastProject.project_id) {
+          loadProject(lastProject.project_id).catch((error) =>
+            console.error("Could not resolve generation for cached project:", error)
+          );
+        }
       }
     }
+    return () => {
+      cancelled = true;
+    };
   }, [initialData, projectId]);
-
-  // Capture the edit-controls container ref once the DOM is painted
-  useEffect(() => {
-    const el = document.getElementById('edit-controls-container');
-    if (el) {
-      editControlsContainerRef.current = el as HTMLDivElement;
-    }
-  }, []);
 
   return (
     <div className="h-dvh bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans flex flex-col overflow-hidden relative">
@@ -152,8 +172,11 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
         setIsModalOpen={setIsModalOpen}
       />
 
-      {/* Main Layout */}
-      <div className="flex flex-1 overflow-hidden p-2 sm:p-3 pt-16 min-w-0">
+      {/* Main Layout. pt-16 clears the fixed 64px header. Padding is set per
+          side on purpose: a responsive shorthand like sm:p-3 would override
+          pt-16 from 640px up and hide the tab row (and Edit controls) under
+          the header. */}
+      <div className="flex flex-1 overflow-hidden px-2 pb-2 sm:px-3 sm:pb-3 pt-16 min-w-0">
         {/* Left Panel */}
         <div
           className={`bg-slate-900 border-r border-slate-700 overflow-hidden transition-all duration-300 flex flex-col max-lg:fixed max-lg:top-16 max-lg:bottom-0 max-lg:left-0 max-lg:z-30 shrink-0 ${isEditPanelOpen ? 'w-[85vw] max-w-80 lg:w-80' : 'w-0 max-lg:border-r-0'
@@ -274,8 +297,23 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             </div>
 
             {/* Right: Edit Controls — rendered via React Portal into this div */}
-            <div id="edit-controls-container" className="flex items-center min-w-0 max-w-full" />
+            <div ref={setEditControlsTarget} id="edit-controls-container" className="flex items-center min-w-0 max-w-full" />
           </div>
+
+          {/* Without a generation id the schema can't be patched: show the
+              controls disabled with the reason, and the preview as usual. */}
+          {data?.schema && !data.generation_id && (
+            <>
+              {editControlsTarget && createPortal(
+                <EditControls
+                  controls={UNAVAILABLE_CONTROLS}
+                  disabledReason="Editing is unavailable: this UI hasn't been saved as a generation yet. Regenerate or reopen the project."
+                />,
+                editControlsTarget
+              )}
+              {activeTab === 'preview' && <WebContainerPreview code={data.code} />}
+            </>
+          )}
 
           {/* Phase 3: Wrapper with undo/redo/save/version history */}
           {data?.generation_id && (
@@ -292,20 +330,16 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
                   };
                 });
               }}
-              renderControls={(controls) => {
-                // Use React Portal to render EditControls into the header's
-                // edit-controls-container div (already in the DOM at this point).
-                const container = editControlsContainerRef.current
-                  ?? document.getElementById('edit-controls-container');
-                if (!container) return null;
-                return createPortal(<EditControls controls={controls} />, container);
-              }}
+              renderControls={(controls) => (
+                // Portal into the tab row's container (re-renders once it mounts).
+                editControlsTarget && createPortal(<EditControls controls={controls} />, editControlsTarget)
+              )}
             >
               {(editMode, handleTextEdit) => (
                 activeTab === 'preview' && (
                   editMode ? (
                     /* ── Edit Mode: schema-based renderer supporting inline editing ── */
-                    <div className="flex-1 overflow-auto bg-white">
+                    <div className="flex-1 overflow-auto bg-white" data-testid="edit-canvas">
                       <SchemaRenderer
                         schema={data?.schema as any}
                         editMode={true}

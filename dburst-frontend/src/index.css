@@ -10,6 +10,44 @@
 @source inline("{bg,text,border}-{slate,gray,zinc,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
 @source inline("hover:{bg,text}-{slate,gray,zinc,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,100,200,300,400,500,600,700,800,900}");
 @source inline("{bg,text,border}-{white,black,transparent}");
+
+/* Edit-mode layout safelist: the same problem for layout/spacing/typography.
+   LLM schemas use utilities our own source never mentions (grid-cols-3, px-5,
+   p-10, mt-3, ...), which made grids stack and spacing vanish in edit mode.
+   Scales cover what the generation prompts use plus common neighbours.
+   Measured cost: +32 KB CSS (~+3.7 KB gzip); 168 KB total. */
+@source inline("{p,px,py,pt,pb,pl,pr,m,mx,my,mt,mb,ml,mr,gap,gap-x,gap-y,space-x,space-y}-{0,0.5,1,1.5,2,2.5,3,4,5,6,8,10,12,16,20,24}");
+@source inline("{mx,my,ml,mr,mt,mb}-auto");
+@source inline("{sm:,md:,lg:,}{p,px,py}-{4,6,8,10,12,16,20}");
+@source inline("{sm:,md:,lg:,}grid-cols-{1,2,3,4,5,6,12}");
+@source inline("{sm:,md:,lg:,}col-span-{1,2,3,4,5,6,full}");
+@source inline("grid-rows-{1,2,3,4}");
+@source inline("{sm:,md:,lg:,}{flex,grid,hidden,block,inline-flex,inline-block}");
+@source inline("{sm:,md:,lg:,}flex-{row,col,wrap,row-reverse,col-reverse}");
+@source inline("flex-{1,auto,none,initial} {grow,shrink,shrink-0,grow-0}");
+@source inline("{sm:,md:,lg:,}items-{start,center,end,stretch,baseline}");
+@source inline("{sm:,md:,lg:,}justify-{start,center,end,between,around,evenly}");
+@source inline("self-{auto,start,center,end,stretch} place-items-center content-center");
+@source inline("rounded{,-none,-sm,-md,-lg,-xl,-2xl,-3xl,-full} rounded-{t,b,l,r}-{lg,xl,2xl}");
+@source inline("{,hover:}shadow{,-sm,-md,-lg,-xl,-2xl,-inner,-none}");
+@source inline("{sm:,md:,lg:,}text-{xs,sm,base,lg,xl,2xl,3xl,4xl,5xl,6xl,7xl}");
+@source inline("{sm:,md:,lg:,}text-{left,center,right}");
+@source inline("font-{light,normal,medium,semibold,bold,extrabold,black}");
+@source inline("leading-{none,tight,snug,normal,relaxed,loose} tracking-{tighter,tight,normal,wide,wider,widest}");
+@source inline("{uppercase,lowercase,capitalize,italic,underline,truncate,line-clamp-2,line-clamp-3,whitespace-nowrap}");
+@source inline("w-{0,1,2,3,4,5,6,8,10,12,14,16,20,24,32,40,48,56,64,72,80,96,auto,full,screen,fit,1/2,1/3,2/3,1/4,3/4}");
+@source inline("h-{0,1,2,3,4,5,6,8,10,12,14,16,20,24,32,40,48,56,64,72,80,96,auto,full,screen,fit}");
+@source inline("{sm:,md:,lg:,}w-{1/2,1/3,2/3,1/4,3/4,full,auto}");
+@source inline("size-{4,5,6,8,10,12,16}");
+@source inline("min-h-{0,full,screen} min-w-0");
+@source inline("max-w-{xs,sm,md,lg,xl,2xl,3xl,4xl,5xl,6xl,7xl,full,prose,screen-xl}");
+@source inline("border{,-0,-2,-4,-8} border-{t,b,l,r,x,y}{,-2,-4}");
+@source inline("{,hover:}opacity-{0,10,20,25,30,40,50,60,70,75,80,90,100}");
+@source inline("{relative,absolute,fixed,sticky} {inset-0,top-0,right-0,bottom-0,left-0} z-{0,10,20,30,40,50}");
+@source inline("{overflow-hidden,overflow-auto,overflow-x-auto,object-cover,object-contain,object-center,aspect-video,aspect-square}");
+@source inline("{transition,transition-all,transition-colors,transition-shadow,transform,duration-150,duration-200,duration-300,ease-in-out}");
+@source inline("hover:{scale-105,-translate-y-1,underline} backdrop-blur{,-sm,-md}");
+@source inline("divide-y divide-x list-disc list-inside cursor-pointer");
 @import "@fontsource/space-grotesk/400.css";
 @import "@fontsource/space-grotesk/500.css";
 @import "@fontsource/space-grotesk/700.css";

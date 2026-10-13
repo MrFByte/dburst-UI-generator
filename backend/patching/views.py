@@ -6,6 +6,7 @@ from django.db import transaction
 
 from generation.models import Generations
 from generation.cache import GenerationCache
+from generation.codegen import render_schema
 from .models import Patch
 from .serializers import (
     PatchSerializer,
@@ -107,10 +108,20 @@ class StorePatchView(APIView):
                     generation.save(update_fields=['schema'])
                     logger.info(f"Created snapshot for generation {generation_id} at patch #{patch_count}")
             
+            # Return the regenerated code too, so the client's live preview
+            # reflects the save without a reload.
+            cached = GenerationCache.get_generation(str(generation_id))
+            try:
+                code = cached["code"] if cached and cached.get("code") else render_schema(updated_schema)
+            except Exception as e:
+                logger.error(f"Code regeneration after patch failed for {generation_id}: {e}")
+                code = ""
+
             return Response({
                 "success": True,
                 "generation_id": str(generation_id),
                 "schema": updated_schema,
+                "code": code,
                 "patch_id": str(patch_obj.id),
                 "patch_count": patch_count,
                 "snapshot_created": snapshot_created,

@@ -85,16 +85,10 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
 
   switch (type) {
     case 'Root':
-      // Add default background if not specified to reduce white overuse
-      // Replace any explicit bg-white with gradient
-      let rootClass = className;
-      if (className.includes('bg-white') && !className.includes('bg-gradient')) {
-        rootClass = className.replace('bg-white', 'bg-gradient-to-br from-gray-50 via-white to-slate-50');
-      } else if (!className.includes('bg-')) {
-        rootClass = `${className} bg-gradient-to-br from-gray-50 via-white to-slate-50`;
-      }
+      // The schema's own background (planner colours) is used as-is; no
+      // pale default, matching backend codegen.
       return (
-        <main {...sx(`${rootClass} h-fit w-full min-h-screen`)}>
+        <main {...sx(`${className} h-fit w-full min-h-screen`)}>
           {renderChildren()}
         </main>
       );
@@ -121,17 +115,10 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         </div>
       );
 
-    case 'Card':
-      // Enhanced card styling with better defaults
-      // If bg-white is explicitly set, replace it with a subtle gradient
-      let cardClass = className;
-      if (className.includes('bg-white') && !className.includes('bg-gradient')) {
-        // Replace bg-white with a subtle gradient
-        cardClass = className.replace('bg-white', 'bg-gradient-to-br from-white to-gray-50');
-      } else if (!className.includes('bg-')) {
-        // Add default gradient if no background specified
-        cardClass = `${className} bg-gradient-to-br from-white to-gray-50`;
-      }
+    case 'Card': {
+      // Cards without a background get a plain white surface (like the
+      // shadcn Card in the generated code); the schema's bg-* wins.
+      const cardClass = className.includes('bg-') ? className : `${className} bg-white`;
 
       const cardDefaults = cardClass.includes('rounded')
         ? cardClass
@@ -141,6 +128,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
           {renderChildren()}
         </div>
       );
+    }
 
     case 'CardHeader':
       return (
@@ -207,6 +195,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
             content={textContent}
             path={`${path}/content`}
             onEdit={onTextEdit}
+            inline={props.tag === 'span'}
             {...sx(className)}
           />
         );
@@ -420,39 +409,45 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
         </div>
       );
 
-    case 'Hero':
-      // Hero section with modern styling
-      const heroClass = className.includes('bg-')
-        ? className
-        : `${className} bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl shadow-lg p-12`;
+    case 'Hero': {
+      // Same defaults as backend codegen: a saturated gradient with white
+      // text when the schema gives no background.
+      const heroClass = !className.includes('bg-')
+        ? `${className} bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white rounded-2xl shadow-lg p-12`
+        : className.includes('rounded') ? className : `${className} rounded-2xl shadow-lg p-12`;
       return (
         <div {...sx(heroClass)}>
           {renderChildren()}
         </div>
       );
+    }
 
-    case 'Timeline':
-      // Timeline container with vertical line styling
-      const timelineClass = className.includes('bg-')
+    case 'Timeline': {
+      // Timeline rail (matches backend codegen defaults)
+      const timelineClass = className.includes('border-l')
         ? className
-        : `${className} relative pl-8 border-l-2 border-blue-200 space-y-8`;
+        : `${className} relative pl-8 border-l-2 border-indigo-400 space-y-8`;
       return (
         <div {...sx(timelineClass)}>
           {renderChildren()}
         </div>
       );
+    }
 
-    case 'TimelineItem':
-      // Individual timeline item with dot indicator
+    case 'TimelineItem': {
+      // Dot + tinted card with an accent edge (matches backend codegen defaults)
+      const itemClass = className.includes('bg-')
+        ? className
+        : `${className} bg-indigo-50 border-l-4 border-pink-500 rounded-lg p-6 shadow-md`;
       return (
-        <div {...sx(`${className} relative`)}>
-          {/* Timeline dot */}
-          <div className="absolute -left-[2.1rem] top-0 w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-md"></div>
-          <div className="bg-gradient-to-br from-white to-gray-50 rounded-lg p-6 shadow-md border border-gray-200">
+        <div className="relative">
+          <div className="absolute -left-[2.1rem] top-0 w-4 h-4 bg-pink-500 rounded-full border-4 border-white shadow-md"></div>
+          <div {...sx(itemClass)}>
             {renderChildren()}
           </div>
         </div>
       );
+    }
 
     // Generic fallback for unknown types
     default:
