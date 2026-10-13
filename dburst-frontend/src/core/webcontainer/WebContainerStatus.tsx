@@ -23,7 +23,7 @@ export function WebContainerStatus({ status, logs, error, onReload }: WebContain
     const lastLogs = logs.slice(-3);
 
     return (
-        <div className="flex items-center gap-3 px-4 py-2 bg-slate-950/60 border-b border-slate-700 text-xs font-mono shrink-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 sm:px-4 py-2 bg-slate-950/60 border-b border-slate-700 text-xs font-mono shrink-0">
             {/* Status badge */}
             <span className="flex items-center gap-1.5">
                 <span
@@ -41,7 +41,7 @@ export function WebContainerStatus({ status, logs, error, onReload }: WebContain
 
             {/* Error message */}
             {error && (
-                <span className="text-red-400 truncate max-w-xs" title={error}>
+                <span className="text-red-400 truncate max-w-[10rem] sm:max-w-xs" title={error}>
                     {error}
                 </span>
             )}
@@ -50,7 +50,7 @@ export function WebContainerStatus({ status, logs, error, onReload }: WebContain
             {(status === 'error' || status === 'ready') && onReload && (
                 <button
                     onClick={onReload}
-                    className="ml-auto px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition text-xs"
+                    className="ml-auto px-3 min-h-10 md:min-h-0 md:py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition text-xs"
                 >
                     ↺ Reload
                 </button>

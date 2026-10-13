@@ -136,7 +136,7 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] font-sans">
+    <div className="min-h-dvh bg-[#0A0A0A] overflow-x-hidden font-sans">
       <FeedbackModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
       <Header
@@ -145,32 +145,32 @@ const Dashboard = () => {
         setIsModalOpen={setIsModalOpen}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 mt-[5%]">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 mt-16 xl:mt-[5%]">
 
-        <section className="bg-gray-800/40 backdrop-blur-sm p-8 rounded-2xl border border-gray-800 shadow-lg">
+        <section className="bg-gray-800/40 backdrop-blur-sm p-4 sm:p-6 lg:p-8 rounded-2xl border border-gray-800 shadow-lg">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-white">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">
                 {isPrompting ? "Start Prompting" : "Start a New Project"}
               </h1>
-              <p className="text-gray-400 mt-1 text-lg">
+              <p className="text-gray-400 mt-1 text-base sm:text-lg">
                 {isPrompting ? "Enter the prompt to generate UI." : "Fill all details to begin building."}
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3 [&>button]:flex-1 sm:[&>button]:flex-none [&>button]:justify-center [&>button]:min-h-11">
               {!isPrompting ? (
                 <>
                   <button
                     onClick={activatePromptInterface}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-400 hover:bg-gray-500 cursor-pointer
+                    className="flex items-center gap-2 px-4 sm:px-6 py-3 bg-gray-400 hover:bg-gray-500 cursor-pointer
                      text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
                   >
                     Start Prompting
                   </button>
                   <button
                     onClick={handleCreateProject}
-                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
+                    className="flex items-center gap-2 px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
                      text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
                   >
                     <PlusCircle className="w-5 h-5" />
@@ -181,7 +181,7 @@ const Dashboard = () => {
                 <>
                   <button
                     onClick={activatePromptInterface}
-                    className="hidden flex items-center gap-2 px-6 py-3 bg-gray-400 hover:bg-gray-600 cursor-pointer
+                    className="hidden flex items-center gap-2 px-4 sm:px-6 py-3 bg-gray-400 hover:bg-gray-600 cursor-pointer
                      text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02]"
                   >
                     Create Project
@@ -189,7 +189,7 @@ const Dashboard = () => {
                   <button
                     disabled={!prompt || isGenerating}
                     onClick={handleStartPrompting}
-                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
+                    className="flex items-center gap-2 px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
                      text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isGenerating ? (
@@ -222,7 +222,7 @@ const Dashboard = () => {
                       setTitle(e.target.value);
                     }
                   }}
-                  className={`w-full h-20 p-4 bg-gray-800 text-white rounded-xl border-2 
+                  className={`w-full h-14 sm:h-20 p-4 text-base bg-gray-800 text-white rounded-xl border-2 
                         ${errors.title ? "border-red-600" : "border-gray-700"}
                         focus:ring-2 focus:ring-blue-600 focus:border-blue-600 
                         placeholder-gray-500`}
@@ -240,7 +240,7 @@ const Dashboard = () => {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Project Description (optional)"
-                className="w-full h-24 p-4 bg-gray-800 text-white rounded-xl border-2 border-gray-700
+                className="w-full h-28 sm:h-24 p-4 text-base bg-gray-800 text-white rounded-xl border-2 border-gray-700
                      focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder-gray-500"
               ></textarea>
             </div>
@@ -250,7 +250,7 @@ const Dashboard = () => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="e.g., 'A responsive, dark-mode pricing page with three tiers and a clean design using Tailwind CSS."
-                className="w-full h-24 p-4 bg-gray-800 text-white rounded-xl border-2 border-gray-700
+                className="w-full h-28 sm:h-24 p-4 text-base bg-gray-800 text-white rounded-xl border-2 border-gray-700
                      focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder-gray-500"
               ></textarea>
               <p className="text-sm text-red-500">{errors.prompt}</p>
@@ -265,20 +265,20 @@ const Dashboard = () => {
           )}
         </section>
 
-        <section className="mt-14">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-white">Recent Projects</h2>
+        <section className="mt-10 sm:mt-14">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Recent Projects</h2>
 
             <button
               onClick={() => navigate('/dashboard/all-projects')}
-              className="flex items-center text-gray-400 hover:text-white transition cursor-pointer"
+              className="flex items-center min-h-11 text-gray-400 hover:text-white transition cursor-pointer"
             >
               View All Projects
               <ChevronRight className="w-4 h-4 ml-1" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {recentProjects?.map((project) => (
               <ProjectCard key={project.id} project={project} />
             ))}
@@ -289,7 +289,7 @@ const Dashboard = () => {
 
       {/* Loading Overlay during UI Generation */}
       {isGenerating && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="text-center">
             <Loader size="xl" text="Generating your UI..." />
             <p className="text-gray-400 mt-4 text-sm">This may take a few moments</p>

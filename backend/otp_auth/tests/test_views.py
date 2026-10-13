@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from django.conf import settings
 from django.urls import reverse
 
 from otp_auth.models import OTP
@@ -19,31 +20,31 @@ def verify_url():
 
 
 @pytest.mark.django_db
-@patch("otp_auth.views.send_otp_email.delay")
-def test_request_otp_sends_email_and_creates_record(mock_delay, api_client, request_url):
+@patch("otp_auth.views.send_otp_email")
+def test_request_otp_sends_email_and_creates_record(mock_send, api_client, request_url):
     response = api_client.post(request_url, data={"email": "user@example.com"})
 
     assert response.status_code == 200
     assert OTP.objects.filter(email="user@example.com").exists()
-    mock_delay.assert_called_once()
-    assert mock_delay.call_args.args[0] == "user@example.com"
-    assert mock_delay.call_args.args[2] == "login"
+    mock_send.assert_called_once()
+    assert mock_send.call_args.args[0] == "user@example.com"
+    assert mock_send.call_args.args[2] == "login"
 
 
 @pytest.mark.django_db
-@patch("otp_auth.views.send_otp_email.delay")
-def test_request_otp_passes_signup_purpose(mock_delay, api_client, request_url):
+@patch("otp_auth.views.send_otp_email")
+def test_request_otp_passes_signup_purpose(mock_send, api_client, request_url):
     response = api_client.post(
         request_url, data={"email": "newbie@example.com", "purpose": "signup"}
     )
 
     assert response.status_code == 200
-    assert mock_delay.call_args.args[2] == "signup"
+    assert mock_send.call_args.args[2] == "signup"
 
 
 @pytest.mark.django_db
-@patch("otp_auth.views.send_otp_email.delay", side_effect=ConnectionError("broker down"))
-def test_request_otp_returns_503_when_dispatch_fails(mock_delay, api_client, request_url):
+@patch("otp_auth.views.send_otp_email", side_effect=ConnectionError("resend down"))
+def test_request_otp_returns_503_when_dispatch_fails(mock_send, api_client, request_url):
     response = api_client.post(request_url, data={"email": "unlucky@example.com"})
 
     assert response.status_code == 503
@@ -57,8 +58,8 @@ def test_request_otp_rejects_invalid_email(api_client, request_url):
 
 
 @pytest.mark.django_db
-@patch("otp_auth.views.send_otp_email.delay")
-def test_request_otp_rate_limited(mock_delay, api_client, request_url, settings):
+@patch("otp_auth.views.send_otp_email")
+def test_request_otp_rate_limited(mock_send, api_client, request_url, settings):
     settings.OTP_MAX_REQUESTS_PER_WINDOW = 2
     email = "spammer@example.com"
 
@@ -80,8 +81,8 @@ def test_verify_otp_logs_in_existing_user(api_client, verify_url):
     assert response.status_code == 200
     assert response.data["message"] == "User login successfully"
     assert response.data["user"]["id"] == str(user.id)
-    assert "refresh" in response.cookies
-    assert "access" in response.cookies
+    assert settings.AUTH_REFRESH_COOKIE in response.cookies
+    assert settings.AUTH_ACCESS_COOKIE in response.cookies
 
 
 @pytest.mark.django_db
@@ -109,3 +110,26 @@ def test_verify_otp_rejects_wrong_code(api_client, verify_url):
 def test_verify_otp_rejects_malformed_code(api_client, verify_url):
     response = api_client.post(verify_url, data={"email": "x@example.com", "code": "abc"})
     assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_verify_otp_matches_existing_email_case_insensitively(api_client, verify_url):
+    user = User.objects.create_user(email="Mixed.Case@Example.com")
+    code = generate_otp("mixed.case@example.com")
+
+    response = api_client.post(verify_url, data={"email": "mixed.case@example.com", "code": code})
+
+    assert response.status_code == 200
+    assert response.data["user"]["id"] == str(user.id)
+    assert User.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_verify_otp_rejects_inactive_user(api_client, verify_url):
+    User.objects.create_user(email="banned@example.com", is_active=False)
+    code = generate_otp("banned@example.com")
+
+    response = api_client.post(verify_url, data={"email": "banned@example.com", "code": code})
+
+    assert response.status_code == 400
+    assert settings.AUTH_ACCESS_COOKIE not in response.cookies

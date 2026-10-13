@@ -2,21 +2,21 @@ import { Target, Users, Rocket, Heart } from 'lucide-react';
 
 export default function About() {
   return (
-    <div className="pt-16 min-h-screen bg-zinc-950">
-      <div className="container mx-auto px-4 py-20">
+    <div className="pt-16 min-h-dvh bg-zinc-950">
+      <div className="container mx-auto px-4 py-10 sm:py-20">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-            <h1 className="text-5xl font-bold text-zinc-100 mb-6">
+          <div className="text-center mb-10 sm:mb-16">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-zinc-100 mb-4 sm:mb-6">
               About DBurst
             </h1>
-            <p className="text-xl text-zinc-400">
+            <p className="text-base sm:text-xl text-zinc-400">
               Empowering designers and developers to create exceptional interfaces
             </p>
           </div>
 
           <div className="prose prose-invert max-w-none">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 mb-8">
-              <h2 className="text-2xl font-bold text-zinc-100 mb-4">Our Mission</h2>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-8 mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 mb-3 sm:mb-4">Our Mission</h2>
               <p className="text-zinc-400 leading-relaxed">
                 At DBurst, we believe that creating beautiful, functional user interfaces
                 should be accessible to everyone. Our AI-powered platform combines the
@@ -25,7 +25,7 @@ export default function About() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
               <ValueCard
                 icon={<Target className="w-8 h-8 text-blue-400" />}
                 title="Our Vision"
@@ -48,8 +48,8 @@ export default function About() {
               />
             </div>
 
-            <div className="bg-gradient-to-br from-blue-600/10 to-purple-600/10 border border-zinc-800 rounded-2xl p-8">
-              <h2 className="text-2xl font-bold text-zinc-100 mb-4">Part of MindBurst</h2>
+            <div className="bg-gradient-to-br from-blue-600/10 to-purple-600/10 border border-zinc-800 rounded-2xl p-5 sm:p-8">
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 mb-3 sm:mb-4">Part of MindBurst</h2>
               <p className="text-zinc-400 leading-relaxed">
                 DBurst is a proud product of MindBurst, a company dedicated to creating
                 innovative tools that enhance creativity and productivity. We're committed
@@ -73,7 +73,7 @@ function ValueCard({
   description: string;
 }) {
   return (
-    <div className="p-6 rounded-xl bg-zinc-900 border border-zinc-800">
+    <div className="p-5 sm:p-6 rounded-xl bg-zinc-900 border border-zinc-800">
       <div className="mb-4">{icon}</div>
       <h3 className="text-xl font-semibold text-zinc-100 mb-2">{title}</h3>
       <p className="text-sm text-zinc-400">{description}</p>

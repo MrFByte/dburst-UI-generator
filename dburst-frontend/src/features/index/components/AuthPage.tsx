@@ -97,23 +97,23 @@ export default function AuthPage({ mode }: AuthPageProps) {
   const seconds = secondsLeft % 60;
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-zinc-900 via-zinc-900 to-zinc-950 px-4 py-12">
+    <div className="relative min-h-dvh flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-zinc-900 via-zinc-900 to-zinc-950 px-4 py-8 sm:py-12">
       <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent pointer-events-none" />
 
-      <div className="relative z-10 mb-8">
+      <div className="relative z-10 mb-6 sm:mb-8">
         <Logo />
       </div>
 
-      <div className="relative z-10 w-full max-w-md bg-zinc-900 rounded-2xl border border-zinc-800 shadow-2xl p-8">
+      <div className="relative z-10 w-full max-w-md bg-zinc-900 rounded-2xl border border-zinc-800 shadow-2xl p-5 sm:p-8">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-800/50 border border-zinc-700 mb-6 backdrop-blur-sm">
           <Sparkles className="w-3.5 h-3.5 text-blue-400" />
           <span className="text-xs text-zinc-300">AI-Powered Design Tools</span>
         </div>
 
-        <h1 className="text-2xl font-bold text-zinc-100 mb-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-zinc-100 mb-2">
           {isLogin ? "Welcome back" : "Create your account"}
         </h1>
-        <p className="text-zinc-400 text-sm mb-8">
+        <p className="text-zinc-400 text-sm mb-6 sm:mb-8">
           {isLogin
             ? "Sign in to continue building amazing UIs."
             : "Sign up to start building amazing UIs."}
@@ -163,7 +163,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               autoComplete="email"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-4 py-3 text-base sm:text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
             <Button
               type="submit"
@@ -180,7 +180,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               <button
                 type="button"
                 onClick={() => setStep("email")}
-                className="text-violet-400 hover:text-violet-300"
+                className="text-violet-400 hover:text-violet-300 py-1"
               >
                 Use a different email
               </button>
@@ -194,7 +194,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, OTP_LENGTH))}
               placeholder="000000"
               autoComplete="one-time-code"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-4 py-3 text-center text-2xl tracking-[0.5em] text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-4 py-3 text-center text-xl sm:text-2xl tracking-[0.3em] sm:tracking-[0.5em] text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
             <Button
               type="submit"
@@ -203,7 +203,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
             >
               {verifying ? "Verifying…" : "Verify & continue"}
             </Button>
-            <div className="flex items-center justify-between text-xs text-zinc-500 pt-1">
+            <div className="flex items-center justify-between gap-2 text-xs text-zinc-500 pt-1">
               <span>
                 {secondsLeft > 0
                   ? `Expires in ${minutes}:${seconds.toString().padStart(2, "0")}`
@@ -213,7 +213,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
                 type="button"
                 onClick={handleResend}
                 disabled={resendCooldown > 0 || sending}
-                className="text-violet-400 hover:text-violet-300 disabled:text-zinc-600 disabled:cursor-not-allowed"
+                className="text-violet-400 hover:text-violet-300 disabled:text-zinc-600 disabled:cursor-not-allowed py-2 px-1"
               >
                 {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
               </button>
@@ -225,7 +225,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
           By continuing, you agree to our Terms of Service and Privacy Policy.
         </p>
 
-        <div className="mt-8 pt-6 border-t border-zinc-800 text-center text-sm text-zinc-400">
+        <div className="mt-6 sm:mt-8 pt-6 border-t border-zinc-800 text-center text-sm text-zinc-400">
           {isLogin ? (
             <>
               Don&apos;t have an account?{" "}
@@ -246,7 +246,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
 
       <Link
         to="/"
-        className="relative z-10 mt-6 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+        className="relative z-10 mt-6 py-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
       >
         ← Back to home
       </Link>

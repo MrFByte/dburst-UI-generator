@@ -21,11 +21,11 @@ export function EditControls({ controls }: EditControlsProps) {
     } = controls;
 
     return (
-        <div className="flex items-center gap-2 border-l border-slate-700 pl-4 ml-4">
+        <div className="flex flex-wrap items-center gap-2 md:border-l border-slate-700 md:pl-4 md:ml-4">
             {/* Edit Mode Toggle */}
             <button
                 onClick={() => setEditMode(!editMode)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition ${editMode
+                className={`flex items-center gap-1.5 px-3 min-h-10 md:min-h-0 py-2 md:py-1.5 text-xs rounded transition ${editMode
                     ? 'bg-blue-600 text-white'
                     : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
                     }`}
@@ -39,7 +39,7 @@ export function EditControls({ controls }: EditControlsProps) {
             <button
                 onClick={onUndo}
                 disabled={!canUndo}
-                className="p-1.5 hover:bg-slate-700 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
+                className="min-w-10 min-h-10 md:min-w-0 md:min-h-0 flex items-center justify-center p-2 md:p-1.5 hover:bg-slate-700 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Undo (Ctrl+Z)"
             >
                 <Undo className="h-4 w-4" />
@@ -49,7 +49,7 @@ export function EditControls({ controls }: EditControlsProps) {
             <button
                 onClick={onRedo}
                 disabled={!canRedo}
-                className="p-1.5 hover:bg-slate-700 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
+                className="min-w-10 min-h-10 md:min-w-0 md:min-h-0 flex items-center justify-center p-2 md:p-1.5 hover:bg-slate-700 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Redo (Ctrl+Shift+Z)"
             >
                 <Redo className="h-4 w-4" />
@@ -58,7 +58,7 @@ export function EditControls({ controls }: EditControlsProps) {
             {/* History */}
             <button
                 onClick={onOpenHistory}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 rounded transition"
+                className="flex items-center gap-1 px-3 md:px-2 min-h-10 md:min-h-0 py-2 md:py-1.5 text-xs bg-slate-700 hover:bg-slate-600 rounded transition"
                 title="View Saved Versions"
             >
                 <History className="h-3.5 w-3.5" />
@@ -69,7 +69,7 @@ export function EditControls({ controls }: EditControlsProps) {
             <button
                 onClick={onSave}
                 disabled={isSaving || !hasUnsavedChanges}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition font-medium ${hasUnsavedChanges
+                className={`flex items-center gap-1.5 px-3 min-h-10 md:min-h-0 py-2 md:py-1.5 text-xs rounded transition font-medium ${hasUnsavedChanges
                     ? 'bg-green-600 hover:bg-green-700 text-white'
                     : 'bg-slate-700 text-gray-400 cursor-not-allowed opacity-50'
                     }`}

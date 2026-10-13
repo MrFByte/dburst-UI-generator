@@ -57,10 +57,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
       </div>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg py-1 z-50 border border-gray-600">
+        <div className="absolute right-0 mt-2 w-48 max-w-[calc(100vw-2rem)] bg-gray-700 rounded-md shadow-lg py-1 z-50 border border-gray-600">
           
           <div
-            className="flex items-center space-x-2 px-4 py-2 text-sm text-red-400 hover:bg-gray-600 cursor-pointer transition duration-150"
+            className="flex items-center space-x-2 px-4 py-3 md:py-2 text-sm text-red-400 hover:bg-gray-600 cursor-pointer transition duration-150"
             onClick={handleLogout}
           >
             <LogOut className="w-4 h-4" />
@@ -68,7 +68,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
           </div>
 
           <div
-            className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-200 hover:bg-gray-600 cursor-pointer transition duration-150"
+            className="flex items-center space-x-2 px-4 py-3 md:py-2 text-sm text-gray-200 hover:bg-gray-600 cursor-pointer transition duration-150"
             onClick={() => { 
                 setIsOpen(false); 
                 console.log("Profile clicked"); 

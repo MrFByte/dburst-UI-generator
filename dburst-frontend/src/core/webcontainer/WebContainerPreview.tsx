@@ -63,7 +63,7 @@ export function WebContainerPreview({ code }: WebContainerPreviewProps) {
     // No code yet — prompt user to generate
     if (!code) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3">
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3 p-4 text-center">
                 <span className="text-4xl">🚀</span>
                 <p className="text-sm">Generate a UI to see the live preview here.</p>
             </div>
@@ -71,7 +71,7 @@ export function WebContainerPreview({ code }: WebContainerPreviewProps) {
     }
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0 w-full">
             {/* Status bar */}
             <WebContainerStatus
                 status={status}
@@ -81,7 +81,7 @@ export function WebContainerPreview({ code }: WebContainerPreviewProps) {
             />
 
             {/* Preview area */}
-            <div className="flex-1 relative overflow-hidden bg-slate-100">
+            <div className="flex-1 relative overflow-hidden bg-slate-100 min-h-[50dvh] md:min-h-0">
                 {/* Loading overlay */}
                 {status !== 'ready' && status !== 'error' && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 z-10 gap-4">
@@ -91,12 +91,12 @@ export function WebContainerPreview({ code }: WebContainerPreviewProps) {
 
                 {/* Error screen */}
                 {status === 'error' && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 z-10 gap-4 p-6">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 z-10 gap-4 p-4 sm:p-6 overflow-auto">
                         <span className="text-4xl">⚠️</span>
-                        <p className="text-red-400 text-sm font-mono text-center max-w-md">{error}</p>
+                        <p className="text-red-400 text-sm font-mono text-center max-w-md break-words">{error}</p>
                         <button
                             onClick={reload}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition"
+                            className="px-4 py-2.5 md:py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition"
                         >
                             Try Again
                         </button>
@@ -132,7 +132,7 @@ const BOOT_MESSAGES: Record<string, string> = {
 
 function BootingSpinner({ status }: { status: string }) {
     return (
-        <div className="flex flex-col items-center gap-3 text-slate-300">
+        <div className="flex flex-col items-center gap-3 text-slate-300 px-4 text-center">
             {/* Spinner */}
             <svg
                 className="animate-spin h-10 w-10 text-blue-400"

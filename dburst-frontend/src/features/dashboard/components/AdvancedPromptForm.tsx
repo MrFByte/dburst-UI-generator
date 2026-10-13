@@ -96,7 +96,7 @@ export default function AdvancedPromptForm({ onGenerate }: AdvancedPromptFormPro
   const isFormValid = Object.values(formData).some(value => value.trim());
 
   return (
-    <div className="w-full max-w-4xl bg-gray-800/50 p-8 rounded-xl shadow-2xl border border-gray-800">
+    <div className="w-full max-w-4xl bg-gray-800/50 p-4 sm:p-8 rounded-xl shadow-2xl border border-gray-800">
       <div className="flex items-center space-x-3 mb-4">
         <Code className="w-6 h-6 text-gray-400" />
         <h2 className="text-xl font-bold text-white">Advanced Structured Prompting</h2>
@@ -105,7 +105,7 @@ export default function AdvancedPromptForm({ onGenerate }: AdvancedPromptFormPro
         **Disclaimer:** All fields below are optional. Use them to provide precise direction for generation.
       </p>
       
-      <div className="max-h-[60vh] overflow-y-auto pr-2">
+      <div className="max-h-[60dvh] overflow-y-auto pr-2">
         <FormField 
           label="Instructions (Core Prompt)" 
           id="instructions" 
@@ -207,9 +207,9 @@ export default function AdvancedPromptForm({ onGenerate }: AdvancedPromptFormPro
       </div> {/* End scroll container */}
 
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex sm:justify-end">
         <button
-          className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow-lg hover:bg-blue-700 transition transform duration-200 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+          className="w-full sm:w-auto px-6 py-3 min-h-11 bg-blue-600 text-white font-semibold rounded-xl shadow-lg hover:bg-blue-700 transition transform duration-200 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
           onClick={handleAdvancedGenerate}
           disabled={!isFormValid}
         >

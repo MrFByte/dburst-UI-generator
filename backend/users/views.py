@@ -1,243 +1,294 @@
 import logging
 import requests
-import json
-from django.db import transaction
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
+from django.middleware.csrf import get_token
 from google.oauth2.id_token import verify_oauth2_token
 from google.auth.transport import requests as google_requests
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions, status
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
+from rest_framework.throttling import ScopedRateThrottle
 
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.settings import api_settings as simplejwt_settings
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
+from config.authentication import CSRFProtectedMixin
+from . import oauth
 from .models import User, AuthProvider
 from .serializers import UserSerializer
-from .services import issue_auth_cookies
+from .services import (
+    clear_auth_cookies,
+    issue_auth_cookies,
+    revoke_access_token,
+    set_auth_cookies,
+)
 
 logger = logging.getLogger(__name__)
-REFRESH_TOKEN_EXPIRY = settings.REFRESH_TOKEN_EXPIRY
-ACCESS_TOKEN_EXPIRY = settings.ACCESS_TOKEN_EXPIRY
+
+AUTH_FAILED = "Authentication failed. Please try again."
 
 
-class GoogleAuthView(APIView):
+class OAuthLoginError(Exception):
+    """Provider rejected the login or returned an unusable identity."""
+
+
+def _clear_oauth_cookie(response):
+    response.delete_cookie(
+        settings.AUTH_OAUTH_COOKIE,
+        path=settings.AUTH_REFRESH_COOKIE_PATH,
+        samesite=settings.COOKIE_SAMESITE,
+    )
+    return response
+
+
+def resolve_oauth_user(provider, provider_id, email, defaults):
+    """Finds or creates the user for a provider identity.
+
+    An existing (provider, provider_id) link always wins. Otherwise the caller
+    must pass a provider-verified email, which is then linked to the matching
+    account or used to create one.
     """
-    Authenticates or registers a user using Google OAuth authorization-code flow.
+    provider_id = str(provider_id)
+    with transaction.atomic():
+        link = (
+            AuthProvider.objects.select_related("user")
+            .filter(provider=provider, provider_id=provider_id)
+            .first()
+        )
+        if link:
+            return link.user, False
 
-    Frontend sends a short-lived Google OAuth code + the redirect_uri it used
-    → backend validates redirect_uri against a whitelist, exchanges the code
-    for tokens, verifies the ID token, and returns a user + JWT cookie pair.
+        user = User.objects.filter(email__iexact=email).first()
+        created = user is None
+        if created:
+            user = User.objects.create_user(email=email.lower(), **defaults)
+        AuthProvider.objects.create(user=user, provider=provider, provider_id=provider_id)
+        return user, created
+
+
+class OAuthCallbackView(CSRFProtectedMixin, APIView):
+    """Shared POST handler for the provider callbacks.
 
     Request Body:
-        - code (str): Google OAuth authorization code.
-        - redirect_uri (str): The exact redirect URI used in the auth request.
+        - code (str): Provider authorization code.
+        - state (str): The state the provider echoed back. Must match the
+          dburst_oauth cookie set by OAuthStartView in this same browser.
 
     Responses:
         200: Authenticated. JWT cookies set.
-        400: Invalid or missing data.
-        503: Google is unreachable.
-        500: Internal error.
+        400: Missing/invalid code or state, or provider rejected the login.
+        503: Provider unreachable.
     """
+    provider = None
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
+
+    def fetch_identity(self, code, redirect_uri, code_verifier):
+        """Returns (provider_id, verified_email, defaults). Raises OAuthLoginError."""
+        raise NotImplementedError
 
     def post(self, request):
-        print("Working auth 1")
         code = request.data.get("code")
-        redirect_uri = request.data.get("redirect_uri")
-
-        print("Working auth 2")
-        if not code:
-            print("Working auth 3")
-            return Response({"error": "Missing OAuth code"}, status=status.HTTP_400_BAD_REQUEST)
-        if not redirect_uri:
-            print("Working auth 4")
-            return Response({"error": "Missing redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Server-side whitelist — never trust a redirect_uri from the client blindly
-        allowed_uris = getattr(settings, "GOOGLE_ALLOWED_REDIRECT_URIS", [])
-        if redirect_uri not in allowed_uris:
-            print("Working auth 5")
-            logger.warning(f"Google auth: rejected redirect_uri={redirect_uri!r}")
-            return Response({"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
+        state = request.data.get("state")
+        if not code or not state:
+            return _clear_oauth_cookie(
+                Response({"error": AUTH_FAILED}, status=status.HTTP_400_BAD_REQUEST)
+            )
 
         try:
-            print("Working auth 6")
-            token_url = "https://oauth2.googleapis.com/token"
-            payload = {
+            redirect_uri, code_verifier = oauth.consume(
+                self.provider, state, request.COOKIES.get(settings.AUTH_OAUTH_COOKIE)
+            )
+        except oauth.OAuthStateError:
+            logger.warning(f"{self.provider} auth: state check failed")
+            return _clear_oauth_cookie(
+                Response({"error": AUTH_FAILED}, status=status.HTTP_400_BAD_REQUEST)
+            )
+
+        try:
+            provider_id, email, defaults = self.fetch_identity(code, redirect_uri, code_verifier)
+            user, created = resolve_oauth_user(self.provider, provider_id, email, defaults)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"{self.provider} auth: provider unreachable: {e}")
+            return _clear_oauth_cookie(Response(
+                {"error": "Authentication service unreachable. Please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            ))
+        except (OAuthLoginError, ValueError, KeyError) as e:
+            logger.warning(f"{self.provider} auth rejected: {e}")
+            return _clear_oauth_cookie(
+                Response({"error": AUTH_FAILED}, status=status.HTTP_400_BAD_REQUEST)
+            )
+
+        if not user.is_active:
+            return _clear_oauth_cookie(
+                Response({"error": AUTH_FAILED}, status=status.HTTP_400_BAD_REQUEST)
+            )
+
+        if created:
+            logger.info(f"New user created via {self.provider}: {user.id}")
+        response = Response({
+            "user": UserSerializer(user).data,
+            "message": "User created successfully" if created else "User login successfully",
+        }, status=status.HTTP_200_OK)
+        return _clear_oauth_cookie(issue_auth_cookies(response, user))
+
+
+class OAuthStartView(CSRFProtectedMixin, APIView):
+    """
+    Begins a Google/GitHub login: issues the state + PKCE challenge and returns
+    the provider URL to send the browser to.
+
+    Request Body:
+        - provider (str): "google" or "github".
+        - redirect_uri (str): Must be in that provider's server-side whitelist.
+
+    Responses:
+        200: {"authorization_url": "..."}; dburst_oauth cookie set.
+        400: Unknown provider, non-whitelisted redirect_uri, or provider not configured.
+    """
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
+
+    def post(self, request):
+        provider = request.data.get("provider")
+        redirect_uri = request.data.get("redirect_uri")
+
+        if provider not in oauth.PROVIDERS:
+            return Response({"error": "Unsupported provider"}, status=status.HTTP_400_BAD_REQUEST)
+        if redirect_uri not in oauth.allowed_redirect_uris(provider):
+            logger.warning(f"{provider} auth: rejected redirect_uri={redirect_uri!r}")
+            return Response({"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
+        if not getattr(settings, oauth.PROVIDERS[provider]["client_id_setting"]):
+            return Response({"error": "Provider not configured"}, status=status.HTTP_400_BAD_REQUEST)
+
+        authorization_url, cookie_value = oauth.begin(provider, redirect_uri)
+        response = Response({"authorization_url": authorization_url}, status=status.HTTP_200_OK)
+        response.set_cookie(
+            settings.AUTH_OAUTH_COOKIE,
+            cookie_value,
+            max_age=settings.OAUTH_STATE_MAX_AGE,
+            httponly=True,
+            secure=settings.COOKIE_SECURE,
+            samesite=settings.COOKIE_SAMESITE,
+            path=settings.AUTH_REFRESH_COOKIE_PATH,
+        )
+        return response
+
+
+class GoogleAuthView(OAuthCallbackView):
+    """Completes Google login (see OAuthCallbackView)."""
+    provider = "google"
+
+    def fetch_identity(self, code, redirect_uri, code_verifier):
+        token_response = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
                 "code": code,
                 "client_id": settings.GOOGLE_CLIENT_ID,
                 "client_secret": settings.GOOGLE_CLIENT_SECRET,
                 "redirect_uri": redirect_uri,
                 "grant_type": "authorization_code",
-            }
-
-            token_response = requests.post(token_url, data=payload, timeout=10)
+                "code_verifier": code_verifier,
+            },
+            timeout=10,
+        )
+        if token_response.status_code >= 500:
             token_response.raise_for_status()
+        id_token = token_response.json().get("id_token") if token_response.ok else None
+        if not id_token:
+            raise OAuthLoginError("token exchange returned no id_token")
 
-            token_data = token_response.json()
-            id_token = token_data.get("id_token")
-            if not id_token:
-                logger.warning("Google token exchange did not return id_token")
-                return Response({"error": "Unable to authenticate with Google"}, status=status.HTTP_400_BAD_REQUEST)
+        google_user = verify_oauth2_token(
+            id_token, google_requests.Request(), audience=settings.GOOGLE_CLIENT_ID
+        )
+        if not google_user.get("email_verified"):
+            raise OAuthLoginError("Google email not verified")
 
-            google_user = verify_oauth2_token(id_token, google_requests.Request())
-            email = google_user["email"]
-
-            if not google_user.get("email_verified"):
-                print("Working auth 7")
-                return Response({"error": "Google email not verified"}, status=status.HTTP_400_BAD_REQUEST)
-
-            with transaction.atomic():
-                print("Working auth 8")
-                user, created = User.objects.get_or_create(
-                    email=email,
-                    defaults={
-                        "name": google_user.get("name", ""),
-                        "avatar_url": google_user.get("picture", ""),
-                    },
-                )
-
-                AuthProvider.objects.get_or_create(
-                    user=user,
-                    provider=AuthProvider.Choices.GOOGLE,
-                    provider_id=google_user["sub"],
-                )
-
-                message = "User login successfully"
-                if created:
-                    message = "User created successfully"
-                    logger.info(f"New user created via Google: {email}")
-
-                response = Response({
-                    "user": UserSerializer(user).data,
-                    "message": message,
-                }, status=status.HTTP_200_OK)
-                return issue_auth_cookies(response, user)
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error during Google token exchange: {e}")
-            return Response({"error": "Google authentication service unreachable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-        except ValueError as e:
-            logger.warning(f"Invalid Google ID token: {e}")
-            return Response({"error": "Invalid Google token provided"}, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as e:
-            logger.exception(f"Unexpected Google Auth error: {e}")
-            return Response({"error": "Authentication failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return google_user["sub"], google_user["email"], {
+            "name": google_user.get("name", ""),
+            "avatar_url": google_user.get("picture", ""),
+        }
 
 
-class GithubAuthView(APIView):
+class GithubAuthView(OAuthCallbackView):
+    """Completes GitHub login (see OAuthCallbackView).
+
+    Only the account's primary *verified* email is trusted for linking — the
+    public profile email is user-editable and unverified.
     """
-    Authenticates/Registers a user using GitHub OAuth authorization-code flow.
+    provider = "github"
 
-    Frontend sends GitHub OAuth `code` + `redirect_uri` → backend validates
-    redirect_uri against a whitelist, exchanges code for access token, fetches
-    GitHub user profile, and returns JWT cookies.
-
-    Request Body:
-        - code (str): GitHub OAuth authorization code.
-        - redirect_uri (str): The exact redirect URI used in the auth request.
-
-    Responses:
-        200: Authenticated. JWT cookies set.
-        400: Invalid or missing data.
-        500: Internal error.
-    """
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request):
-        code = request.data.get("code")
-        redirect_uri = request.data.get("redirect_uri")
-
-        if not code:
-            return Response({"error": "Missing OAuth code"}, status=status.HTTP_400_BAD_REQUEST)
-        if not redirect_uri:
-            return Response({"error": "Missing redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Server-side whitelist — never trust a redirect_uri from the client blindly
-        allowed_uris = getattr(settings, "GITHUB_ALLOWED_REDIRECT_URIS", [])
-        if redirect_uri not in allowed_uris:
-            logger.warning(f"GitHub auth: rejected redirect_uri={redirect_uri!r}")
-            return Response({"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            token_url = "https://github.com/login/oauth/access_token"
-            payload = {
+    def fetch_identity(self, code, redirect_uri, code_verifier):
+        token_res = requests.post(
+            "https://github.com/login/oauth/access_token",
+            data={
                 "client_id": settings.GITHUB_CLIENT_ID,
                 "client_secret": settings.GITHUB_CLIENT_SECRET,
                 "code": code,
                 "redirect_uri": redirect_uri,
-            }
+                "code_verifier": code_verifier,
+            },
+            headers={"Accept": "application/json"},
+            timeout=10,
+        )
+        token_res.raise_for_status()
+        access_token = token_res.json().get("access_token")
+        if not access_token:
+            raise OAuthLoginError("token exchange returned no access_token")
 
-            headers = {"Accept": "application/json"}
-            token_res = requests.post(token_url, data=payload, headers=headers, timeout=10)
-            token_res.raise_for_status()
+        headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"}
+        user_res = requests.get("https://api.github.com/user", headers=headers, timeout=10)
+        user_res.raise_for_status()
+        gh_user = user_res.json()
 
-            token_data = token_res.json()
-            access_token = token_data.get("access_token")
+        email_res = requests.get("https://api.github.com/user/emails", headers=headers, timeout=10)
+        email_res.raise_for_status()
+        email = next(
+            (e["email"] for e in email_res.json() if e.get("primary") and e.get("verified")),
+            None,
+        )
+        if not email:
+            raise OAuthLoginError("GitHub account has no verified primary email")
 
-            if not access_token:
-                return Response({"error": "Unable to authenticate with GitHub"}, status=400)
+        return gh_user["id"], email, {
+            "name": gh_user.get("name") or gh_user.get("login") or "",
+            "avatar_url": gh_user.get("avatar_url", ""),
+        }
 
-            user_res = requests.get(
-                "https://api.github.com/user",
-                headers={"Authorization": f"Bearer {access_token}"},
-                timeout=10
-            )
-            user_res.raise_for_status()
-            gh_user = user_res.json()
 
-            email = gh_user.get("email")
-            if not email:
-                email_res = requests.get(
-                    "https://api.github.com/user/emails",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                    timeout=10
-                )
-                email_res.raise_for_status()
-                email_list = email_res.json()
-                primary_email = next((e["email"] for e in email_list if e["primary"]), None)
-                email = primary_email or email_list[0]["email"]
+class CSRFTokenView(APIView):
+    """
+    Issues the readable csrftoken cookie the frontend echoes back in
+    X-CSRFToken on unsafe requests.
 
-            github_id = gh_user["id"]
+    Responses:
+        200: Cookie set.
+    """
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
 
-            with transaction.atomic():
-                user, created = User.objects.get_or_create(
-                    email=email,
-                    defaults={
-                        "name": gh_user.get("name") or gh_user.get("login"),
-                        "avatar_url": gh_user.get("avatar_url", "")
-                    }
-                )
+    def get(self, request):
+        # CsrfViewMiddleware writes the cookie on the way out once a token
+        # has been requested.
+        get_token(request)
+        return Response({"detail": "CSRF cookie set"})
 
-                AuthProvider.objects.get_or_create(
-                    user=user,
-                    provider=AuthProvider.Choices.GITHUB,
-                    provider_id=github_id
-                )
-
-                message = "User created successfully" if created else "User login successfully"
-                if created:
-                    logger.info(f"New user created via GitHub: {email}")
-
-                response = Response({
-                    "user": UserSerializer(user).data,
-                    "message": message,
-                }, status=200)
-                return issue_auth_cookies(response, user)
-
-        except Exception as e:
-            logger.exception(f"GitHub OAuth error: {e}")
-            return Response({"error": "GitHub authentication failed"}, status=500)
-        
 
 class GetProfileView(APIView):
     """
-    Returns the current user's profile.
-    
+    Returns the current user's profile. The frontend's session check.
+
     Request Body:
         - None
 
@@ -246,97 +297,90 @@ class GetProfileView(APIView):
         401: User is not authenticated.
     """
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get(self, request):
         user = request.user
         return Response({"user": UserSerializer(user).data})
 
 
-class TokenRefreshView(APIView):
+class TokenRefreshView(CSRFProtectedMixin, APIView):
     """
-    Refreshes the access token.
-    
-    Request Body:
-        - None
+    Rotates the access/refresh cookie pair from the refresh cookie.
+
+    The presented refresh token is blacklisted (BLACKLIST_AFTER_ROTATION), so
+    each one works once.
 
     Responses:
-        200: New access token returned.
-        401: Refresh token is not found.
+        200: New cookies set. Body contains no tokens.
+        401: Refresh cookie missing, invalid, expired, blacklisted, or the user
+             is inactive. Auth cookies are cleared.
     """
-
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "token_refresh"
 
     def post(self, request):
-        refresh_str = request.COOKIES.get("refresh")
+        refresh_str = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE)
         if not refresh_str:
-            return Response({"error": "Refresh token not found"}, status=status.HTTP_401_UNAUTHORIZED)
+            return clear_auth_cookies(Response(
+                {"detail": "Invalid or expired session."}, status=status.HTTP_401_UNAUTHORIZED
+            ))
 
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_str})
         try:
-            token = RefreshToken(refresh_str)
-            response = Response({"access": str(token.access_token)}, status=status.HTTP_200_OK)
-            response.set_cookie(
-                key='access',
-                value=str(token.access_token),
-                httponly=True,
-                secure=settings.COOKIE_SECURE,
-                samesite=settings.COOKIE_SAMESITE,
-                max_age=ACCESS_TOKEN_EXPIRY,
-            )
+            serializer.is_valid(raise_exception=True)
+        except (TokenError, AuthenticationFailed, ValidationError, ObjectDoesNotExist) as e:
+            logger.info(f"Token refresh rejected: {type(e).__name__}")
+            return clear_auth_cookies(Response(
+                {"detail": "Invalid or expired session."}, status=status.HTTP_401_UNAUTHORIZED
+            ))
 
-            if simplejwt_settings.ROTATE_REFRESH_TOKENS:
-                if simplejwt_settings.BLACKLIST_AFTER_ROTATION:
-                    try:
-                        token.blacklist()
-                    except AttributeError:
-                        pass
-
-                # Re-sign the same token with a fresh jti/iat/exp rather than
-                # minting a new one, matching simplejwt's own rotation logic.
-                token.set_jti()
-                token.set_exp()
-                token.set_iat()
-
-                response.set_cookie(
-                    key='refresh',
-                    value=str(token),
-                    httponly=True,
-                    secure=settings.COOKIE_SECURE,
-                    samesite=settings.COOKIE_SAMESITE,
-                    max_age=REFRESH_TOKEN_EXPIRY,
-                )
-
-            return response
-        except Exception as e:
-            logger.exception(f"Unexpected token refresh error: {e}")
-            return Response({"error": "Invalid refresh token"}, status=status.HTTP_401_UNAUTHORIZED)
+        data = serializer.validated_data
+        response = Response({"detail": "Session refreshed"}, status=status.HTTP_200_OK)
+        return set_auth_cookies(response, data["access"], data.get("refresh", refresh_str))
 
 
-class LogoutView(APIView):
+class LogoutView(CSRFProtectedMixin, APIView):
     """
-    Logout the user.
-    
-    Request Body:
-        - None
+    Logs the user out: blacklists the refresh token, revokes the current access
+    token, and clears the auth cookies.
+
+    Works without a valid access token (it may have just expired), so it reads
+    the cookies directly instead of requiring authentication.
 
     Responses:
         200: Logout successful.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        refresh_str = request.COOKIES.get("refresh")
+        refresh_str = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE)
         if refresh_str:
             try:
                 RefreshToken(refresh_str).blacklist()
-            except Exception as e:
-                logger.warning(f"Failed to blacklist refresh token on logout: {e}")
+            except TokenError:
+                pass  # already blacklisted / expired — nothing left to revoke
+
+        access_str = request.COOKIES.get(settings.AUTH_ACCESS_COOKIE)
+        if access_str:
+            try:
+                revoke_access_token(AccessToken(access_str))
+            except TokenError:
+                pass
 
         response = Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
-        # samesite must match how the cookies were set (issue_auth_cookies) — a
-        # Secure cookie can only be deleted by a Set-Cookie that is itself Secure
-        # ("Leave Secure Cookies Alone"), which Django only adds when samesite
-        # is explicitly "none". Omitting it here silently no-ops the deletion.
-        response.delete_cookie("refresh", samesite=settings.COOKIE_SAMESITE)
-        response.delete_cookie("access", samesite=settings.COOKIE_SAMESITE)
-        return response
-    
+        return clear_auth_cookies(response)
+
+
+def blacklist_all_refresh_tokens(user):
+    """Blacklists every outstanding refresh token of `user`. Returns how many."""
+    outstanding = OutstandingToken.objects.filter(user=user).exclude(
+        id__in=BlacklistedToken.objects.filter(token__user=user).values("token_id")
+    )
+    count = 0
+    for token in outstanding:
+        _, created = BlacklistedToken.objects.get_or_create(token=token)
+        count += int(created)
+    return count

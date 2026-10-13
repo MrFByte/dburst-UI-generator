@@ -145,7 +145,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
   }, []);
 
   return (
-    <div className="h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans flex flex-col overflow-hidden relative">
+    <div className="h-dvh bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans flex flex-col overflow-hidden relative">
       <FeedbackModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <Header
         mode="dashboard"
@@ -153,23 +153,23 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
       />
 
       {/* Main Layout */}
-      <div className="flex flex-1 overflow-hidden p-3 pt-16">
+      <div className="flex flex-1 overflow-hidden p-2 sm:p-3 pt-16 min-w-0">
         {/* Left Panel */}
         <div
-          className={`bg-slate-900 border-r border-slate-700 overflow-hidden transition-all duration-300 flex flex-col ${isEditPanelOpen ? 'w-80' : 'w-0'
+          className={`bg-slate-900 border-r border-slate-700 overflow-hidden transition-all duration-300 flex flex-col max-lg:fixed max-lg:top-16 max-lg:bottom-0 max-lg:left-0 max-lg:z-30 shrink-0 ${isEditPanelOpen ? 'w-[85vw] max-w-80 lg:w-80' : 'w-0 max-lg:border-r-0'
             }`}
         >
-          <div className="p-6 border-b border-slate-700">
-            <h2 className="font-semibold text-lg mb-4">Structure &amp; Stats</h2>
+          <div className="p-4 sm:p-6 border-b border-slate-700">
+            <h2 className="font-semibold text-lg mb-3 sm:mb-4">Structure &amp; Stats</h2>
             <button
               onClick={() => setIsEditPanelOpen(false)}
-              className="text-sm text-gray-400 hover:text-white transition"
+              className="text-sm text-gray-400 hover:text-white transition min-h-11 pr-4"
             >
               ← Close
             </button>
           </div>
 
-          <div className="flex-1 overflow-auto p-6 space-y-4">
+          <div className="flex-1 overflow-auto p-4 sm:p-6 space-y-4">
             {/* Components Used */}
             <div className="bg-slate-800 p-4 rounded-lg">
               <p className="text-sm text-gray-400 mb-3">📦 Components Used:</p>
@@ -249,12 +249,12 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
         {/* Center - Main Canvas */}
         <main className="flex-1 flex flex-col overflow-hidden min-h-0">
           {/* Combined Tabs and Edit Controls in Single Row */}
-          <div className="h-12 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 shrink-0 z-10 relative">
+          <div className="min-h-12 md:h-12 bg-slate-900 border-b border-slate-700 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 sm:px-6 py-1 md:py-0 shrink-0 z-10 relative">
             {/* Left: Tabs */}
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-4 sm:space-x-6">
               <button
                 onClick={() => setActiveTab('preview')}
-                className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${activeTab === 'preview'
+                className={`flex items-center space-x-2 py-2 md:pt-0 md:pb-3 min-h-10 md:min-h-0 border-b-2 transition font-medium ${activeTab === 'preview'
                   ? 'border-blue-500 text-white'
                   : 'border-transparent text-gray-400 hover:text-white'
                   }`}
@@ -264,7 +264,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
               <button
                 onClick={() => setActiveTab('code')}
-                className={`flex items-center space-x-2 pb-3 border-b-2 transition font-medium ${activeTab === 'code'
+                className={`flex items-center space-x-2 py-2 md:pt-0 md:pb-3 min-h-10 md:min-h-0 border-b-2 transition font-medium ${activeTab === 'code'
                   ? 'border-blue-500 text-white'
                   : 'border-transparent text-gray-400 hover:text-white'
                   }`}
@@ -274,7 +274,7 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             </div>
 
             {/* Right: Edit Controls — rendered via React Portal into this div */}
-            <div id="edit-controls-container" className="flex items-center" />
+            <div id="edit-controls-container" className="flex items-center min-w-0 max-w-full" />
           </div>
 
           {/* Phase 3: Wrapper with undo/redo/save/version history */}
@@ -323,22 +323,22 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
           {/* Code Tab */}
           {activeTab === 'code' && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="h-12 bg-slate-900 border-b border-slate-700 px-6 flex items-center justify-between shrink-0">
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+              <div className="min-h-12 bg-slate-900 border-b border-slate-700 px-3 sm:px-6 py-1 flex flex-wrap gap-2 items-center justify-between shrink-0">
                 <span className="text-xs text-gray-400 font-mono">
                   {lineCount} lines • {codeSize}KB
                 </span>
                 <div className="flex items-center space-x-2">
-                  <button onClick={copyCode} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded transition flex items-center space-x-1">
+                  <button onClick={copyCode} className="px-3 py-2 md:py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded transition flex items-center space-x-1">
                     <span>📋</span><span>Copy</span>
                   </button>
-                  <button onClick={downloadCode} className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded transition flex items-center space-x-1">
+                  <button onClick={downloadCode} className="px-3 py-2 md:py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded transition flex items-center space-x-1">
                     <span>⬇️</span><span>Download</span>
                   </button>
                 </div>
               </div>
               <div className="flex-1 overflow-auto bg-slate-950/30">
-                <pre className="p-6 text-xs font-mono text-gray-300 whitespace-pre-wrap wrap-break-word leading-relaxed">
+                <pre className="p-3 sm:p-6 text-xs font-mono text-gray-300 whitespace-pre-wrap wrap-break-word leading-relaxed">
                   {data?.code}
                 </pre>
               </div>
@@ -348,9 +348,20 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
 
         {/* Right Panel - Chat */}
         <div
-          className={`bg-slate-900 border-l border-slate-700 overflow-hidden transition-all duration-300 flex flex-col ${isChatPanelOpen ? 'w-96' : 'w-0'
+          className={`bg-slate-900 border-l border-slate-700 overflow-hidden transition-all duration-300 flex flex-col max-lg:fixed max-lg:top-16 max-lg:bottom-0 max-lg:right-0 max-lg:z-30 shrink-0 ${isChatPanelOpen ? 'w-[92vw] max-w-96 lg:w-96' : 'w-0 max-lg:border-l-0'
             }`}
         >
+          {isChatPanelOpen && (
+            <div className="lg:hidden flex items-center justify-between px-4 py-2 border-b border-slate-700 shrink-0">
+              <h2 className="font-semibold">Chat</h2>
+              <button
+                onClick={() => setIsChatPanelOpen(false)}
+                className="text-sm text-gray-400 hover:text-white transition min-h-11 pl-4"
+              >
+                Close →
+              </button>
+            </div>
+          )}
           {isChatPanelOpen && data?.generation_id && (
             <PromptBox
               generationId={data.generation_id}
@@ -374,8 +385,8 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             setIsEditPanelOpen(!isEditPanelOpen);
             setIsChatPanelOpen(false);
           }}
-          className={`fixed left-6 bottom-6 p-4 rounded-full shadow-lg transition z-20 ${isEditPanelOpen
-            ? 'bg-blue-600 text-white'
+          className={`fixed left-4 bottom-4 sm:left-6 sm:bottom-6 w-12 h-12 sm:w-auto sm:h-auto flex items-center justify-center sm:p-4 rounded-full shadow-lg transition z-20 ${isEditPanelOpen
+            ? 'max-lg:hidden bg-blue-600 text-white'
             : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'
             }`}
           title="Toggle Structure Panel"
@@ -388,8 +399,8 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
             setIsChatPanelOpen(!isChatPanelOpen);
             setIsEditPanelOpen(false);
           }}
-          className={`fixed right-6 bottom-6 p-4 rounded-full shadow-lg transition z-20 ${isChatPanelOpen
-            ? 'bg-blue-600 text-white'
+          className={`fixed right-4 bottom-4 sm:right-6 sm:bottom-6 w-12 h-12 sm:w-auto sm:h-auto flex items-center justify-center sm:p-4 rounded-full shadow-lg transition z-20 ${isChatPanelOpen
+            ? 'max-lg:hidden bg-blue-600 text-white'
             : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'
             }`}
           title="Toggle Chat Panel"

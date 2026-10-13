@@ -3,8 +3,10 @@ import logging
 from django.db import transaction
 from rest_framework import permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from config.authentication import CSRFProtectedMixin
 from users.models import User
 from users.serializers import UserSerializer
 from users.services import issue_auth_cookies
@@ -16,7 +18,7 @@ from .tasks import send_otp_email
 logger = logging.getLogger(__name__)
 
 
-class RequestOTPView(APIView):
+class RequestOTPView(CSRFProtectedMixin, APIView):
     """
     Requests a one-time passcode for email sign-in/sign-up.
 
@@ -26,9 +28,13 @@ class RequestOTPView(APIView):
 
     Responses:
         200: OTP email sent.
-        429: Too many OTP requests for this email in the current window.
+        429: Too many OTP requests for this email in the current window, or
+             too many requests from this client.
     """
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "otp"
 
     def post(self, request):
         serializer = RequestOTPSerializer(data=request.data)
@@ -60,7 +66,7 @@ class RequestOTPView(APIView):
         return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
 
 
-class VerifyOTPView(APIView):
+class VerifyOTPView(CSRFProtectedMixin, APIView):
     """
     Verifies a one-time passcode and logs the user in, creating their
     account on first verification.
@@ -72,8 +78,12 @@ class VerifyOTPView(APIView):
     Responses:
         200: Verified. JWT cookies set.
         400: Invalid, expired, or already-used code.
+        429: Too many attempts from this client.
     """
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
 
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)
@@ -88,7 +98,14 @@ class VerifyOTPView(APIView):
             return Response({"error": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            user, created = User.objects.get_or_create(email=email)
+            # iexact: OAuth-created accounts may store the provider's casing.
+            user = User.objects.filter(email__iexact=email).first()
+            created = user is None
+            if created:
+                user = User.objects.create_user(email=email)
+
+            if not user.is_active:
+                return Response({"error": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
 
             message = "User login successfully"
             if created:

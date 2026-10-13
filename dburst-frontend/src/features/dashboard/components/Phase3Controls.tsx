@@ -146,7 +146,7 @@ export function Phase3Controls({ generationId, schema, onSchemaUpdate }: Phase3C
         controls: (
             <>
                 {/* Edit Controls Bar */}
-                <div className="flex items-center gap-4 px-6 py-3 bg-slate-800 border-b border-slate-700">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-4 px-3 sm:px-6 py-3 bg-slate-800 border-b border-slate-700">
                     <EditModeToggle
                         enabled={editMode}
                         onChange={setEditMode}
@@ -167,7 +167,7 @@ export function Phase3Controls({ generationId, schema, onSchemaUpdate }: Phase3C
 
                     <button
                         onClick={() => setIsVersionHistoryOpen(!isVersionHistoryOpen)}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded transition"
+                        className="flex items-center gap-2 px-3 min-h-10 md:min-h-0 py-2 md:py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded transition"
                     >
                         <History className="h-4 w-4" />
                         History ({totalPatches})
@@ -183,12 +183,12 @@ export function Phase3Controls({ generationId, schema, onSchemaUpdate }: Phase3C
 
                 {/* Version History Sidebar */}
                 {isVersionHistoryOpen && (
-                    <div className="fixed right-0 top-0 h-full w-96 bg-slate-900 border-l border-slate-700 z-50 shadow-2xl overflow-hidden flex flex-col">
+                    <div className="fixed right-0 top-0 h-dvh w-full sm:w-96 max-w-full bg-slate-900 border-l border-slate-700 z-50 shadow-2xl overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between p-4 border-b border-slate-700">
                             <h2 className="text-lg font-semibold">Version History</h2>
                             <button
                                 onClick={() => setIsVersionHistoryOpen(false)}
-                                className="p-2 hover:bg-slate-800 rounded transition"
+                                className="p-3 md:p-2 hover:bg-slate-800 rounded transition"
                             >
                                 <X className="h-5 w-5" />
                             </button>

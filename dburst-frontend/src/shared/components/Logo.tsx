@@ -3,16 +3,16 @@ import dburstHomepageLogo from "@/assets/dburst-homepage-logo.png";
 
 export function Logo() {
   return (
-    <Link to="/" className="flex items-center gap-0 group select-none">
+    <Link to="/" className="flex items-center gap-0 group select-none min-h-11">
       {/* D — logo image */}
       <img
         src={dburstHomepageLogo}
         alt="DBurst logo"
-        className="h-11 w-auto transition-transform duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]"
+        className="h-9 sm:h-11 w-auto transition-transform duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]"
       />
       {/* -BURST — outlined gradient text */}
       <span
-        className="text-2xl font-extrabold tracking-wide ml-0.5
+        className="text-xl sm:text-2xl font-extrabold tracking-wide ml-0.5
           bg-gradient-to-r from-violet-500 via-fuchsia-400 to-cyan-400
           bg-clip-text text-transparent
           transition-all duration-300

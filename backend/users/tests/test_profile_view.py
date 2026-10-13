@@ -1,7 +1,7 @@
 
 import pytest
 from django.urls import reverse
-from .conftest import api_client,user
+
 from users.serializers import UserSerializer
 
 

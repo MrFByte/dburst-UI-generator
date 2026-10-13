@@ -77,13 +77,13 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
  
       {/* Modal box */}
       <div
-        className="fm-root w-full max-w-[800px] max-h-[550px] rounded-2xl overflow-y-auto"
+        className="fm-root w-full max-w-[800px] max-h-[min(550px,calc(100dvh-2rem))] rounded-2xl overflow-y-auto"
         style={{ background: "#171717", border: "1px solid #2a2a2a" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ── */}
         <div
-          className="relative px-7 pt-7 pb-6"
+          className="relative px-4 sm:px-7 pt-5 sm:pt-7 pb-5 sm:pb-6 pr-16"
           style={{ borderBottom: "1px solid #222" }}
         >
           <p
@@ -101,7 +101,7 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
  
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
+            className="absolute top-3 right-3 sm:top-6 sm:right-6 flex items-center justify-center w-11 h-11 sm:w-8 sm:h-8 rounded-lg transition-colors"
             style={{ background: "#252525", border: "1px solid #2e2e2e", color: "#999" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "#2e2e2e"; e.currentTarget.style.color = "#f5f5f5"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "#252525"; e.currentTarget.style.color = "#999"; }}
@@ -111,7 +111,7 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
         </div>
  
         {/* ── Body ── */}
-        <div className="px-7 pt-6 pb-7 flex flex-col gap-5">
+        <div className="px-4 sm:px-7 pt-5 sm:pt-6 pb-5 sm:pb-7 flex flex-col gap-4 sm:gap-5">
  
           {/* Category chips */}
           <div>
@@ -121,12 +121,12 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
             >
               Category
             </label>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5 sm:gap-1">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
-                  className="px-3.5 py-1.5 cursor-pointer rounded-full text-[13px] font-medium transition-all"
+                  className="px-3.5 py-2.5 sm:py-1.5 cursor-pointer rounded-full text-[13px] font-medium transition-all"
                   style={
                     category === cat
                       ? { background: "#e8f0ff", border: "1px solid #e8f0ff", color: "#1a3080" }
@@ -161,12 +161,12 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
             >
               Experience
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2">
               {RATINGS.map((r) => (
                 <button
                   key={r.value}
                   onClick={() => setRating(r.value)}
-                  className="flex-1 flex cursor-pointer flex-col items-center gap-1.5 py-3 rounded-xl transition-all"
+                  className="flex-1 min-w-0 flex cursor-pointer flex-col items-center gap-1.5 py-3 rounded-xl transition-all"
                   style={
                     rating === r.value
                       ? { background: "#0d1a40", border: "1px solid #3a5cf5" }
@@ -186,14 +186,14 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
                   }}
                 >
                   <span
-                    className={`text-[26px] leading-none transition-transform duration-200 ${
+                    className={`text-2xl sm:text-[26px] leading-none transition-transform duration-200 ${
                       rating === r.value ? `${r.animation} scale-110` : "grayscale-[40%]"
                     }`}
                   >
                     {r.emoji}
                   </span>
                   <span
-                    className="text-[11px] font-medium"
+                    className="text-[10px] sm:text-[11px] font-medium"
                     style={{ color: rating === r.value ? "#7b9aff" : "#555" }}
                   >
                     {r.label}
@@ -225,7 +225,7 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
               </span>
             </div>
             <textarea
-              className="w-full h-28 rounded-xl text-[14px] resize-none outline-none transition-colors leading-relaxed"
+              className="w-full h-28 rounded-xl text-base sm:text-[14px] resize-none outline-none transition-colors leading-relaxed"
               style={{
                 background: "#1c1c1c",
                 border: "1px solid #272727",
@@ -246,7 +246,7 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
             <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1 py-2.5 cursor-pointer rounded-xl text-[14px] font-medium transition-all"
+              className="flex-1 py-3 sm:py-2.5 cursor-pointer rounded-xl text-[14px] font-medium transition-all"
               style={{ background: "transparent", border: "1px solid #2a2a2a", color: "#888" }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "#1e1e1e"; e.currentTarget.style.color = "#ccc"; e.currentTarget.style.borderColor = "#333"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#888"; e.currentTarget.style.borderColor = "#2a2a2a"; }}
@@ -256,7 +256,7 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting || !description.trim()}
-              className="flex-[2] cursor-pointer py-2.5 rounded-xl text-[14px] font-semibold transition-all flex items-center justify-center gap-2"
+              className="flex-[2] cursor-pointer py-3 sm:py-2.5 rounded-xl text-[14px] font-semibold transition-all flex items-center justify-center gap-2"
               style={{ background: "#3a5cf5", color: "#fff", border: "none" }}
               onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#4f6ef7"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "#3a5cf5"; }}

@@ -7,6 +7,8 @@ from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .session_manager import SessionManager, get_cache_stats
+from .services import clear_auth_cookies, revoke_access_token
+from .views import blacklist_all_refresh_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -72,33 +74,31 @@ class CacheStatsView(APIView):
 
 class ClearUserSessionsView(APIView):
     """
-    Clear all sessions for the authenticated user (logout from all devices).
-    
+    Log the authenticated user out of every device.
+
+    Blacklists all of the requesting user's outstanding refresh tokens (so no
+    other browser can refresh), revokes the current access token, and clears
+    this browser's cookies. Only ever touches request.user's own tokens.
+
     POST /api/v1/users/sessions/clear/
-    
+
     Response:
         {
             "success": true,
             "sessions_cleared": 3,
-            "message": "All sessions cleared successfully"
+            "message": "Cleared 3 session(s) successfully"
         }
     """
-    
+
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def post(self, request):
-        try:
-            user_id = str(request.user.id)
-            cleared = SessionManager.clear_user_sessions(user_id)
-            
-            return Response({
-                "success": True,
-                "sessions_cleared": cleared,
-                "message": f"Cleared {cleared} session(s) successfully"
-            }, status=status.HTTP_200_OK)
-        except Exception as e:
-            logger.error(f"Error clearing user sessions: {e}")
-            return Response(
-                {"error": "Failed to clear sessions"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        cleared = blacklist_all_refresh_tokens(request.user)
+        revoke_access_token(request.auth)
+
+        response = Response({
+            "success": True,
+            "sessions_cleared": cleared,
+            "message": f"Cleared {cleared} session(s) successfully"
+        }, status=status.HTTP_200_OK)
+        return clear_auth_cookies(response)

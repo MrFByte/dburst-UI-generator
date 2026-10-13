@@ -1,157 +1,88 @@
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from django.urls import reverse
-from users.models import User, AuthProvider
-from users.serializers import UserSerializer
-from .conftest import api_client, user
+from django.conf import settings
+
+from users.models import AuthProvider, User
+
+from .oauth_helpers import REDIRECT_URIS, callback, json_response, start_oauth
 
 
-VALID_REDIRECT_URI = "http://localhost:5173/auth/github/callback"
+@pytest.fixture(autouse=True)
+def client_id(settings):
+    settings.GITHUB_CLIENT_ID = "github-client"
+    settings.GITHUB_CLIENT_SECRET = "github-secret"
 
 
-@pytest.fixture
-def url():
-    return reverse("github-auth")
-
-
-def post(api_client, url, data):
-    """Helper: always include a valid redirect_uri unless explicitly overridden."""
-    payload = {"redirect_uri": VALID_REDIRECT_URI, **data}
-    return api_client.post(url, data=payload)
-
-
-@pytest.mark.django_db
-def test_github_missing_code(api_client, url):
-    res = post(api_client, url, {})
-    assert res.status_code == 400
-    assert res.data["error"] == "Missing OAuth code"
+def run(client, emails, gh_user=None, token_data=None):
+    token, state, _ = start_oauth(client, "github")
+    gh_user = gh_user or {"id": 333, "email": "public@example.com", "name": "GH", "login": "gh"}
+    with patch("users.views.requests.post") as mock_post, \
+            patch("users.views.requests.get") as mock_get:
+        mock_post.return_value = json_response(token_data or {"access_token": "gho_x"})
+        mock_get.side_effect = [json_response(gh_user), json_response(emails)]
+        res = callback(client, "github", token, code="xyz", state=state)
+    return res, mock_post
 
 
 @pytest.mark.django_db
-def test_github_missing_redirect_uri(api_client, url):
-    res = api_client.post(url, data={"code": "abc"})
-    assert res.status_code == 400
-    assert res.data["error"] == "Missing redirect_uri"
-
-
-@pytest.mark.django_db
-def test_github_invalid_redirect_uri(api_client, url):
-    res = api_client.post(url, data={"code": "abc", "redirect_uri": "https://evil.com/steal"})
-    assert res.status_code == 400
-    assert res.data["error"] == "Invalid redirect_uri"
-
-
-def mock_token_response(access_token="access123"):
-    mock = MagicMock()
-    mock.json.return_value = {"access_token": access_token}
-    mock.raise_for_status.return_value = None
-    return mock
-
-
-def mock_user_response(email="test@example.com", github_id=111, login="ghuser"):
-    mock = MagicMock()
-    mock.json.return_value = {
-        "id": github_id,
-        "email": email,
-        "name": "GitHub User",
-        "login": login,
-        "avatar_url": "http://avatar.com/a.png",
-    }
-    mock.raise_for_status.return_value = None
-    return mock
-
-
-@pytest.mark.django_db
-@patch("users.views.requests.post")
-def test_github_no_access_token(mock_post, api_client, url):
-    mock_post.return_value = mock_token_response(access_token=None)
-    res = post(api_client, url, {"code": "123"})
-    assert res.status_code == 400
-    assert res.data["error"] == "Unable to authenticate with GitHub"
-
-
-@pytest.mark.django_db
-@patch("users.views.requests.get")
-@patch("users.views.requests.post")
-@patch("users.services.RefreshToken")
-def test_github_existing_user(mock_refresh, mock_post, mock_get, api_client, url):
-    mock_post.return_value = mock_token_response()
-    mock_get.return_value = mock_user_response(email="test@example.com", github_id=222)
-
-    user = User.objects.create_user(email="test@example.com", password="pass123")
-
-    mock_refresh_obj = MagicMock()
-    mock_refresh_obj.__str__.return_value = "refresh-token"
-    mock_refresh_obj.access_token.__str__.return_value = "access-token"
-    mock_refresh.for_user.return_value = mock_refresh_obj
-
-    res = post(api_client, url, {"code": "123"})
-
-    assert res.status_code == 200
-    assert res.data["message"] == "User login successfully"
-    assert res.data["user"] == UserSerializer(user).data
-    assert res.cookies["refresh"].value == "refresh-token"
-    assert res.cookies["access"].value == "access-token"
-    # ua and ip cookies should NOT be present anymore
-    assert "ua" not in res.cookies
-    assert "ip" not in res.cookies
-
-
-@pytest.mark.django_db
-@patch("users.views.requests.get")
-@patch("users.views.requests.post")
-@patch("users.services.RefreshToken")
-def test_github_creates_user(mock_refresh, mock_post, mock_get, api_client, url):
-    mock_post.return_value = mock_token_response()
-    mock_get.return_value = mock_user_response(email="new@example.com", github_id=333)
-
-    mock_refresh_obj = MagicMock()
-    mock_refresh_obj.__str__.return_value = "refresh-token"
-    mock_refresh_obj.access_token.__str__.return_value = "access-token"
-    mock_refresh.for_user.return_value = mock_refresh_obj
-
-    res = post(api_client, url, {"code": "xyz"})
-
+def test_github_creates_user_from_verified_primary_email(csrf_client):
+    res, mock_post = run(csrf_client, [
+        {"email": "other@example.com", "primary": False, "verified": True},
+        {"email": "primary@example.com", "primary": True, "verified": True},
+    ])
     assert res.status_code == 200
     assert res.data["message"] == "User created successfully"
-
-    user = User.objects.get(email="new@example.com")
-    provider = AuthProvider.objects.get(user=user)
-    assert provider.provider == "github"
-    assert provider.provider_id == "333"
-
-
-@pytest.mark.django_db
-@patch("users.views.requests.get")
-@patch("users.views.requests.post")
-@patch("users.services.RefreshToken")
-def test_github_email_fallback(mock_refresh, mock_post, mock_get, api_client, url):
-    mock_user = MagicMock()
-    mock_user.json.return_value = {"id": 500, "email": None, "login": "abc"}
-    mock_user.raise_for_status.return_value = None
-
-    mock_email = MagicMock()
-    mock_email.json.return_value = [{"email": "primary@example.com", "primary": True}]
-    mock_email.raise_for_status.return_value = None
-
-    mock_get.side_effect = [mock_user, mock_email]
-    mock_post.return_value = mock_token_response()
-
-    mock_refresh_obj = MagicMock()
-    mock_refresh_obj.__str__.return_value = "refresh-token"
-    mock_refresh_obj.access_token.__str__.return_value = "access-token"
-    mock_refresh.for_user.return_value = mock_refresh_obj
-
-    res = post(api_client, url, {"code": "xyz"})
-
-    assert res.status_code == 200
     user = User.objects.get(email="primary@example.com")
-    assert user is not None
+    assert AuthProvider.objects.get(user=user).provider_id == "333"
+    assert res.cookies[settings.AUTH_REFRESH_COOKIE]["httponly"] is True
+
+    sent = mock_post.call_args.kwargs["data"]
+    assert sent["redirect_uri"] == REDIRECT_URIS["github"]
+    assert sent["code_verifier"]
 
 
 @pytest.mark.django_db
-@patch("users.views.requests.post", side_effect=Exception("fail"))
-def test_github_unexpected_error(mock_post, api_client, url):
-    res = post(api_client, url, {"code": "123"})
-    assert res.status_code == 500
-    assert res.data["error"] == "GitHub authentication failed"
+def test_github_unverified_email_cannot_take_over_account(csrf_client):
+    """Regression: an attacker adds the victim's address (unverified) to GitHub."""
+    victim = User.objects.create_user(email="victim@example.com")
+    res, _ = run(
+        csrf_client,
+        [{"email": "victim@example.com", "primary": True, "verified": False}],
+        gh_user={"id": 666, "email": "victim@example.com", "login": "attacker"},
+    )
+    assert res.status_code == 400
+    assert settings.AUTH_ACCESS_COOKIE not in res.cookies or res.cookies[settings.AUTH_ACCESS_COOKIE].value == ""
+    assert not AuthProvider.objects.filter(user=victim).exists()
+
+
+@pytest.mark.django_db
+def test_github_public_profile_email_is_not_trusted(csrf_client):
+    """Profile email says victim, but only a different verified email exists."""
+    victim = User.objects.create_user(email="victim@example.com")
+    res, _ = run(
+        csrf_client,
+        [{"email": "attacker@example.com", "primary": True, "verified": True}],
+        gh_user={"id": 667, "email": "victim@example.com", "login": "attacker"},
+    )
+    assert res.status_code == 200
+    assert res.data["user"]["email"] == "attacker@example.com"
+    assert not AuthProvider.objects.filter(user=victim).exists()
+
+
+@pytest.mark.django_db
+def test_github_existing_link_wins(csrf_client):
+    user = User.objects.create_user(email="old@example.com")
+    AuthProvider.objects.create(user=user, provider="github", provider_id="333")
+    res, _ = run(csrf_client, [{"email": "changed@example.com", "primary": True, "verified": True}])
+    assert res.status_code == 200
+    assert res.data["user"]["id"] == str(user.id)
+    assert res.data["message"] == "User login successfully"
+
+
+@pytest.mark.django_db
+def test_github_no_access_token(csrf_client):
+    token, state, _ = start_oauth(csrf_client, "github")
+    with patch("users.views.requests.post", return_value=json_response({"error": "bad_verification_code"})):
+        res = callback(csrf_client, "github", token, state=state)
+    assert res.status_code == 400

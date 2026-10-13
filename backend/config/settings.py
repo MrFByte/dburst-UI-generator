@@ -15,6 +15,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 
 load_dotenv()
@@ -29,6 +30,10 @@ APP_MODE = str(os.environ.get("APP_MODE", 'Development'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    # Signing JWTs, the OAuth state cookie and CSRF tokens all depend on this —
+    # never fall back to a default or run with None.
+    raise ImproperlyConfigured("SECRET_KEY environment variable is not set")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False") == "True"
@@ -58,7 +63,6 @@ CORS_ALLOW_HEADERS = os.environ.get(
     "CORS_ALLOW_HEADERS",
     "accept,"
     "accept-encoding,"
-    "authorization,"
     "content-type,"
     "dnt,"
     "origin,"
@@ -68,9 +72,10 @@ CORS_ALLOW_HEADERS = os.environ.get(
     "ngrok-skip-browser-warning"
 ).split(",")
 
-# 1 day for access, 7 days for refresh
-ACCESS_TOKEN_EXPIRY = 86400
-REFRESH_TOKEN_EXPIRY = 604800
+# 15 minutes for access, 7 days for refresh (seconds). These drive both the
+# JWT lifetimes (SIMPLE_JWT below) and the cookie max_age, so they can't drift.
+ACCESS_TOKEN_EXPIRY = 15 * 60
+REFRESH_TOKEN_EXPIRY = 7 * 86400
 
 # Application definition
 
@@ -203,12 +208,21 @@ STORAGES = {
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=ACCESS_TOKEN_EXPIRY),
+    'REFRESH_TOKEN_LIFETIME': timedelta(seconds=REFRESH_TOKEN_EXPIRY),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
+    # Only access tokens authenticate API requests — a refresh token placed
+    # in the access cookie is rejected.
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
+
+# DRF's client-IP detection for throttling. Leave unset unless you know how
+# many proxies append to X-Forwarded-For in front of Django — with it unset
+# the whole header is used, which a client can vary. For Vercel rewrite ->
+# Render this is typically 2; verify against real request headers.
+_num_proxies = os.environ.get("THROTTLE_NUM_PROXIES")
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -217,6 +231,12 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_RATES': {
+        'auth': os.environ.get("THROTTLE_RATE_AUTH", "20/min"),
+        'otp': os.environ.get("THROTTLE_RATE_OTP", "5/min"),
+        'token_refresh': os.environ.get("THROTTLE_RATE_TOKEN_REFRESH", "30/min"),
+    },
+    'NUM_PROXIES': int(_num_proxies) if _num_proxies else None,
 }
 
 AUTH_USER_MODEL = "users.User"
@@ -243,22 +263,38 @@ SESSION_CACHE_ALIAS = "default"
 # Session Security Settings
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Cookies marked Secure are silently dropped by the browser unless the
-# response that sets them came over HTTPS, and SameSite=None requires
-# Secure or the cookie gets rejected outright — the two must move together.
-# Production (Render/Vercel, both HTTPS) wants True/None, which is the
-# default here. Local dev runs the backend over plain HTTP (see run.sh),
-# so backend/.env overrides these to False/Lax — same-site is still true
-# for localhost:5173 <-> localhost:8000 (same scheme + hostname, just a
-# different port), so Lax cookies still flow on cross-port XHR fine.
+# The browser always reaches the API on the frontend's own origin — through
+# vercel.json's /api rewrite in production and Vite's /api proxy in dev — so
+# the auth cookies are first-party and Lax is enough. Only set None if the
+# frontend calls the backend's domain directly (cross-site); None requires
+# Secure and makes these third-party cookies, which Safari blocks.
+# Local dev runs over plain HTTP, so backend/.env sets COOKIE_SECURE=False
+# (Secure cookies are silently dropped over HTTP). See Plan/auth-audit.md.
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "True") == "True"
-COOKIE_SAMESITE = os.environ.get("COOKIE_SAMESITE", "None")
+COOKIE_SAMESITE = os.environ.get("COOKIE_SAMESITE", "Lax")
+if COOKIE_SAMESITE not in ("Lax", "Strict", "None"):
+    raise ImproperlyConfigured("COOKIE_SAMESITE must be Lax, Strict or None")
+
+# Auth cookie names and scoping (see users/services.py). The refresh and
+# OAuth-state cookies are only sent to /users/auth/* (refresh, logout,
+# OAuth callback) rather than on every API request.
+AUTH_ACCESS_COOKIE = "dburst_access"
+AUTH_REFRESH_COOKIE = "dburst_refresh"
+AUTH_OAUTH_COOKIE = "dburst_oauth"
+AUTH_COOKIE_PATH = "/"
+AUTH_REFRESH_COOKIE_PATH = "/api/v1/users/auth/"
+OAUTH_STATE_MAX_AGE = 600
 
 SESSION_COOKIE_SECURE = COOKIE_SECURE
 SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
 SESSION_COOKIE_SAMESITE = COOKIE_SAMESITE
 CSRF_COOKIE_SECURE = COOKIE_SECURE
 CSRF_COOKIE_SAMESITE = COOKIE_SAMESITE
+# The frontend reads csrftoken and echoes it as X-CSRFToken on unsafe
+# requests (double-submit), so it must stay readable by JS.
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_NAME = "csrftoken"
+CSRF_HEADER_NAME = "HTTP_X_CSRFTOKEN"
 SESSION_COOKIE_NAME = 'dburst_sessionid'  # Custom session cookie name
 SESSION_COOKIE_PATH = '/'
 SESSION_COOKIE_DOMAIN = None  # Use default domain
@@ -304,7 +340,6 @@ _google_uris = os.environ.get(
     "GOOGLE_ALLOWED_REDIRECT_URIS",
     "http://localhost:5173/auth/google/callback,"
     "https://localhost:5173/auth/google/callback,"
-    "https://dburst-ui-generator.onrender.com/auth/google/callback,"
     "https://dburst-ui-generator.vercel.app/auth/google/callback"
 )
 GOOGLE_ALLOWED_REDIRECT_URIS = [u.strip() for u in _google_uris.split(",") if u.strip()]
@@ -313,7 +348,6 @@ _github_uris = os.environ.get(
     "GITHUB_ALLOWED_REDIRECT_URIS",
     "http://localhost:5173/auth/github/callback,"
     "https://localhost:5173/auth/github/callback,"
-    "https://dburst-ui-generator.onrender.com/auth/github/callback,"
     "https://dburst-ui-generator.vercel.app/auth/github/callback"
 )
 GITHUB_ALLOWED_REDIRECT_URIS = [u.strip() for u in _github_uris.split(",") if u.strip()]
@@ -425,10 +459,3 @@ if SENTRY_DSN:
         send_default_pii=False,
     )
 
-
-# ========================================
-# RESEND CREDENTIALS
-# ========================================
-
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-RESEND_DEFAULT_EMAIL = os.getenv("RESEND_DEFAULT_EMAIL")

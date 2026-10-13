@@ -1,167 +1,92 @@
+from unittest.mock import patch
+
 import pytest
-from django.urls import reverse
-from unittest.mock import patch, MagicMock
-from users.models import User, AuthProvider
-from users.serializers import UserSerializer
-from .conftest import api_client, user
+from django.conf import settings
 from requests.exceptions import RequestException
 
+from users.models import AuthProvider, User
 
-VALID_REDIRECT_URI = "http://localhost:5173/auth/google/callback"
+from .oauth_helpers import REDIRECT_URIS, callback, json_response, start_oauth
 
-
-@pytest.fixture
-def url():
-    return reverse("google-auth")
-
-
-def post(api_client, url, data):
-    """Helper: always include a valid redirect_uri unless explicitly overridden."""
-    payload = {"redirect_uri": VALID_REDIRECT_URI, **data}
-    return api_client.post(url, data=payload)
+GOOGLE_USER = {
+    "email": "newuser@example.com",
+    "name": "New User",
+    "picture": "http://new.com/pic.jpg",
+    "sub": "google999",
+    "email_verified": True,
+}
 
 
-@pytest.mark.django_db
-def test_missing_code_returns_400(api_client, url):
-    response = post(api_client, url, {})
-    assert response.status_code == 400
-    assert response.data["error"] == "Missing OAuth code"
+@pytest.fixture(autouse=True)
+def client_id(settings):
+    settings.GOOGLE_CLIENT_ID = "google-client"
+    settings.GOOGLE_CLIENT_SECRET = "google-secret"
 
 
-@pytest.mark.django_db
-def test_missing_redirect_uri_returns_400(api_client, url):
-    response = api_client.post(url, data={"code": "abc"})
-    assert response.status_code == 400
-    assert response.data["error"] == "Missing redirect_uri"
-
-
-@pytest.mark.django_db
-def test_invalid_redirect_uri_returns_400(api_client, url):
-    response = api_client.post(url, data={"code": "abc", "redirect_uri": "https://evil.com/steal"})
-    assert response.status_code == 400
-    assert response.data["error"] == "Invalid redirect_uri"
-
-
-def mock_google_token_response(id_token="mock-id-token"):
-    mock = MagicMock()
-    mock.json.return_value = {"id_token": id_token}
-    mock.raise_for_status.return_value = None
-    return mock
+def run(client, verify_return=None, verify_side_effect=None, post_return=None, post_side_effect=None):
+    token, state, _ = start_oauth(client, "google")
+    with patch("users.views.requests.post") as mock_post, \
+            patch("users.views.verify_oauth2_token") as mock_verify:
+        mock_post.return_value = post_return or json_response({"id_token": "idtok"})
+        if post_side_effect:
+            mock_post.side_effect = post_side_effect
+        mock_verify.return_value = verify_return
+        if verify_side_effect:
+            mock_verify.side_effect = verify_side_effect
+        res = callback(client, "google", token, code="valid", state=state)
+    return res, mock_post, mock_verify
 
 
 @pytest.mark.django_db
-@patch("users.views.requests.post")
-def test_google_no_id_token_returns_400(mock_post, api_client, url):
-    mock_post.return_value = mock_google_token_response(id_token=None)
-    response = post(api_client, url, {"code": "abc"})
-    assert response.status_code == 400
-    assert response.data["error"] == "Unable to authenticate with Google"
+def test_google_creates_user_and_sets_cookies(csrf_client):
+    res, mock_post, mock_verify = run(csrf_client, verify_return=GOOGLE_USER)
 
-
-@pytest.mark.django_db
-@patch("users.views.verify_oauth2_token")
-@patch("users.views.requests.post")
-@patch("users.services.RefreshToken")
-def test_google_auth_existing_user(mock_refresh, mock_post, mock_verify, api_client, url):
-    mock_post.return_value = mock_google_token_response()
-    mock_verify.return_value = {
-        "email": "test@example.com",
-        "name": "John Doe",
-        "picture": "http://img.com/a.jpg",
-        "sub": "google123",
-        "email_verified": True,
-    }
-
-    user = User.objects.create_user(email="test@example.com", password="pass123", name="Existing User")
-
-    mock_refresh_obj = MagicMock()
-    mock_refresh_obj.__str__.return_value = "refresh-token"
-    mock_refresh_obj.access_token.__str__.return_value = "access-token"
-    mock_refresh.for_user.return_value = mock_refresh_obj
-
-    response = post(api_client, url, {"code": "valid"})
-
-    assert response.status_code == 200
-    assert response.data["message"] == "User login successfully"
-    assert response.data["user"] == UserSerializer(user).data
-    assert response.cookies["refresh"].value == "refresh-token"
-    assert response.cookies["access"].value == "access-token"
-    # ua and ip cookies should NOT be present anymore
-    assert "ua" not in response.cookies
-    assert "ip" not in response.cookies
-
-
-@pytest.mark.django_db
-@patch("users.views.verify_oauth2_token")
-@patch("users.views.requests.post")
-@patch("users.services.RefreshToken")
-def test_google_auth_creates_user(mock_refresh, mock_post, mock_verify, api_client, url):
-    mock_post.return_value = mock_google_token_response()
-    mock_verify.return_value = {
-        "email": "newuser@example.com",
-        "name": "New User",
-        "picture": "http://new.com/pic.jpg",
-        "sub": "google999",
-        "email_verified": True,
-    }
-
-    mock_refresh_obj = MagicMock()
-    mock_refresh_obj.__str__.return_value = "refresh-token"
-    mock_refresh_obj.access_token.__str__.return_value = "access-token"
-    mock_refresh.for_user.return_value = mock_refresh_obj
-
-    response = post(api_client, url, {"code": "valid"})
-
-    assert response.status_code == 200
-    assert response.data["message"] == "User created successfully"
-
+    assert res.status_code == 200
+    assert res.data["message"] == "User created successfully"
     user = User.objects.get(email="newuser@example.com")
     assert user.name == "New User"
-    assert user.avatar_url == "http://new.com/pic.jpg"
+    assert AuthProvider.objects.get(user=user).provider_id == "google999"
+    assert res.cookies[settings.AUTH_ACCESS_COOKIE]["httponly"] is True
 
-    provider = AuthProvider.objects.get(user=user)
-    assert provider.provider == "google"
-    assert provider.provider_id == "google999"
-
-
-@pytest.mark.django_db
-@patch("users.views.verify_oauth2_token")
-@patch("users.views.requests.post")
-def test_google_unverified_email_returns_400(mock_post, mock_verify, api_client, url):
-    mock_post.return_value = mock_google_token_response()
-    mock_verify.return_value = {
-        "email": "unverified@example.com",
-        "sub": "googleXYZ",
-        "email_verified": False,
-    }
-    response = post(api_client, url, {"code": "valid"})
-    assert response.status_code == 400
-    assert response.data["error"] == "Google email not verified"
+    sent = mock_post.call_args.kwargs["data"]
+    # redirect_uri comes from the server-side state, PKCE verifier is sent.
+    assert sent["redirect_uri"] == REDIRECT_URIS["google"]
+    assert sent["code_verifier"]
+    assert mock_verify.call_args.kwargs["audience"] == "google-client"
 
 
 @pytest.mark.django_db
-@patch("users.views.requests.post", side_effect=RequestException("network fail"))
-def test_google_network_error(mock_post, api_client, url):
-    response = post(api_client, url, {"code": "abcd"})
-    assert response.status_code == 503
-    assert "Google authentication service unreachable" in response.data["error"]
+def test_google_logs_in_existing_user_by_verified_email(csrf_client):
+    user = User.objects.create_user(email="NewUser@example.com")
+    res, _, _ = run(csrf_client, verify_return=GOOGLE_USER)
+
+    assert res.status_code == 200
+    assert res.data["message"] == "User login successfully"
+    assert res.data["user"]["id"] == str(user.id)
+    assert User.objects.count() == 1
 
 
 @pytest.mark.django_db
-@patch("users.views.verify_oauth2_token", side_effect=ValueError("invalid token"))
-@patch("users.views.requests.post")
-def test_google_invalid_token(mock_post, mock_verify, api_client, url):
-    mock_post.return_value = mock_google_token_response()
-    response = post(api_client, url, {"code": "valid"})
-    assert response.status_code == 400
-    assert response.data["error"] == "Invalid Google token provided"
+def test_google_unverified_email_rejected(csrf_client):
+    res, _, _ = run(csrf_client, verify_return={**GOOGLE_USER, "email_verified": False})
+    assert res.status_code == 400
+    assert not User.objects.exists()
 
 
 @pytest.mark.django_db
-@patch("users.views.requests.post")
-@patch("users.views.verify_oauth2_token", side_effect=Exception("random error"))
-def test_google_auth_unexpected_error(mock_verify, mock_post, api_client, url):
-    mock_post.return_value = mock_google_token_response()
-    response = post(api_client, url, {"code": "valid"})
-    assert response.status_code == 500
-    assert response.data["error"] == "Authentication failed"
+def test_google_invalid_code(csrf_client):
+    res, _, _ = run(csrf_client, post_return=json_response({"error": "invalid_grant"}, 400))
+    assert res.status_code == 400
+
+
+@pytest.mark.django_db
+def test_google_network_error(csrf_client):
+    res, _, _ = run(csrf_client, post_side_effect=RequestException("down"))
+    assert res.status_code == 503
+
+
+@pytest.mark.django_db
+def test_google_invalid_id_token(csrf_client):
+    res, _, _ = run(csrf_client, verify_side_effect=ValueError("Token has wrong audience"))
+    assert res.status_code == 400
+    assert "audience" not in res.data["error"]

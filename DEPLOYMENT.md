@@ -31,17 +31,22 @@ Go to your service settings and add these environment variables:
 - `EMAIL_HOST_PASSWORD`: Email password or app-specific password
 - `DEFAULT_FROM_EMAIL`: Sender email address
 
-**CORS & Security:**
+**CORS, CSRF & auth cookies:**
 - `CORS_ALLOWED_ORIGINS`: Comma-separated list of frontend URLs
   - Example: `https://dburst-ui-generator.vercel.app,https://your-frontend-domain.com`
-- `CSRF_TRUSTED_ORIGINS`: Comma-separated list of trusted origins
-  - Same as CORS_ALLOWED_ORIGINS
+- `CSRF_TRUSTED_ORIGINS`: Comma-separated list of trusted origins. **Must include the Vercel origin.** Requests arrive through the Vercel `/api` rewrite, so their `Origin` is the Vercel host while their `Host` is Render.
+  - Example: `https://dburst-ui-generator.vercel.app,https://dburst-ui-generator.onrender.com`
+- `CORS_ALLOW_HEADERS`: If you set it, include `x-csrftoken`. `authorization` is no longer needed (auth is cookie-only).
+- `COOKIE_SECURE`: Leave unset (defaults to `True`). Only local plain-HTTP dev sets `False`.
+- `COOKIE_SAMESITE`: Leave unset (defaults to `Lax`). Set it to `None` only if the browser calls the Render domain directly instead of through the Vercel rewrite. That makes the auth cookies third-party, which Safari blocks.
+- `THROTTLE_NUM_PROXIES`: The number of proxies that append to `X-Forwarded-For` in front of Django (usually `2` for Vercel then Render). Without it, the auth rate limits key on a client-controllable header. Verify against real request logs before setting it.
+- `THROTTLE_RATE_AUTH` / `THROTTLE_RATE_OTP` / `THROTTLE_RATE_TOKEN_REFRESH`: Optional. Defaults are `20/min`, `5/min` and `30/min`.
 
-**Google OAuth (if using Google login):**
-- `GOOGLE_CLIENT_ID`: From Google Cloud Console
-- `GOOGLE_CLIENT_SECRET`: From Google Cloud Console
-- `GOOGLE_ALLOWED_REDIRECT_URIS`: Comma-separated list of callback URLs
-  - Example: `https://your-backend-domain.onrender.com/auth/google/callback`
+**Google / GitHub OAuth (if using social login):**
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: From Google Cloud Console
+- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`: From the GitHub OAuth app settings
+- `GOOGLE_ALLOWED_REDIRECT_URIS` / `GITHUB_ALLOWED_REDIRECT_URIS`: Comma-separated exact callback URLs on the **frontend** origin. Each one must also be registered in the provider console.
+  - Example: `https://dburst-ui-generator.vercel.app/auth/google/callback`
 
 **Optional API Keys:**
 - `GROQ_AI_API_KEY`: Groq AI API key
@@ -83,6 +88,17 @@ curl https://your-backend-domain.onrender.com/
 # Check API is running
 curl https://your-backend-domain.onrender.com/api/health
 ```
+
+### Frontend (Vercel) and authentication
+
+The browser never calls Render directly. `dburst-frontend/vercel.json` rewrites `/api/:path*` to `https://dburst-ui-generator.onrender.com/api/:path*`, and the app always uses the relative base `/api/v1/`. The httpOnly auth cookies are therefore set on the Vercel origin and stay first-party (`SameSite=Lax`).
+
+- If the backend URL changes, update the rewrite destination in `vercel.json`. `VITE_API_URL` is **no longer used**; remove it from the Vercel project's environment variables.
+- Set these on Vercel: `VITE_GOOGLE_CLIENT_ID`, `VITE_GITHUB_CLIENT_ID`, `VITE_WEBCONTAINER_API_CLIENT_ID`.
+- Long requests (LLM generation) now pass through the Vercel proxy. Check that it doesn't time out before gunicorn's 90 s.
+- The JWT blacklist tables (`token_blacklist` app) are created by `migrate`, which `start.sh` runs on every deploy.
+
+Cookie and endpoint details: [Plan/auth-audit.md](Plan/auth-audit.md).
 
 ### Performance Optimization for Render Free Tier
 
@@ -158,10 +174,14 @@ Error: could not translate host name to address
 - Review Render logs for SMTP errors
 - Test with a simple email sending view first
 
-#### CORS Errors
+#### CORS / CSRF Errors
 - Add frontend URL to `CORS_ALLOWED_ORIGINS`
-- Add frontend URL to `CSRF_TRUSTED_ORIGINS`
+- Add frontend URL to `CSRF_TRUSTED_ORIGINS` (a `403 CSRF Failed: Origin checking failed` means it's missing)
 - Must be exact (https://example.com != http://example.com)
+
+#### Logged out right after login
+- The browser must reach the API on the frontend origin (`/api/v1/...`), not on `*.onrender.com`. Check the Network tab.
+- In local dev over HTTP, `COOKIE_SECURE=False` must be set in `backend/.env`.
 
 ### Monitoring
 

@@ -105,7 +105,7 @@ The application is served at `http://localhost:5173/`.
 ./run.sh
 ```
 
-`run.sh` expects the backend virtual environment at `backend/.venv_dburst`. When running the backend over plain HTTP locally, set `COOKIE_SECURE=False` and `COOKIE_SAMESITE=Lax` in `backend/.env`, because secure cookies are dropped over HTTP.
+`run.sh` expects the backend virtual environment at `backend/.venv_dburst`. When running the backend over plain HTTP locally, set `COOKIE_SECURE=False` in `backend/.env`, because browsers drop secure cookies over HTTP. Open the app at `http://localhost:5173`. The Vite dev server proxies `/api` to Django, so the browser never calls port 8000 directly.
 
 ---
 
@@ -117,11 +117,15 @@ All backend configuration is read from `backend/.env`. See [backend/.env.example
 |-------|-----------|
 | Core | `SECRET_KEY`, `DEBUG`, `APP_MODE`, `DATABASE_URL`, `REDIS_URL` |
 | Network | `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` |
-| OAuth | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` |
+| Auth cookies | `COOKIE_SECURE` (default `True`), `COOKIE_SAMESITE` (default `Lax`) |
+| Auth throttling | `THROTTLE_RATE_AUTH`, `THROTTLE_RATE_OTP`, `THROTTLE_RATE_TOKEN_REFRESH`, `THROTTLE_NUM_PROXIES` |
+| OAuth | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_ALLOWED_REDIRECT_URIS`, `GITHUB_ALLOWED_REDIRECT_URIS` |
 | LLM | `GROQ_AI_API_KEY`, `GEMINI_API_KEY`, `GROQ_UI_MODELS`, `GEMINI_UI_MODELS`, `GROQ_REASONING_MODEL`, `GEMINI_REASONING_MODEL`, `DEFAULT_UI_MODEL` |
 | Images | `PIXABAY_API_KEY`, `IMAGE_SEARCH_MAX_CALLS_PER_GENERATION`, `IMAGE_CACHE_TTL_SECONDS` |
 | Email | `RESEND_API_KEY`, `RESEND_DEFAULT_EMAIL` |
 | Monitoring | `SENTRY_DSN`, `DISCORD_WEBHOOK` |
+
+`SECRET_KEY` is required. The backend refuses to start without it.
 
 Models are identified as `provider:model` (for example `groq:openai/gpt-oss-20b`). When a provider renames or retires a model, update the environment variable; no code change is required.
 
@@ -134,19 +138,32 @@ All routes are prefixed with `/api/v1/`.
 | Area | Endpoints |
 |------|-----------|
 | Health | `GET health/` |
-| Users | `POST users/auth/google/`, `POST users/auth/github/`, `POST users/auth/logout/`, `POST users/token/refresh/`, `GET users/profile/` |
+| Users | `GET users/auth/csrf/`, `POST users/auth/oauth/start/`, `POST users/auth/google/`, `POST users/auth/github/`, `POST users/auth/refresh/`, `POST users/auth/logout/`, `GET users/profile/`, `POST users/sessions/clear/` |
 | OTP | `POST otp/request/`, `POST otp/verify/` |
 | Projects | `POST projects/create-project/`, `GET projects/recent-projects/`, `GET projects/all-projects/`, `GET projects/<id>/` |
 | Generation | `POST generation/generate/`, `GET generation/models/`, `GET generation/details/<id>/`, `GET generation/chat/history/<id>/`, `POST generation/chat/refine/` |
 | Patching | `POST patching/<id>/patch/`, `GET patching/<id>/schema/`, `GET patching/<id>/patches/`, `GET patching/<id>/version/<patch_id>/`, `POST patching/<id>/undo/` |
 | Feedback | `POST feedback/` |
 
+### Authentication
+
+Sessions live only in httpOnly cookies. The frontend never sees a token.
+
+- `dburst_access` (15 min, `Path=/`) and `dburst_refresh` (7 days, rotated on every use, `Path=/api/v1/users/auth/`). Both are `HttpOnly`, `Secure` and `SameSite=Lax`.
+- Every POST/PUT/PATCH/DELETE must send `X-CSRFToken` with the value of the readable `csrftoken` cookie, which `GET users/auth/csrf/` issues.
+- The browser always calls the API on its own origin (`/api/v1/`). That is the Vite proxy in dev and the `vercel.json` rewrite in production, so the cookies stay first-party.
+- `GET users/profile/` is the session check: 200 with the user, or 401.
+
+The full contract and the audit behind it are in [Plan/auth-audit.md](Plan/auth-audit.md).
+
 ---
 
 ## Testing
 
 ```bash
-# Backend
+# Backend (uses config/settings_test.py: in-memory SQLite and a local
+# Redis at redis://127.0.0.1:6379/15, overridable with TEST_REDIS_URL.
+# It never touches DATABASE_URL / REDIS_URL from .env.)
 cd backend
 pytest
 
@@ -162,7 +179,7 @@ Continuous integration runs both suites on every push and pull request to `main`
 ## Deployment
 
 - **Backend:** Render, defined in [render.yaml](render.yaml). The entrypoint applies migrations, collects static files, and starts Gunicorn with a 90-second timeout to accommodate long LLM generations.
-- **Frontend:** Vercel, configured in [dburst-frontend/vercel.json](dburst-frontend/vercel.json). Cross-origin isolation headers are required for the WebContainer preview.
+- **Frontend:** Vercel, configured in [dburst-frontend/vercel.json](dburst-frontend/vercel.json). It rewrites `/api/*` to the Render backend, which keeps auth cookies first-party. Cross-origin isolation headers are required for the WebContainer preview.
 - **Docker:** A [Dockerfile](Dockerfile) and [docker-compose.yml](docker-compose.yml) are provided for the backend.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step instructions.

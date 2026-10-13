@@ -75,6 +75,8 @@
     @apply bg-background text-foreground font-space-grotesk;
     background: radial-gradient(141.42% 70.71% at 50% 0%, #2F085E 0%, #000 50%), #FFF;
     min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
   }
 
   :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label, td, th) {

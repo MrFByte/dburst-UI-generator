@@ -47,7 +47,7 @@ export function VersionHistory({
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                     <Clock className="h-5 w-5" />
                     Version History
@@ -55,7 +55,7 @@ export function VersionHistory({
                 <Badge variant="secondary">{totalPatches} versions</Badge>
             </div>
 
-            <ScrollArea className="h-[500px] pr-4">
+            <ScrollArea className="h-[60dvh] md:h-[500px] pr-4">
                 <div className="space-y-3">
                     {patches.map((patch, index) => {
                         const versionNumber = totalPatches - index;
@@ -67,8 +67,8 @@ export function VersionHistory({
                                 className="group relative p-4 border rounded-lg hover:shadow-md transition-all bg-white"
                             >
                                 {/* Version header */}
-                                <div className="flex items-start justify-between mb-2">
-                                    <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                                    <div className="flex flex-wrap items-center gap-2 min-w-0">
                                         <span className="font-semibold text-gray-900">
                                             Version {versionNumber}
                                         </span>
@@ -92,7 +92,7 @@ export function VersionHistory({
                                             size="sm"
                                             variant="outline"
                                             onClick={() => onRestore(patch.id)}
-                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                                         >
                                             <RotateCcw className="h-3 w-3 mr-1" />
                                             Restore
@@ -108,14 +108,14 @@ export function VersionHistory({
                                 )}
 
                                 {/* Metadata */}
-                                <div className="flex items-center gap-4 text-xs text-gray-500">
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                                     <span className="flex items-center gap-1">
                                         <Clock className="h-3 w-3" />
                                         {formatDistanceToNow(new Date(patch.applied_at), {
                                             addSuffix: true,
                                         })}
                                     </span>
-                                    <span>{patch.user_email}</span>
+                                    <span className="break-all">{patch.user_email}</span>
                                     <span>{patch.patch_data.length} operation(s)</span>
                                 </div>
 

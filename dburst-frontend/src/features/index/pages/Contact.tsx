@@ -26,19 +26,19 @@ export default function Contact() {
   };
 
   return (
-    <div className="pt-16 min-h-screen bg-zinc-950">
-      <div className="container mx-auto px-4 py-20">
+    <div className="pt-16 min-h-dvh bg-zinc-950">
+      <div className="container mx-auto px-4 py-10 sm:py-20">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <h1 className="text-5xl font-bold text-zinc-100 mb-6">
+          <div className="text-center mb-10 sm:mb-16">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-zinc-100 mb-4 sm:mb-6">
               Get in Touch
             </h1>
-            <p className="text-xl text-zinc-400">
+            <p className="text-base sm:text-xl text-zinc-400">
               Have questions? We'd love to hear from you.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
             <div>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
@@ -55,7 +55,7 @@ export default function Contact() {
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                    className="w-full px-4 py-3 text-base bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                     placeholder="John Doe"
                   />
                 </div>
@@ -74,7 +74,7 @@ export default function Contact() {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                    className="w-full px-4 py-3 text-base bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                     placeholder="john@example.com"
                   />
                 </div>
@@ -93,7 +93,7 @@ export default function Contact() {
                     onChange={handleChange}
                     required
                     rows={6}
-                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent resize-none"
+                    className="w-full px-4 py-3 text-base bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent resize-none"
                     placeholder="Tell us how we can help..."
                   />
                 </div>
@@ -129,7 +129,7 @@ export default function Contact() {
                 description="Visit us at our headquarters"
               />
 
-              <div className="bg-gradient-to-br from-blue-600/10 to-purple-600/10 border border-zinc-800 rounded-2xl p-8">
+              <div className="bg-gradient-to-br from-blue-600/10 to-purple-600/10 border border-zinc-800 rounded-2xl p-5 sm:p-8">
                 <h3 className="text-xl font-semibold text-zinc-100 mb-3">
                   Need immediate help?
                 </h3>
@@ -160,13 +160,13 @@ function ContactInfo({
   description: string;
 }) {
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-3 sm:gap-4">
       <div className="flex-shrink-0 w-12 h-12 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-center">
         {icon}
       </div>
-      <div>
+      <div className="min-w-0">
         <h3 className="text-lg font-semibold text-zinc-100 mb-1">{title}</h3>
-        <p className="text-zinc-300 font-medium mb-1">{content}</p>
+        <p className="text-zinc-300 font-medium mb-1 break-words">{content}</p>
         <p className="text-sm text-zinc-500">{description}</p>
       </div>
     </div>

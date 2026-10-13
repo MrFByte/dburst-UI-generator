@@ -53,16 +53,16 @@ const AllProjects = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] font-sans">
+    <div className="min-h-dvh bg-[#0A0A0A] overflow-x-hidden font-sans">
       <Header
         mode="dashboard"
         setIsSidebarOpen={setIsSidebarOpen}
         setIsModalOpen={setIsModalOpen}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 mt-[5%]">
-        <section className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">All Projects</h1>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 mt-16 xl:mt-[5%]">
+        <section className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">All Projects</h1>
           <p className="text-gray-400">
             {totalCount > 0 ? `Showing ${projects.length} of ${totalCount} projects` : "No projects found"}
           </p>
@@ -73,18 +73,18 @@ const AllProjects = () => {
             <Loader size="lg" text="Loading projects..." />
           </div>
         ) : projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
+          <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
             <p className="text-gray-400 text-lg mb-4">No projects found</p>
             <button
               onClick={() => navigate('/dashboard')}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition"
+              className="px-6 py-3 min-h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition"
             >
               Create Your First Project
             </button>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 mb-8">
               {projects.map((project) => (
                 <ProjectCard key={project.id} project={project} />
               ))}
@@ -92,17 +92,17 @@ const AllProjects = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-4 mt-8">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mt-8">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="flex items-center justify-center gap-2 px-3 sm:px-4 min-h-11 bg-gray-800 hover:bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Previous
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                     let pageNum;
                     if (totalPages <= 5) {
@@ -119,7 +119,7 @@ const AllProjects = () => {
                       <button
                         key={pageNum}
                         onClick={() => handlePageChange(pageNum)}
-                        className={`px-4 py-2 rounded-lg transition ${currentPage === pageNum
+                        className={`min-w-11 min-h-11 px-3 sm:px-4 rounded-lg transition ${currentPage === pageNum
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                           }`}
@@ -133,7 +133,7 @@ const AllProjects = () => {
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="flex items-center justify-center gap-2 px-3 sm:px-4 min-h-11 bg-gray-800 hover:bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   Next
                   <ChevronRight className="w-4 h-4" />

@@ -29,7 +29,7 @@ export function ModelSelector({ value, onChange, options, disabled }: ModelSelec
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 disabled={disabled || options.length === 0}
-                className="w-full px-3 bg-slate-900 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 bg-slate-900 py-2.5 md:py-2 text-base md:text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
                 {options.map((model) => (
                     <option key={model.id} value={model.id}>

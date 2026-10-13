@@ -82,9 +82,9 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
     }, [messages]);
 
     return (
-        <div className="flex flex-col h-full bg-slate-900">
+        <div className="flex flex-col flex-1 min-h-0 h-full bg-slate-900">
             {/* Chat Messages */}
-            <div className="flex-1 overflow-auto p-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-auto p-3 sm:p-4 space-y-4">
                 {isLoading ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader size="md" text="Loading chat..." />
@@ -101,12 +101,12 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
                             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                             <div
-                                className={`max-w-[85%] p-3 rounded-lg ${msg.role === 'user'
+                                className={`max-w-[90%] sm:max-w-[85%] min-w-0 p-3 rounded-lg ${msg.role === 'user'
                                     ? 'bg-blue-600 text-white'
                                     : 'bg-slate-800 text-gray-200 border border-slate-700'
                                     }`}
                             >
-                                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                                 <p className="text-xs opacity-60 mt-1">
                                     {new Date(msg.created_at).toLocaleTimeString()}
                                 </p>
@@ -118,7 +118,7 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 border-t border-slate-700 bg-slate-900">
+            <div className="p-3 sm:p-4 border-t border-slate-700 bg-slate-900">
                 <div className="flex gap-2">
                     <input
                         type="text"
@@ -127,14 +127,14 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
                         onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                         placeholder="Ask for changes to the UI..."
                         disabled={isSending}
-                        className="flex-1 bg-slate-800 text-white rounded px-3 py-2 text-sm border border-slate-700 
+                        className="flex-1 min-w-0 bg-slate-800 text-white rounded px-3 py-2.5 md:py-2 text-base md:text-sm border border-slate-700 
                      focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 
                      placeholder-gray-500 disabled:opacity-50"
                     />
                     <button
                         onClick={handleSendMessage}
                         disabled={!inputValue.trim() || isSending}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition 
+                        className="px-4 py-2 min-w-11 min-h-11 md:min-h-0 justify-center shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded transition 
                      disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {isSending ? (

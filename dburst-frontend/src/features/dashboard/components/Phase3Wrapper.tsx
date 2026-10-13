@@ -242,12 +242,12 @@ export function Phase3Wrapper({
 
             {/* Version History Sidebar */}
             {isVersionHistoryOpen && (
-                <div className="fixed right-0 top-0 h-full w-96 bg-slate-900 border-l border-slate-700 z-50 shadow-2xl overflow-hidden flex flex-col">
+                <div className="fixed right-0 top-0 h-dvh w-full sm:w-96 max-w-full bg-slate-900 border-l border-slate-700 z-50 shadow-2xl overflow-hidden flex flex-col">
                     <div className="flex items-center justify-between p-4 border-b border-slate-700">
                         <h2 className="text-lg font-semibold">Saved Versions</h2>
                         <button
                             onClick={() => setIsVersionHistoryOpen(false)}
-                            className="p-2 hover:bg-slate-800 rounded transition"
+                            className="p-3 md:p-2 min-w-11 hover:bg-slate-800 rounded transition"
                         >
                             ✕
                         </button>
@@ -271,7 +271,7 @@ export function Phase3Wrapper({
                                             <span className="text-sm font-medium">Version {totalPatches - index}</span>
                                             <button
                                                 onClick={() => handleRestoreVersion(patch.id)}
-                                                className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded transition"
+                                                className="px-3 py-2 md:px-2 md:py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded transition"
                                             >
                                                 Restore
                                             </button>
@@ -280,14 +280,14 @@ export function Phase3Wrapper({
                                             {patch.applied_at ? new Date(patch.applied_at).toLocaleString() : 'Unknown date'}
                                         </div>
                                         {patch.description && (
-                                            <div className="text-xs text-gray-300 mt-1">{patch.description}</div>
+                                            <div className="text-xs text-gray-300 mt-1 break-words">{patch.description}</div>
                                         )}
                                     </div>
                                 ))}
                                 {hasMore && (
                                     <button
                                         onClick={loadMore}
-                                        className="w-full py-2 text-sm text-blue-400 hover:text-blue-300 transition"
+                                        className="w-full py-3 md:py-2 text-sm text-blue-400 hover:text-blue-300 transition"
                                     >
                                         Load More
                                     </button>

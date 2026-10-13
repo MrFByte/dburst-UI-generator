@@ -13,7 +13,7 @@ function App() {
   // rendering until the server has answered.
   return (
     <Router>
-      <div className="min-h-screen bg-zinc-900 text-zinc-100 flex flex-col">
+      <div className="min-h-dvh bg-zinc-900 text-zinc-100 flex flex-col overflow-x-hidden">
         <AuthProvider>
           <Routes>
             <Route element={<PublicRoute />}>

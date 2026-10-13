@@ -50,30 +50,30 @@ export function HeroSection9({ onStartBuilding, onViewDemo }: HeroSectionProps) 
   }, [displayText, isDeleting, wordIndex]);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-zinc-900 via-zinc-900 to-zinc-950">
+    <section className="relative min-h-dvh flex items-center justify-center overflow-hidden bg-gradient-to-b from-zinc-900 via-zinc-900 to-zinc-950">
       <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80')] bg-cover bg-center opacity-10" />
 
       <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent" />
 
-      <div className="relative z-10 container mx-auto px-4 py-20">
+      <div className="relative z-10 container mx-auto px-4 py-12 sm:py-20">
         <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/50 border border-zinc-700 mb-8 backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/50 border border-zinc-700 mb-6 sm:mb-8 backdrop-blur-sm">
             <Sparkles className="w-4 h-4 text-blue-400" />
             <span className="text-sm text-zinc-300">AI-Powered Design Tools</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-bold text-zinc-100 mb-6 leading-tight flex flex-wrap gap-3 justify-center items-center">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-zinc-100 mb-6 leading-tight flex flex-wrap gap-x-3 gap-y-1 justify-center items-center">
             {/* Typing Word */}
             <motion.span
               key={wordIndex}
               className="inline-block text-zinc-50"
             >
               {displayText}
-              <span className="inline-block w-[2px] h-10 md:h-14 bg-blue-400 ml-1 animate-pulse" />
+              <span className="inline-block w-[2px] h-8 sm:h-10 md:h-14 bg-blue-400 ml-1 animate-pulse" />
             </motion.span>
 
             {/* “with” little italic */}
-            <span className="text-xl italic text-zinc-300 mt-2">
+            <span className="text-lg sm:text-xl italic text-zinc-300 mt-2">
               with
             </span>
 
@@ -83,12 +83,12 @@ export function HeroSection9({ onStartBuilding, onViewDemo }: HeroSectionProps) 
             </span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-zinc-400 mb-12 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-xl md:text-2xl text-zinc-400 mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed">
             Create futuristic interfaces with AI-powered design tools.
             Build, edit stunning UIs in an easy-to-use workflow.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 mb-12 sm:mb-20 w-full max-w-xs sm:max-w-none mx-auto">
             <Button
               size="lg"
               className="text-base px-8 py-6 bg-blue-600 hover:bg-blue-700 text-white"
@@ -126,7 +126,7 @@ export function HeroSection9({ onStartBuilding, onViewDemo }: HeroSectionProps) 
           </div>
         </div>
 
-        <div className="mt-20 max-w-6xl mx-auto">
+        <div className="mt-12 sm:mt-20 max-w-6xl mx-auto">
           <div className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl">
             <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/10 to-purple-600/10" />
             <img
@@ -151,7 +151,7 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="p-6 rounded-xl bg-zinc-800/50 border border-zinc-700 backdrop-blur-sm hover:bg-zinc-800/70 transition-all duration-300 hover:scale-105">
+    <div className="p-5 sm:p-6 rounded-xl bg-zinc-800/50 border border-zinc-700 backdrop-blur-sm hover:bg-zinc-800/70 transition-all duration-300 sm:hover:scale-105">
       <div className="mb-4">{icon}</div>
       <h3 className="text-lg font-semibold text-zinc-100 mb-2">{title}</h3>
       <p className="text-sm text-zinc-400">{description}</p>
