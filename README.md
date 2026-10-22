@@ -156,6 +156,67 @@ Sessions live only in httpOnly cookies. The frontend never sees a token.
 
 The full contract and the audit behind it are in [Plan/auth-audit.md](Plan/auth-audit.md).
 
+### Errors
+
+Every API error uses one shape. `error` is always safe to show to a user; raw details (exception text, provider payloads) are only logged server-side.
+
+```json
+{
+  "error": "The model is busy right now. Please wait 12 seconds and try again, or pick another model.",
+  "code": "llm_rate_limited",
+  "details": { "field": ["per-field messages, for validation errors"] },
+  "retry_after": 12,
+  "request_id": "8f2c1e0a-..."
+}
+```
+
+`details`, `retry_after` and `request_id` are optional. Rate limits with a known wait (`throttled`, `llm_rate_limited`) also send a `Retry-After` header, and every response carries `X-Request-ID`. The frontend shows the first 8 characters of the request id as "Reference: ..." on 5xx errors so a support request can be matched to the server log line. Implementation: [backend/config/exception_handler.py](backend/config/exception_handler.py), [backend/config/api_errors.py](backend/config/api_errors.py), [backend/generation/errors.py](backend/generation/errors.py); on the client [dburst-frontend/src/core/api/apiHandler.ts](dburst-frontend/src/core/api/apiHandler.ts) and [errorMessages.ts](dburst-frontend/src/core/api/errorMessages.ts).
+
+| Code | HTTP | Message (shortened) |
+|------|------|---------------------|
+| `validation_error` | 400 | The field's own message, or "Please check the highlighted fields and try again." |
+| `bad_request` | 400 | The request couldn't be read / processed. |
+| `invalid_schema` | 400 | This change couldn't be applied because it would break the page structure. |
+| `nothing_to_undo` | 400 | There's nothing to undo. |
+| `otp_invalid` | 400 | Invalid or expired OTP. |
+| `oauth_failed` | 400 | Authentication failed. Please try again. |
+| `not_authenticated` | 401 | Please sign in to continue. / Your session has expired. Please sign in again. |
+| `permission_denied` | 403 | You don't have permission to do that. |
+| `csrf_failed` | 403 | Your session security check failed. Please refresh the page and try again. |
+| `not_found` | 404 | Project not found. / We couldn't find what you were looking for. |
+| `method_not_allowed` | 405 | This action isn't supported. |
+| `llm_content_blocked` | 422 | The AI couldn't generate this because of its content policy. Try a different description. |
+| `throttled` | 429 | You're doing that too often. Please wait N seconds and try again. |
+| `otp_rate_limited` | 429 | Too many OTP requests. Please try again later. |
+| `llm_rate_limited` | 429 | The model is busy right now. Please wait N seconds and try again, or pick another model. |
+| `server_error` | 500 | Something went wrong on our side. Please try again. |
+| `llm_bad_request` | 502 | The AI model couldn't process this request. Try rephrasing your prompt, shortening it, or choosing a different model. |
+| `llm_quota` | 502 | This model is temporarily unavailable. Please choose a different model. (bad key, billing, quota: never detailed) |
+| `llm_invalid_response` | 502 | The AI returned an incomplete design. Please try again. |
+| `llm_error` | 502 | The AI model ran into a problem. Please try again, or choose a different model. |
+| `llm_unavailable` | 503 | This model is temporarily unavailable. Please try again shortly or choose a different model. |
+| `service_unavailable`, `email_unavailable`, `oauth_unavailable` | 503 | The service / email / sign-in provider is temporarily unavailable. |
+| `llm_timeout` | 504 | The model took too long to respond. Try again, or use a faster model or a simpler prompt. |
+
+Client-side codes (no usable server response): `network_error` ("Can't reach the server. Check your internet connection."), `timeout`, and `aborted` (not shown).
+
+---
+
+## Security model for generated UI
+
+A generation is untrusted input: the schema comes from an LLM, and later edits come from the user. The safety layer is built so that it cannot change how a page looks.
+
+**What is sanitised** (backend, [codegen.py](backend/generation/codegen.py) and [schema_validator.py](backend/generation/schema_validator.py)):
+
+- Every string written into the generated TSX is escaped for where it lands: attribute values are emitted as plain strings (or JSON string literals when they hold anything that could break out), text between tags has `{ } < > &` turned into entities. A value can only ever be a string, never JSX or an expression.
+- URLs (`href`, `src`) must be `http`, `https`, `mailto`, `tel`, a `#anchor` or a relative path; anything else (`javascript:`, `data:`, `//host`...) is replaced. The in-app renderer applies the same rule ([safeUrl.ts](dburst-frontend/src/shared/utils/safeUrl.ts)).
+- Component types become JSX tags and icon names become imports, so both must be plain identifiers; unknown lowercase tags render as `div`, and a short fixed list of DOM tags is allowed.
+- Size limits: schema depth (50), node count (2000) and className length (2000, cut at a class boundary).
+
+**What deliberately is not sanitised: CSS classes.** `className` passes through byte for byte (the validator only collapses whitespace and drops control characters), and the colour theme only ever adds classes. Colours are classes (`bg-[#0f172a]`, `from-indigo-500`, `hover:bg-rose-600/80`), so any whitelist, blacklist or rewrite of them shows up as a white or plain page, and it adds no safety: a class is inert text that Tailwind either turns into a CSS rule or ignores, and the escaping above is what stops a hostile class string from becoming code. [test_class_passthrough.py](backend/generation/test/test_class_passthrough.py) pins this down (about 200 realistic class strings round-trip unchanged through every render path, and a test fails if a class filter is added).
+
+**Trust boundary.** The generated code runs in a WebContainer: a Vite dev server inside an iframe on a different origin from the app. That origin has no access to the app's cookies, storage or API session, so even code that slipped past the escaping could only act inside the preview. Edit mode renders the schema with React in the app's origin instead of running code, so there React's own escaping and `safeUrl` are the protection, and the inline styles it derives from classes come only from validated colours (hex values and palette variables).
+
 ---
 
 ## Testing

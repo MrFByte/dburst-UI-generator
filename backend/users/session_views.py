@@ -2,6 +2,7 @@
 Session monitoring and management API views.
 """
 
+from config.api_errors import error_response
 import logging
 from rest_framework import status, permissions
 from rest_framework.views import APIView
@@ -36,11 +37,8 @@ class SessionAnalyticsView(APIView):
             analytics = SessionManager.get_session_analytics()
             return Response(analytics, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Error getting session analytics: {e}")
-            return Response(
-                {"error": "Failed to retrieve session analytics"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.exception(f"Error getting session analytics: {e}")
+            return error_response("Failed to retrieve session analytics", "server_error", 500)
 
 
 class CacheStatsView(APIView):
@@ -65,11 +63,8 @@ class CacheStatsView(APIView):
             stats = get_cache_stats()
             return Response(stats, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Error getting cache stats: {e}")
-            return Response(
-                {"error": "Failed to retrieve cache statistics"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.exception(f"Error getting cache stats: {e}")
+            return error_response("Failed to retrieve cache statistics", "server_error", 500)
 
 
 class ClearUserSessionsView(APIView):

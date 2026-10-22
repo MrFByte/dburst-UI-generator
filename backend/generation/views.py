@@ -12,9 +12,11 @@ from rest_framework import permissions, status
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .llm import LLMClient, ModelUnavailableError, RateLimitError
+from config.api_errors import error_response
+from .errors import LLMInvalidResponseError
+from .llm import LLMClient
 from .llm_models import DEFAULT_UI_MODEL, available_models
-from .codegen import ReactCodeGenerator
+from .codegen import ReactCodeGenerator, apply_theme_defaults
 from .schema_validator import SchemaValidator
 from .images import resolve_schema_images
 from .models import Generations
@@ -107,148 +109,130 @@ class GenerateView(APIView):
             try:
                 project = Project.objects.get(id=project_id, user=request.user)
             except Project.DoesNotExist:
-                return Response({"error": "Project not found."}, status=404)
+                return error_response("Project not found.", "not_found", 404)
         else:
             project = None
     
+        # LLM errors (typed, user-safe) and anything unexpected propagate to
+        # config.exception_handler, which renders the error contract and
+        # logs the details; no exception text reaches the client.
+        llm_client = LLMClient(ui_model_id=ui_model_id)
+        
+        logger.info(f"Starting two-stage generation for user: {request.user.id}")
+        result = llm_client.generate_ui(prompt)
+        
+        project_name = result["project_name"]
+        project_description = result["project_description"]
+        design_plan = result["design_plan"]
+        
+        schema = result["schema"]
+        
         try:
-            llm_client = LLMClient(ui_model_id=ui_model_id)
-            
-            logger.info(f"Starting two-stage generation for user: {request.user.id}")
-            result = llm_client.generate_ui(prompt)
-            
-            project_name = result["project_name"]
-            project_description = result["project_description"]
-            design_plan = result["design_plan"]
-            
-            schema = result["schema"]
-            
-            try:
-                schema = SchemaValidator.validate(schema)
-            except ValueError as e:
-                logger.error(f"Schema validation failed: {e}")
-                return Response(
-                    {"error": f"Schema validation failed: {str(e)}"},
-                    status=400
-                )
+            schema = SchemaValidator.validate(schema)
+        except ValueError as e:
+            # The AI produced a broken schema: not the user's fault.
+            logger.error(f"Generated schema failed validation: {e}")
+            raise LLMInvalidResponseError() from None
 
-            try:
-                schema = resolve_schema_images(schema)
-            except Exception as e:
-                logger.error(f"Image resolution failed, continuing with unresolved schema: {e}")
+        try:
+            schema = resolve_schema_images(schema)
+        except Exception as e:
+            logger.error(f"Image resolution failed, continuing with unresolved schema: {e}")
 
-            if not project:
-                project = Project.objects.create(
-                    user=request.user,
-                    title=project_name,
-                    description=project_description,
-                )
-                logger.info(f"Created project: {project.id} - {project.title}")
+        # Theme defaults (page background, hero gradient, ...) go into the
+        # stored schema itself, so edit mode and every later re-render show
+        # the same colours the generated code does.
+        schema = apply_theme_defaults(schema, design_plan.get("theme"))
 
-
-            code_generator = ReactCodeGenerator(schema, theme=design_plan.get("theme"))
-            print(code_generator)
-            react_code = code_generator.generate()
-
-            planning_usage = result["usage"].get("planning_tokens", {})
-            generation_usage = result["usage"].get("generation_tokens", {})
-            total_tokens = (
-                planning_usage.get("total_tokens", 0) + 
-                generation_usage.get("total_tokens", 0)
+        if not project:
+            project = Project.objects.create(
+                user=request.user,
+                title=project_name,
+                description=project_description,
             )
-            
-            # Generate brief AI response for chat history
-            page_type = design_plan.get("intent", "page")
-            sections_count = len(design_plan.get("design_plan", {}).get("sections", []))
-            ai_response = f"Created {page_type} with {sections_count} sections using {design_plan.get('theme', {}).get('style', 'modern')} design"[:200]
+            logger.info(f"Created project: {project.id} - {project.title}")
 
-            generation = Generations.objects.create(
-                project=project,
-                prompt=prompt,
-                ai_response=ai_response,
-                schema=schema,
-                llm_provider=result["models"]["provider"],
-                token_usage=total_tokens,
-                status=Generations.Status.SUCCESS,
-                metadata={
+
+        code_generator = ReactCodeGenerator(schema, theme=design_plan.get("theme"))
+        print(code_generator)
+        react_code = code_generator.generate()
+
+        planning_usage = result["usage"].get("planning_tokens", {})
+        generation_usage = result["usage"].get("generation_tokens", {})
+        total_tokens = (
+            planning_usage.get("total_tokens", 0) + 
+            generation_usage.get("total_tokens", 0)
+        )
+        
+        # Generate brief AI response for chat history
+        page_type = design_plan.get("intent", "page")
+        sections_count = len(design_plan.get("design_plan", {}).get("sections", []))
+        ai_response = f"Created {page_type} with {sections_count} sections using {design_plan.get('theme', {}).get('style', 'modern')} design"[:200]
+
+        generation = Generations.objects.create(
+            project=project,
+            prompt=prompt,
+            ai_response=ai_response,
+            schema=schema,
+            llm_provider=result["models"]["provider"],
+            token_usage=total_tokens,
+            status=Generations.Status.SUCCESS,
+            metadata={
+                "design_plan": design_plan,
+                "planning_model": result["models"]["planning"],
+                "ui_model": result["models"]["ui_generation"],
+                "planning_tokens": planning_usage,
+                "generation_tokens": generation_usage,
+                "theme": design_plan.get("theme", {}),
+                "layout_plan": design_plan.get("layout_plan", {})
+            }
+        )
+        logger.info(f"Created generation: {generation.id}")
+
+        try:
+            GenerationCache.store_generation(
+                str(generation.id),
+                schema,
+                react_code,
+                {
                     "design_plan": design_plan,
-                    "planning_model": result["models"]["planning"],
-                    "ui_model": result["models"]["ui_generation"],
-                    "planning_tokens": planning_usage,
-                    "generation_tokens": generation_usage,
-                    "theme": design_plan.get("theme", {}),
-                    "layout_plan": design_plan.get("layout_plan", {})
+                    "usage": result["usage"],
+                    "models": result["models"]
                 }
             )
-            logger.info(f"Created generation: {generation.id}")
+        except Exception as redis_err:
+            logger.warning(f"Redis caching failed: {redis_err}")
 
-            try:
-                GenerationCache.store_generation(
-                    str(generation.id),
-                    schema,
-                    react_code,
-                    {
-                        "design_plan": design_plan,
-                        "usage": result["usage"],
-                        "models": result["models"]
-                    }
-                )
-            except Exception as redis_err:
-                logger.warning(f"Redis caching failed: {redis_err}")
-
-            return Response(
-                {
-                    "success": True,
-                    "project_id": str(project.id),
-                    "project_title": project.title,
-                    "project_description": project.description,
-                    "generation_id": str(generation.id),
-                    "schema": schema,
-                    "code": react_code,
-                    "design_plan": {
-                        "concept": design_plan.get("concept", ""),
-                        "theme": design_plan.get("theme", {}),
-                        "layout_plan": design_plan.get("layout_plan", {}),
-                        "image_suggestions": design_plan.get("image_suggestions", []),
-                        "design_system": design_plan.get("design_system", {})
+        return Response(
+            {
+                "success": True,
+                "project_id": str(project.id),
+                "project_title": project.title,
+                "project_description": project.description,
+                "generation_id": str(generation.id),
+                "schema": schema,
+                "code": react_code,
+                "design_plan": {
+                    "concept": design_plan.get("concept", ""),
+                    "theme": design_plan.get("theme", {}),
+                    "layout_plan": design_plan.get("layout_plan", {}),
+                    "image_suggestions": design_plan.get("image_suggestions", []),
+                    "design_system": design_plan.get("design_system", {})
+                },
+                "meta": {
+                    "models": {
+                        "ui_generation": result["models"]["ui_generation"]
                     },
-                    "meta": {
-                        "models": {
-                            "ui_generation": result["models"]["ui_generation"]
-                        },
-                        "usage": {
-                            "planning": planning_usage,
-                            "generation": generation_usage,
-                            "total_tokens": total_tokens
-                        },
+                    "usage": {
+                        "planning": planning_usage,
+                        "generation": generation_usage,
+                        "total_tokens": total_tokens
                     },
                 },
-                status=201,
-            )
+            },
+            status=201,
+        )
 
-        except ModelUnavailableError as e:
-            logger.warning(f"Model unavailable: {e}")
-            return Response({
-                "error": str(e),
-                "error_type": "model_unavailable",
-                "suggestion": "Try selecting a different model or wait a few minutes before retrying."
-            }, status=503)
-
-        except RateLimitError as e:
-            logger.warning(f"Rate limit hit: {e}")
-            return Response({
-                "error": str(e),
-                "error_type": "rate_limit",
-                "suggestion": "Please wait a few minutes before trying again, or select a different model to avoid rate limits."
-            }, status=429)
-
-        except ValueError as e:
-            logger.error(f"Validation error: {e}")
-            return Response({"error": str(e)}, status=400)
-
-        except Exception as e:
-            logger.error(f"Generation failed: {e}", exc_info=True)
-            return Response({"error": str(e)}, status=500)
 
 
 class AvailableModelsView(APIView):
@@ -318,6 +302,6 @@ class GenerationDetailView(APIView):
                 project__user=request.user
             )
         except Generations.DoesNotExist:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+            return error_response("Generation not found.", "not_found", 404)
 
         return Response(GenerationSerializer(generation).data)

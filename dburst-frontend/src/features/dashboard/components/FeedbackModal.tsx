@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { api } from '@/core/api/axiosConfig';
 import { toast } from '@/shared/hooks/useToast';
+import { showError } from '@/core/api/showError';
 
 const CATEGORIES = [
   'Generated Output',
@@ -49,9 +50,9 @@ const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
       toast.success('Thank you for your feedback!');
       setDescription('');
       onClose();
-    } catch (error: any) {
-      console.error('Feedback submission error:', error);
-      toast.error(error.response?.data?.error || 'Failed to send feedback');
+    } catch (error) {
+      // The description stays in the form so nothing is lost.
+      showError(error, { fallback: 'Failed to send feedback' });
     } finally {
       setIsSubmitting(false);
     }

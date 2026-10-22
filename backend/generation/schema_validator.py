@@ -263,6 +263,9 @@ class SchemaValidator:
         the preview has a full Tailwind build, and injection is prevented by
         codegen escaping rather than by a class whitelist.
         """
+        if isinstance(classname, (list, tuple)) and all(isinstance(c, str) for c in classname):
+            # Models sometimes emit ["p-4", "bg-red-500"]: same classes, so keep them.
+            classname = " ".join(classname)
         if not isinstance(classname, str):
             return ""
         classname = _CONTROL_CHARS.sub(" ", classname)

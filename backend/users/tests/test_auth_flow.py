@@ -100,7 +100,8 @@ def test_invalid_token_error_is_generic(csrf_client):
     csrf_client.cookies[ACCESS] = "not-a-jwt"
     res = csrf_client.get(reverse("user-profile"))
     assert res.status_code == 401
-    assert str(res.data["detail"]) == "Invalid or expired session."
+    assert res.data["error"] == "Your session has expired. Please sign in again."
+    assert res.data["code"] == "not_authenticated"
 
 
 @pytest.mark.django_db
@@ -126,7 +127,8 @@ def test_cookie_authenticated_post_without_csrf_is_rejected(csrf_client, user):
     login_with_cookies(csrf_client, user)
     res = csrf_client.post(reverse("create-project"), {"title": "x"}, format="json")
     assert res.status_code == 403
-    assert "CSRF" in str(res.data["detail"])
+    assert res.data["code"] == "csrf_failed"
+    assert "CSRF" not in res.data["error"]  # the Django reason is logged, not shown
     assert not Project.objects.exists()
 
 

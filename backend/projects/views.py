@@ -1,3 +1,4 @@
+from config.api_errors import error_response
 import logging
 import requests
 import json
@@ -205,7 +206,7 @@ class GetProjectDetail(APIView):
         try:
             project = Project.objects.get(id=project_id, user=request.user)
         except Project.DoesNotExist:
-            return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+            return error_response("Project not found.", "not_found", 404)
         
         latest_generation = project.generations.filter(status='success').order_by('-created_at').first()
         
@@ -218,7 +219,7 @@ class GetProjectDetail(APIView):
             from generation.codegen import render_schema
             
             try:
-                react_code = render_schema(latest_generation.schema)
+                react_code = render_schema(latest_generation.schema, theme=latest_generation.theme)
             except Exception as e:
                 logger.error(f"Error generating code: {e}")
                 react_code = ""
@@ -327,7 +328,7 @@ class GetProjectDetail(APIView):
         try:
             project = Project.objects.get(id=project_id, user=request.user)
         except Project.DoesNotExist:
-            return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+            return error_response("Project not found.", "not_found", 404)
         
         latest_generation = project.generations.filter(status='success').order_by('-created_at').first()
         
@@ -340,7 +341,7 @@ class GetProjectDetail(APIView):
             from generation.codegen import render_schema
             
             try:
-                react_code = render_schema(latest_generation.schema)
+                react_code = render_schema(latest_generation.schema, theme=latest_generation.theme)
             except Exception as e:
                 logger.error(f"Error generating code: {e}")
                 react_code = ""

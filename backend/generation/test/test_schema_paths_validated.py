@@ -36,8 +36,9 @@ def test_refine_rejects_invalid_schema_with_400(api_client, user, generation):
     res = refine(api_client, user, generation, {
         "schema": {"type": "Root", "props": "not-a-dict"}, "ai_response": "done", "usage": {},
     })
-    assert res.status_code == 400
-    assert res.data["error"].startswith("Schema validation failed:")
+    assert res.status_code == 502
+    assert res.data["code"] == "llm_invalid_response"
+    assert "Props must be" not in res.data["error"]
     generation.refresh_from_db()
     assert generation.schema == {"type": "Root", "children": []}  # not overwritten
 
@@ -63,7 +64,9 @@ def test_apply_patch_rejects_structurally_invalid_result():
     cache.set("gen:g1:schema", json.dumps({"type": "Root", "children": []}))
     cache.set("gen:g1:code", "old")
     bad = [{"op": "add", "path": "/children/-", "value": {"type": "Card", "children": "nope"}}]
-    assert GenerationCache.apply_patch("g1", bad) is None
+    from generation.errors import SchemaValidationError
+    with pytest.raises(SchemaValidationError):
+        GenerationCache.apply_patch("g1", bad)
     assert json.loads(cache.get("gen:g1:schema")) == {"type": "Root", "children": []}
     assert cache.get("gen:g1:code") == "old"
 

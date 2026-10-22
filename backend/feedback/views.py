@@ -1,3 +1,4 @@
+from config.api_errors import error_response
 import requests
 import json
 from django.conf import settings
@@ -21,7 +22,7 @@ class FeedbackView(APIView):
         description = request.data.get('description', '')
 
         if not description:
-            return Response({"error": "Description is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("Please describe your feedback.", "validation_error", 400)
 
         # Limit description to 500 characters
         description = description[:500]
@@ -83,6 +84,6 @@ class FeedbackView(APIView):
             response.raise_for_status()
         except Exception as e:
             logger.error(f"Failed to send feedback to Discord: {str(e)}")
-            return Response({"error": "Failed to send feedback to Discord"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return error_response("We couldn't send your feedback right now. Please try again in a moment.", "service_unavailable", 500)
 
         return Response({"message": "Feedback sent successfully!"}, status=status.HTTP_200_OK)

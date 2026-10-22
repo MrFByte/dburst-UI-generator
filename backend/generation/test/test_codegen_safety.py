@@ -29,11 +29,18 @@ def test_jsx_attr_benign_unchanged():
     assert jsx_attr("className", "p-4 [&>*]:p-2 !font-bold -mt-4") == ' className="p-4 [&>*]:p-2 !font-bold -mt-4"'
 
 
-@pytest.mark.parametrize("value", ['a"b', "a\\b", "a\nb", "&quot;", "&#34;", " "])
+@pytest.mark.parametrize("value", ["a\\b", "a\nb", "&quot;", "&#34;", "\u2028", "a'b\"c", 'a"b\\c', 'a"b&amp;'])
 def test_jsx_attr_uses_json_literal_when_needed(value):
     out = jsx_attr("alt", value)
     assert out.startswith(" alt={") and out.endswith("}")
     assert json.loads(out[len(" alt={"):-1]) == value
+
+
+@pytest.mark.parametrize("value", ['a"b', 'font-["Playfair_Display"]', 'bg-[url("/x.png")]', 'x"onClick={alert(1)}'])
+def test_jsx_attr_keeps_a_double_quote_verbatim_in_single_quotes(value):
+    """JSX strings have no escapes, so the value stays readable as-is (Tailwind's
+    scanner extracts classes from the source text); `{` and `"` inside are inert."""
+    assert jsx_attr("className", value) == f" className='{value}'"
 
 
 def test_jsx_text_escapes_specials():
@@ -68,7 +75,7 @@ def test_safe_url_strips_leading_whitespace():
 
 def test_hostile_classname_cannot_add_attributes():
     out = gen({"type": "div", "props": {"className": 'p-1"onClick={alert(1)}'}})
-    assert '<div className={"p-1\\"onClick={alert(1)}"} />' in out
+    assert """<div className='p-1"onClick={alert(1)}' />""" in out
     assert 'className="p-1"onClick' not in out
 
 
@@ -92,16 +99,16 @@ def test_alt_placeholder_id_type_escaped():
         {"type": "Input", "props": {"placeholder": 'p"q', "type": 'text" autoFocus x="'}},
         {"type": "div", "props": {"id": 'i"d'}},
     ]})
-    assert 'alt={"a\\"b{c}"}' in out
-    assert 'placeholder={"p\\"q"}' in out
-    assert 'type={"text\\" autoFocus x=\\""}' in out
-    assert 'id={"i\\"d"}' in out
+    assert """alt='a"b{c}'""" in out
+    assert """placeholder='p"q'""" in out
+    assert """type='text" autoFocus x="'""" in out
+    assert """id='i"d'""" in out
 
 
 @pytest.mark.parametrize("node_type", ["Hero", "Timeline", "TimelineItem"])
 def test_special_layouts_escape_classname(node_type):
     out = gen({"type": node_type, "props": {"className": 'bg-x"onClick={x}'}, "children": []})
-    assert 'onClick={x}' not in out.replace('\\"onClick={x}', "")
+    assert """className='bg-x"onClick={x}""" in out  # still inside one single-quoted string
 
 
 def test_href_neutralized_and_allowed():

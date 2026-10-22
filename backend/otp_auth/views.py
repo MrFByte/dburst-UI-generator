@@ -1,3 +1,4 @@
+from config.api_errors import error_response
 import logging
 
 from django.db import transaction
@@ -46,10 +47,7 @@ class RequestOTPView(CSRFProtectedMixin, APIView):
             code = generate_otp(email)
         except OTPRateLimitExceeded:
             logger.warning(f"OTP rate limit hit for {email} (purpose={purpose})")
-            return Response(
-                {"error": "Too many OTP requests. Please try again later."},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
+            return error_response("Too many OTP requests. Please try again later.", "otp_rate_limited", 429)
 
         try:
             send_otp_email(email, code, purpose)
@@ -57,10 +55,7 @@ class RequestOTPView(CSRFProtectedMixin, APIView):
             # The OTP row already exists, but delivery failed — tell the
             # caller plainly instead of a bare 500.
             logger.exception(f"Failed to send OTP email for {email} (purpose={purpose})")
-            return Response(
-                {"error": "Could not send the verification email right now. Please try again."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+            return error_response("Could not send the verification email right now. Please try again.", "email_unavailable", 503)
 
         logger.info(f"OTP requested for {email} (purpose={purpose})")
         return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
@@ -95,7 +90,7 @@ class VerifyOTPView(CSRFProtectedMixin, APIView):
             verify_otp(email, code)
         except OTPInvalidOrExpired:
             logger.warning(f"Invalid/expired OTP verify attempt for {email}")
-            return Response({"error": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("Invalid or expired OTP.", "otp_invalid", 400)
 
         with transaction.atomic():
             # iexact: OAuth-created accounts may store the provider's casing.
@@ -105,7 +100,7 @@ class VerifyOTPView(CSRFProtectedMixin, APIView):
                 user = User.objects.create_user(email=email)
 
             if not user.is_active:
-                return Response({"error": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
+                return error_response("Invalid or expired OTP.", "otp_invalid", 400)
 
             message = "User login successfully"
             if created:

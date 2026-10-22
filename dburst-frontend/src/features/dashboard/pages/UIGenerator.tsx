@@ -7,6 +7,7 @@ import { getItem } from '@/shared/utils/storageManager';
 import Header from '@/shared/components/Header';
 import { getProjectDetail } from '../api/dashboardApi';
 import { toast } from "@/shared/hooks/useToast";
+import { showError } from "@/core/api/showError";
 import { Phase3Wrapper } from '../components/Phase3Wrapper';
 import { EditControls, UNAVAILABLE_CONTROLS } from '../components/EditControls';
 import { PromptBox } from '../components/PromptBox';
@@ -137,9 +138,8 @@ export default function UIGenerator({ initialData }: UIGeneratorProps) {
     };
 
     if (projectId) {
-      loadProject(projectId).catch((error: any) => {
-        console.error("Error loading project:", error);
-        toast.error(error.message || "Failed to load project");
+      loadProject(projectId).catch((error) => {
+        showError(error, { fallback: "Failed to load project" });
 
         const lastProject = getItem<APIResponse>("lastGeneratedProject");
         if (!cancelled && lastProject && lastProject.project_id === projectId) {

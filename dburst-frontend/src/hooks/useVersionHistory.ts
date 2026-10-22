@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { patchApi } from '@/features/dashboard/api/patchApi';
+import { normalizeError } from '@/core/api/apiHandler';
 import type { PatchHistoryItem, VersionHistoryResponse } from '@/types/patch';
 
 interface UseVersionHistoryOptions {
@@ -83,10 +84,9 @@ export function useVersionHistory({
                 const versionData = await patchApi.getVersion(generationId, versionId);
                 return versionData;
             } catch (err) {
-                const error = err instanceof Error ? err : new Error('Failed to restore version');
-                setError(error);
-                console.error('Failed to restore version:', err);
-                return null;
+                // Let the caller show the (normalized) reason instead of
+                // silently doing nothing.
+                throw normalizeError(err);
             } finally {
                 setIsLoading(false);
             }

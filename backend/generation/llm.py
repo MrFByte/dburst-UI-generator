@@ -15,14 +15,32 @@ from .llm_models import DEFAULT_UI_MODEL, make_model_id, parse_model_id, reasoni
 logger = logging.getLogger(__name__)
 
 
-class ModelUnavailableError(Exception):
-    """Raised when an LLM model is temporarily unavailable (e.g., 503, rate limit, high demand)."""
-    pass
+from .errors import (  # noqa: E402  (typed, user-safe errors; see errors.py)
+    LLMError,
+    LLMInvalidResponseError,
+    LLMRateLimitError,
+    LLMUnavailableError,
+    error_from_response,
+    gemini_text,
+    groq_text,
+    provider_call,
+)
+
+def _json_body(provider: str, response) -> Dict[str, Any]:
+    """A 200 response's JSON object, or LLMInvalidResponseError."""
+    try:
+        data = response.json()
+    except ValueError:
+        logger.error(f"{provider} returned a non-JSON 200 response")
+        raise LLMInvalidResponseError() from None
+    if not isinstance(data, dict):
+        raise LLMInvalidResponseError()
+    return data
 
 
-class RateLimitError(Exception):
-    """Raised when API rate limit is exceeded (429)."""
-    pass
+# Old names, kept importable.
+ModelUnavailableError = LLMUnavailableError
+RateLimitError = LLMRateLimitError
 
 GROQ_API_KEY = settings.GROQ_AI_API_KEY
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -343,6 +361,22 @@ def resolve_color_tokens(node: Any, scheme: Dict[str, Any]) -> Any:
     return node
 
 
+# Colour utilities in free-form planner text (typography scale...) would
+# contradict the COLOUR SYSTEM and, on a dark page, make text unreadable.
+_COLOUR_UTILITY_RE = re.compile(
+    r"(?<!\S)(?:[a-z-]+:)*-?(?:text|bg|border|from|via|to|ring|fill|stroke|shadow|decoration|accent|caret|divide|outline)-"
+    r"(?:white|black|transparent|current|[a-z]+-\d{2,3}(?:/\d+)?|\[(?:#|rgb|hsl|oklch|color:)[^\]]*\](?:/\d+)?)(?!\S)"
+)
+
+
+def strip_colour_classes(text: Any) -> str:
+    """`text-4xl font-bold text-gray-900` -> `text-4xl font-bold`. Only used on
+    prompt text; never touches a schema."""
+    if not isinstance(text, str):
+        return ""
+    return " ".join(_COLOUR_UTILITY_RE.sub(" ", text).split())
+
+
 def _temperature(setting: str, default: float) -> float:
     """settings.<SETTING> or the env var of the same name, clamped to 0-1.5."""
     raw = getattr(settings, setting, None)
@@ -459,6 +493,12 @@ Rules:
 - Light themes use saturated 400-700 shades for colour and tinted (not white) section backgrounds;
   white is only for small card surfaces.
 - Keep text readable: dark text on light surfaces, light text on dark or saturated ones.
+- The preview is plain Tailwind v4 with no theme: shadcn colour tokens (bg-primary, bg-background, bg-card,
+  bg-muted, text-foreground, text-muted-foreground, border-border...) do not exist there and render with NO
+  colour. Always use palette colours (bg-rose-600) or the exact hex values (bg-[#0369a1]).
+- Opacity goes in the colour (bg-blue-500/50, text-white/80, bg-[#0f172a]/90); v3 helpers such as
+  bg-opacity-50 or text-opacity-80 no longer exist and do nothing.
+- Root also gets min-h-screen so its background fills the page.
 
 -------------------------------------------
 CRITICAL: GENERATE REAL CONTENT, NOT PLACEHOLDERS
@@ -478,7 +518,7 @@ MODERN UI PATTERNS (IMPLEMENT THESE)
    Structure each stat as a Card with:
    - An Icon at the top (use appropriate icon: Users, TrendingUp, Star, Award, Target, etc.)
    - A large, bold number (use text-3xl or text-4xl font-bold)
-   - A descriptive label below (text-sm text-muted-foreground)
+   - A descriptive label below (text-sm in the COLOUR SYSTEM muted text colour)
    - Modern styling: rounded-xl, shadow-md, the COLOUR SYSTEM card surface
    - Icon in the accent or a palette family colour
    
@@ -539,7 +579,7 @@ MODERN UI PATTERNS (IMPLEMENT THESE)
    - Each timeline item: Use "TimelineItem" type
    - Year/date prominently displayed (text-2xl font-bold)
    - Achievement description (text-sm, muted text colour)
-   - Each item should be a Card with gradient background
+   - Each item is a tinted surface (the COLOUR SYSTEM surface colour) with an accent left border
    
    Example:
    {
@@ -684,14 +724,20 @@ class LLMClient:
         print(ui_result)
         
         logger.info("✓ UI generation complete!")
-        
+
+        missing = [k for k in ("project_name", "project_description") if not isinstance(design_plan.get(k), str)]
+        missing += [k for k in ("schema",) if not isinstance(ui_result.get(k), dict)]
+        if missing:
+            logger.error(f"LLM output missing required fields: {missing}")
+            raise LLMInvalidResponseError()
+
         return {
             "project_name": design_plan["project_name"][:200],  # Enforce max 200
             "project_description": design_plan["project_description"][:500],  # Enforce max 500
             "design_plan": design_plan,
-            "title": ui_result["title"],
+            "title": ui_result.get("title") or design_plan["project_name"][:200],
             "schema": ui_result["schema"],
-            "metadata": ui_result["metadata"],
+            "metadata": ui_result.get("metadata") or {},
             "usage": {
                 "planning_tokens": design_plan.get("usage", {}),
                 "generation_tokens": ui_result.get("usage", {})
@@ -723,9 +769,12 @@ class LLMClient:
                     max_tokens=3500,
                     temperature=self.planner_temperature,
                 )
-            except Exception as e:
-                logger.error(f"Planner attempt {attempt + 1}/{retries} failed: {e}")
-                if attempt < retries - 1:
+            except LLMError as e:
+                # Retry only what can succeed on a second try (overload,
+                # timeout, malformed output); a rejected prompt, quota or
+                # content block fails the same way every time.
+                logger.warning(f"Planner attempt {attempt + 1}/{retries} failed: {e.error_code}")
+                if e.retriable and attempt < retries - 1:
                     time.sleep(2 ** attempt)
                 else:
                     raise
@@ -754,9 +803,12 @@ class LLMClient:
                         max_tokens=8192,
                         temperature=self.ui_temperature,
                     )
-            except Exception as e:
-                logger.error(f"UI Generator attempt {attempt + 1}/{retries} failed: {e}")
-                if attempt < retries - 1:
+            except LLMError as e:
+                # Retry only what can succeed on a second try (overload,
+                # timeout, malformed output); a rejected prompt, quota or
+                # content block fails the same way every time.
+                logger.warning(f"UI Generator attempt {attempt + 1}/{retries} failed: {e.error_code}")
+                if e.retriable and attempt < retries - 1:
                     time.sleep(2 ** attempt)
                 else:
                     raise
@@ -784,7 +836,7 @@ Project Name: {design_plan.get('project_name', '')}
 Project Description: {design_plan.get('project_description', '')}
 
 DESIGN SPECIFICATIONS:
-THEME: {theme.get('style', 'modern')}
+THEME: {theme.get('style', 'modern')} (style words describe layout and typography, never colour: "minimal" or "clean" do not mean white or grey)
 MODE: {scheme['mode']}
 PALETTE: {scheme.get('palette')}
 PRIMARY COLOR: {scheme['primary']}
@@ -792,7 +844,7 @@ SECONDARY COLOR: {scheme['secondary']}
 BACKGROUND COLOR: {scheme['background']}
 SURFACE COLOR: {scheme['surface']}
 ACCENT COLOR: {scheme['accent']}
-TYPOGRAPHY SCALE: Hero: {typography.get('heading', 'text-2xl font-bold')}, Body: {typography.get('body', 'text-sm')}
+TYPOGRAPHY SCALE (sizes and weights only; colours come from the COLOUR SYSTEM): Hero: {strip_colour_classes(typography.get('heading')) or 'text-2xl font-bold'}, Body: {strip_colour_classes(typography.get('body')) or 'text-sm'}
 
 SPACING SYSTEM: {spacing}
 BORDER RADIUS: {radius}
@@ -831,22 +883,13 @@ CRITICAL REMINDERS:
         }
         
         logger.info(f"Calling Groq API with model: {model}")
-        response = requests.post(GROQ_URL, json=payload, headers=headers, timeout=self.timeout)
+        with provider_call("groq"):
+            response = requests.post(GROQ_URL, json=payload, headers=headers, timeout=self.timeout)
+            if response.status_code != 200:
+                raise error_from_response("groq", response)
+            data = _json_body("groq", response)
 
-        if response.status_code != 200:
-            error_text = response.text
-            if response.status_code == 429:
-                raise RateLimitError(f"Groq rate limit exceeded. Please try again in a few minutes or upgrade your plan.")
-            elif response.status_code == 503:
-                raise ModelUnavailableError(f"Groq API is temporarily unavailable. Please try again later.")
-            else:
-                raise ValueError(f"Groq API Error ({response.status_code}): {error_text}")
-        
-        data = response.json()
-        content = data["choices"][0]["message"]["content"]
-        usage = data.get("usage", {})
-        
-        return self._parse_response(content, usage)
+        return self._parse_response(groq_text(data), data.get("usage", {}))
     
     def _call_gemini(
         self,
@@ -868,7 +911,8 @@ CRITICAL REMINDERS:
             disable thinking entirely (UI-generation stage, a deterministic
             formatting task where the full budget should go to visible output).
         """
-        headers = {"Content-Type": "application/json"}
+        # Key in a header, not the URL: URLs end up in exception text and logs.
+        headers = {"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY or ""}
 
         generation_config = {
             "temperature": temperature,
@@ -889,24 +933,15 @@ CRITICAL REMINDERS:
             "generationConfig": generation_config
         }
 
-        url = f"{GEMINI_BASE_URL}/{model}:generateContent?key={GEMINI_API_KEY}"
+        url = f"{GEMINI_BASE_URL}/{model}:generateContent"
         logger.info(f"Calling Gemini API with model: {model}")
-        response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+        with provider_call("gemini"):
+            response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+            if response.status_code != 200:
+                raise error_from_response("gemini", response)
+            data = _json_body("gemini", response)
 
-        if response.status_code != 200:
-            error_text = response.text
-            if response.status_code == 429:
-                raise RateLimitError(f"Gemini rate limit exceeded. Please try again in a few minutes or select a different model.")
-            elif response.status_code == 503:
-                raise ModelUnavailableError(f"Gemini model is experiencing high demand. Please try again later or select a different model.")
-            else:
-                raise ValueError(f"Gemini API Error ({response.status_code}): {error_text}")
-        
-        data = response.json()
-        content = data["candidates"][0]["content"]["parts"][0]["text"]
-        usage = data.get("usageMetadata", {})
-        
-        return self._parse_response(content, usage)
+        return self._parse_response(gemini_text(data), data.get("usageMetadata", {}))
     
     def _parse_response(self, content: str, usage: Dict) -> Dict[str, Any]:
       """Extract and validate JSON from LLM response"""
@@ -947,13 +982,18 @@ CRITICAL REMINDERS:
                       parsed = json.loads(truncated)
                       logger.info("Successfully recovered truncated JSON")
                   else:
-                      raise ValueError(f"Invalid JSON from LLM: {str(e)}")
+                      raise LLMInvalidResponseError()
+              except LLMInvalidResponseError:
+                  raise
               except Exception as recovery_error:
                   logger.error(f"JSON recovery failed: {recovery_error}")
-                  raise ValueError(f"Invalid JSON from LLM: {str(e)}")
+                  raise LLMInvalidResponseError() from None
           else:
-              raise ValueError(f"Invalid JSON from LLM: {str(e)}")
+              raise LLMInvalidResponseError() from None
 
+      if not isinstance(parsed, dict):
+          logger.error("LLM returned JSON that is not an object")
+          raise LLMInvalidResponseError()
       parsed["usage"] = usage
       return parsed
 
@@ -1007,7 +1047,7 @@ CRITICAL REMINDERS:
             
             # Provide implementation guidance based on section type
             if section_type == "hero":
-                lines.append("Implementation: Create a full-width hero with large heading, subtitle, and optional background.")
+                lines.append("Implementation: Create a full-width hero with large heading, subtitle, on the COLOUR SYSTEM hero gradient.")
                 lines.append("Icons: Use one of: " + ", ".join(icon_suggestions.get("hero", ["Star"])))
             elif section_type == "stats":
                 lines.append("Implementation: Create a grid of stat cards (typically 3-4 cards).")

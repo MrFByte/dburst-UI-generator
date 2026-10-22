@@ -5,7 +5,7 @@ import Header from '@/shared/components/Header';
 import ProjectCard from '@/features/dashboard/components/ProjectCard';
 import Loader from '@/shared/components/Loader';
 import { getAllProjects } from '../api/dashboardApi';
-import { toast } from "@/shared/hooks/useToast";
+import { showError } from "@/core/api/showError";
 
 interface PaginatedResponse {
   count: number;
@@ -33,9 +33,8 @@ const AllProjects = () => {
       setProjects(response.results || []);
       setTotalCount(response.count || 0);
       setTotalPages(Math.ceil((response.count || 0) / pageSize));
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load projects");
-      console.error("Error fetching projects:", error);
+    } catch (error) {
+      showError(error, { fallback: "Failed to load projects", onRetry: () => fetchProjects(page) });
     } finally {
       setIsLoading(false);
     }

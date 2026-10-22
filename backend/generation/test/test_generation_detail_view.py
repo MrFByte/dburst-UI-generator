@@ -49,4 +49,5 @@ def test_generation_detail_not_owner(api_client, url):
 
     res = api_client.get(f"{url}{gen.id}/")
     assert res.status_code == 404
-    assert res.data["error"] == "Not found"
+    assert res.data["error"] == "Generation not found."
+    assert res.data["code"] == "not_found"

@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/shared/ui/Toaster';
 import AuthProvider from "@/core/auth/AuthProvider";
+import ErrorBoundary from "@/shared/components/ErrorBoundary";
 import LogoutOverlay from "@/core/auth/LogoutOverlay";
 import ProtectedRoute from "@/core/routes/ProtectedRoute";
 import PublicRoute from "@/core/routes/PublicRoutes";
@@ -15,6 +16,8 @@ function App() {
   return (
     <Router>
       <div className="min-h-dvh bg-zinc-900 text-zinc-100 flex flex-col overflow-x-hidden">
+        {/* A render crash anywhere below shows a friendly screen, not a blank page. */}
+        <ErrorBoundary>
         <AuthProvider>
           <Routes>
             <Route element={<PublicRoute />}>
@@ -27,6 +30,7 @@ function App() {
           </Routes>
           <LogoutOverlay />
         </AuthProvider>
+        </ErrorBoundary>
 
         <Toaster />
       </div>

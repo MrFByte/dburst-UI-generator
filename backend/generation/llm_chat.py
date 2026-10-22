@@ -6,7 +6,8 @@ from typing import Optional, Dict, Any
 from django.conf import settings
 
 # Import from existing llm.py
-from .llm import GROQ_API_KEY, GROQ_URL, GEMINI_API_KEY, GEMINI_BASE_URL
+from .llm import GROQ_API_KEY, GROQ_URL, GEMINI_API_KEY, GEMINI_BASE_URL, _json_body
+from .errors import LLMError, LLMInvalidResponseError, error_from_response, gemini_text, groq_text, provider_call
 from .llm_models import DEFAULT_UI_MODEL, parse_model_id
 
 logger = logging.getLogger(__name__)
@@ -87,8 +88,9 @@ Please update the schema based on the user's request and provide a brief explana
                 result = self._call_groq_api(refinement_prompt, system_prompt, self.ui_model)
             
             # Validate response structure
-            if 'schema' not in result:
-                raise ValueError("LLM response missing 'schema' field")
+            if not isinstance(result.get('schema'), dict):
+                logger.error("Refinement response missing 'schema' object")
+                raise LLMInvalidResponseError()
             
             # Ensure ai_response is max 200 chars
             ai_response = result.get('ai_response', 'UI updated based on your request')[:200]
@@ -100,9 +102,11 @@ Please update the schema based on the user's request and provide a brief explana
                 'usage': result.get('usage', {})
             }
             
+        except LLMError:
+            raise  # typed, user-safe; the raw provider payload was logged already
         except Exception as e:
-            logger.error(f"UI refinement failed: {e}")
-            raise ValueError(f"Failed to refine UI: {str(e)}")
+            logger.exception(f"UI refinement failed unexpectedly: {e}")
+            raise LLMInvalidResponseError() from None
     
     def _call_groq_api(self, prompt: str, system_prompt: str, model: str) -> dict:
         """Call Groq API for refinement"""
@@ -121,20 +125,18 @@ Please update the schema based on the user's request and provide a brief explana
             "max_tokens": 8192,
         }
         
-        response = requests.post(GROQ_URL, json=payload, headers=headers, timeout=self.timeout)
-        
-        if response.status_code != 200:
-            raise ValueError(f"Groq API Error ({response.status_code}): {response.text}")
-        
-        data = response.json()
-        content = data["choices"][0]["message"]["content"]
-        usage = data.get("usage", {})
-        
-        return self._parse_response(content, usage)
+        with provider_call("groq"):
+            response = requests.post(GROQ_URL, json=payload, headers=headers, timeout=self.timeout)
+            if response.status_code != 200:
+                raise error_from_response("groq", response)
+            data = _json_body("groq", response)
+
+        return self._parse_response(groq_text(data), data.get("usage", {}))
     
     def _call_gemini(self, prompt: str, system_prompt: str, model: str) -> dict:
         """Call Gemini API for refinement"""
-        headers = {"Content-Type": "application/json"}
+        # Key in a header, not the URL: URLs end up in exception text and logs.
+        headers = {"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY or ""}
 
         payload = {
             "contents": [
@@ -151,17 +153,14 @@ Please update the schema based on the user's request and provide a brief explana
             }
         }
 
-        url = f"{GEMINI_BASE_URL}/{model}:generateContent?key={GEMINI_API_KEY}"
-        response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
-        
-        if response.status_code != 200:
-            raise ValueError(f"Gemini API Error ({response.status_code}): {response.text}")
-        
-        data = response.json()
-        content = data["candidates"][0]["content"]["parts"][0]["text"]
-        usage = data.get("usageMetadata", {})
-        
-        return self._parse_response(content, usage)
+        url = f"{GEMINI_BASE_URL}/{model}:generateContent"
+        with provider_call("gemini"):
+            response = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+            if response.status_code != 200:
+                raise error_from_response("gemini", response)
+            data = _json_body("gemini", response)
+
+        return self._parse_response(gemini_text(data), data.get("usageMetadata", {}))
     
     def _parse_response(self, content: str, usage: dict) -> dict:
         """Parse and validate JSON response"""
@@ -179,9 +178,11 @@ Please update the schema based on the user's request and provide a brief explana
         
         try:
             parsed = json.loads(content)
-            parsed["usage"] = usage
-            return parsed
         except json.JSONDecodeError as e:
             logger.error(f"JSON Parse Error: {e}")
             logger.error(f"Content preview: {content[:500]}")
-            raise ValueError(f"Invalid JSON from LLM: {str(e)}")
+            raise LLMInvalidResponseError() from None
+        if not isinstance(parsed, dict):
+            raise LLMInvalidResponseError()
+        parsed["usage"] = usage
+        return parsed

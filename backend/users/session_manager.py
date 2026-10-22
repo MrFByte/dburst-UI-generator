@@ -128,7 +128,7 @@ class SessionManager:
         except Exception as e:
             logger.error(f"Failed to get session analytics: {e}")
             return {
-                "error": str(e),
+                "error": "Session analytics are unavailable right now.",
                 "timestamp": datetime.now().isoformat()
             }
     
@@ -194,7 +194,7 @@ def get_cache_stats() -> Dict:
         }
     except Exception as e:
         logger.error(f"Failed to get cache stats: {e}")
-        return {"error": str(e)}
+        return {"error": "Cache statistics are unavailable right now."}
 
 
 def calculate_hit_rate(hits: int, misses: int) -> str:

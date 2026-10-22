@@ -294,7 +294,8 @@ def test_default_hero_and_timeline_are_coloured_without_theme():
     assert "bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white rounded-2xl shadow-lg p-12" in out
     assert "border-indigo-400" in out and "bg-indigo-50 border-l-4 border-pink-500" in out and "bg-pink-500" in out
     assert "from-blue-50" not in out and "from-white" not in out
-    assert '<main>' in out  # Root without a theme is left alone
+    # Root without a theme gets no colour, only the full-viewport height.
+    assert '<main className="min-h-screen">' in out
 
 
 def test_defaults_derive_from_theme():
@@ -303,7 +304,7 @@ def test_defaults_derive_from_theme():
         {"type": "Hero", "children": []},
         {"type": "Timeline", "children": [{"type": "TimelineItem", "children": []}]},
     ]}, theme={"style": "warm", "color_scheme": scheme})
-    assert f'<main className="bg-[{scheme["background"]}]">' in out
+    assert f'<main className="bg-[{scheme["background"]}] text-[{scheme["text"]}] min-h-screen">' in out
     assert f"from-[{scheme['hero'][0]}] to-[{scheme['hero'][1]}] text-[{scheme['on_hero']}]" in out
     assert f"border-[{scheme['primary']}]" in out
     assert f"bg-[{scheme['surface']}] border-l-4 border-[{scheme['accent']}]" in out
@@ -329,3 +330,42 @@ def test_render_schema_accepts_theme():
     scheme = build_color_scheme("midnight", "light")
     assert f"bg-[{scheme['background']}]" in render_schema({"type": "Root"}, theme=scheme)
     assert render_schema({"type": "Root"}) == ReactCodeGenerator({"type": "Root"}).generate()
+
+
+# ---------------------------------------------------------------------------
+# Stage-2 prompt must not contradict the COLOUR SYSTEM
+# ---------------------------------------------------------------------------
+
+def _stage2_request(typography=None, style="warm minimal clean"):
+    from generation.llm import LLMClient, normalize_color_scheme
+    plan = {"project_name": "Bakery", "project_description": "d", "intent": "i",
+            "theme": {"style": style, "color_scheme": {"palette": "sunset", "mode": "dark"}, "typography": typography or {}},
+            "design_plan": {"sections": [{"name": "Hero", "type": "hero", "content": "x"}]}}
+    normalize_color_scheme(plan, {"palette": "sunset", "mode": "dark"})
+    client = LLMClient.__new__(LLMClient)
+    return client._build_ui_request(client._compile_ui_prompt(plan), plan)
+
+
+def test_planner_typography_colours_are_stripped_from_the_prompt():
+    out = _stage2_request({"heading": "text-4xl font-bold text-gray-900 hover:text-[#111]", "body": "text-base text-slate-600/80 leading-7"})
+    assert "Hero: text-4xl font-bold, Body: text-base leading-7" in out
+    assert "text-gray-900" not in out and "slate-600" not in out
+
+
+def test_strip_colour_classes_keeps_sizes_and_weights():
+    from generation.llm import strip_colour_classes
+    assert strip_colour_classes("text-xs text-sm text-2xl text-center font-semibold tracking-tight") == "text-xs text-sm text-2xl text-center font-semibold tracking-tight"
+    assert strip_colour_classes("text-white bg-black border-[#fff] from-red-500") == ""
+    assert strip_colour_classes(None) == "" and strip_colour_classes(["x"]) == ""
+
+
+def test_stage2_prompt_has_no_instructions_that_push_towards_plain_pages():
+    from generation.llm import UI_GENERATOR_SYSTEM_PROMPT
+    out = _stage2_request()
+    assert "optional background" not in out
+    assert "never colour" in out  # style words like "minimal" are not colour instructions
+    # shadcn tokens and v3 opacity helpers render with no colour in the preview:
+    # they may be named once, in the rule that forbids them, and in no example.
+    assert UI_GENERATOR_SYSTEM_PROMPT.count("text-muted-foreground") == 1
+    assert UI_GENERATOR_SYSTEM_PROMPT.count("bg-opacity") == 1
+    assert "muted-foreground" not in out and "bg-opacity" not in out

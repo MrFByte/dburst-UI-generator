@@ -59,7 +59,8 @@ def test_generate_success(
 
     assert response.status_code == 201
     assert response.data["project_title"] == "My UI"
-    assert response.data["schema"] == {"type": "Root"}
+    # The (mocked) validated schema, plus the theme default every Root gets.
+    assert response.data["schema"] == {"type": "Root", "props": {"className": "min-h-screen"}}
     assert response.data["code"] == "<UI />"
     assert response.data["meta"]["usage"]["total_tokens"] == 123
 
@@ -99,8 +100,11 @@ def test_generate_schema_validation_error(mock_llm, mock_validator, api_client, 
 
     res = api_client.post(url, {"prompt": "bad", "llm_provider": "groq"})
 
-    assert res.status_code == 400
-    assert "Schema validation failed" in res.data["error"]
+    # The AI produced an invalid schema: a provider-side failure, explained plainly.
+    assert res.status_code == 502
+    assert res.data["code"] == "llm_invalid_response"
+    assert res.data["error"] == "The AI returned an incomplete design. Please try again."
+    assert "bad schema" not in str(res.data)
 
 
 @pytest.mark.django_db
@@ -110,8 +114,11 @@ def test_generate_llm_failure(mock_generate_ui, api_client, user, url):
 
     res = api_client.post(url, {"prompt": "hello", "llm_provider": "groq"})
 
+    # Unexpected errors never echo their text to the client.
     assert res.status_code == 500
-    assert "LLM down" in res.data["error"]
+    assert res.data["code"] == "server_error"
+    assert res.data["error"] == "Something went wrong on our side. Please try again."
+    assert "LLM down" not in str(res.data)
 
 
 @pytest.mark.django_db

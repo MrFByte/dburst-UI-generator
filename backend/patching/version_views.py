@@ -1,3 +1,4 @@
+from config.api_errors import error_response
 import logging
 import jsonpatch
 from rest_framework import status, permissions
@@ -34,10 +35,7 @@ class GetVersionView(APIView):
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
-                return Response(
-                    {"error": "You do not have permission to view this generation"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return error_response("You do not have permission to view this generation", "permission_denied", 403)
             
             target_patch = Patch.objects.get(id=patch_id, generation=generation)
             
@@ -56,7 +54,7 @@ class GetVersionView(APIView):
                     continue
             
             try:
-                code = render_schema(schema)
+                code = render_schema(schema, theme=generation.theme)
             except Exception as e:
                 logger.error(f"Failed to generate code: {e}")
                 code = ""
@@ -70,21 +68,12 @@ class GetVersionView(APIView):
             }, status=status.HTTP_200_OK)
             
         except Generations.DoesNotExist:
-            return Response(
-                {"error": "Generation not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Generation not found.", "not_found", 404)
         except Patch.DoesNotExist:
-            return Response(
-                {"error": "Version not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("That version couldn't be found.", "not_found", 404)
         except Exception as e:
-            logger.error(f"Error getting version: {e}")
-            return Response(
-                {"error": "Failed to retrieve version", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.exception(f"Error getting version: {e}")
+            return error_response("We couldn't load that version. Please try again.", "server_error", 500)
 
 
 class UndoView(APIView):
@@ -109,20 +98,14 @@ class UndoView(APIView):
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
-                return Response(
-                    {"error": "You do not have permission to modify this generation"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return error_response("You do not have permission to modify this generation", "permission_denied", 403)
             
             last_patch = Patch.objects.filter(
                 generation=generation
             ).order_by('-applied_at').first()
             
             if not last_patch:
-                return Response(
-                    {"error": "No patches to undo"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return error_response("There's nothing to undo.", "nothing_to_undo", 400)
             
             patches = Patch.objects.filter(
                 generation=generation,
@@ -139,7 +122,7 @@ class UndoView(APIView):
                     continue
             
             try:
-                code = render_schema(schema)
+                code = render_schema(schema, theme=generation.theme)
             except Exception as e:
                 logger.error(f"Failed to generate code: {e}")
                 code = ""
@@ -154,13 +137,7 @@ class UndoView(APIView):
             }, status=status.HTTP_200_OK)
             
         except Generations.DoesNotExist:
-            return Response(
-                {"error": "Generation not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Generation not found.", "not_found", 404)
         except Exception as e:
-            logger.error(f"Error undoing patch: {e}")
-            return Response(
-                {"error": "Failed to undo", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.exception(f"Error undoing patch: {e}")
+            return error_response("We couldn't undo the last change. Please try again.", "server_error", 500)

@@ -42,3 +42,8 @@ urlpatterns = [
         path('', include(api_routes)),
     ]))
 ]
+
+
+# JSON (not Django's HTML pages) for errors outside DRF views.
+handler404 = "config.exception_handler.json_not_found"
+handler500 = "config.exception_handler.json_server_error"

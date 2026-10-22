@@ -4,6 +4,7 @@ import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useVersionHistory } from '@/hooks/useVersionHistory';
 import { patchApi } from '../api/patchApi';
 import { toast } from '@/shared/hooks/useToast';
+import { showError } from '@/core/api/showError';
 import Loader from '@/shared/components/Loader';
 import type { SchemaNode } from '../types/renderType';
 import { compare } from 'fast-json-patch';
@@ -58,6 +59,7 @@ export function Phase3Wrapper({
         patches,
         totalPatches,
         isLoading: isLoadingHistory,
+        error: historyError,
         restoreVersion,
         refresh: refreshHistory,
         hasMore,
@@ -112,7 +114,7 @@ export function Phase3Wrapper({
             // Validate currentSchema before saving
             if (!currentSchema || typeof currentSchema !== 'object') {
                 console.error('Invalid currentSchema:', currentSchema);
-                toast.error('Invalid schema state');
+                toast.error('Your edits are out of sync. Please reload the page and try again.');
                 return;
             }
 
@@ -153,9 +155,9 @@ export function Phase3Wrapper({
             refreshHistory();
 
             toast.success('Saved successfully!');
-        } catch (error: any) {
-            console.error('Failed to save:', error);
-            toast.error(error.message || 'Failed to save changes');
+        } catch (error) {
+            // Edits stay in the undo stack, so nothing is lost; Retry re-sends them.
+            showError(error, { fallback: 'Failed to save changes', onRetry: () => { void handleSave(); } });
         } finally {
             setIsSaving(false);
         }
@@ -175,9 +177,8 @@ export function Phase3Wrapper({
                 reset(versionData.schema);
                 toast.success('Version restored!');
             }
-        } catch (error: any) {
-            console.error('Failed to restore version:', error);
-            toast.error(error.message || 'Failed to restore version');
+        } catch (error) {
+            showError(error, { fallback: 'Failed to restore version' });
         }
     }, [generationId, restoreVersion, reset, onSchemaUpdate]);
 
@@ -257,6 +258,16 @@ export function Phase3Wrapper({
                         {isLoadingHistory ? (
                             <div className="flex items-center justify-center py-12">
                                 <Loader size="md" text="Loading versions..." />
+                            </div>
+                        ) : historyError ? (
+                            <div className="text-center text-gray-300 space-y-3" role="alert">
+                                <p className="text-sm">We couldn't load the version history. Please try again.</p>
+                                <button
+                                    onClick={refreshHistory}
+                                    className="px-4 py-2 min-h-10 text-sm bg-slate-700 hover:bg-slate-600 rounded transition"
+                                >
+                                    Retry
+                                </button>
                             </div>
                         ) : patches.length === 0 ? (
                             <div className="text-center text-gray-400">No saved versions yet</div>

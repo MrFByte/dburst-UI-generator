@@ -1,6 +1,7 @@
 from django.core.cache import cache
 from django.core.cache.backends.redis import RedisCache
 import jsonpatch
+import jsonpointer
 import json
 import logging
 import time
@@ -11,6 +12,7 @@ from functools import wraps
 from django_redis import get_redis_connection
 from .codegen import ReactCodeGenerator
 from .schema_validator import SchemaValidator
+from .errors import SchemaValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,18 @@ class GenerationCache:
         }
     
     @staticmethod
+    def _cached_theme(generation_id: str) -> Optional[Dict]:
+        """The theme stored with the generation (either shape of meta that
+        store_generation is called with), so regenerated code keeps its colours."""
+        try:
+            meta = json.loads(cache.get(f"gen:{generation_id}:meta") or "{}")
+        except (TypeError, ValueError):
+            return None
+        plan = meta.get("design_plan") if isinstance(meta, dict) else None
+        theme = (plan.get("theme") if isinstance(plan, dict) else None) or (meta.get("theme") if isinstance(meta, dict) else None)
+        return theme if isinstance(theme, dict) else None
+
+    @staticmethod
     def apply_patch(generation_id: str, patch: Dict) -> Optional[Dict]:
         """Apply JSON Patch to schema and regenerate code"""
         schema_json = cache.get(f"gen:{generation_id}:schema")
@@ -58,12 +72,21 @@ class GenerationCache:
         try:
             patched_schema = jsonpatch.apply_patch(current_schema, patch)
             # A patch can introduce anything; it gets the same structural
-            # validation as a freshly generated schema. ValueError -> None.
+            # validation as a freshly generated schema.
             patched_schema = SchemaValidator.validate(patched_schema)
-            
+        except (jsonpatch.JsonPatchException, jsonpointer.JsonPointerException, ValueError, TypeError) as e:
+            # The client's edit is malformed or would break the page: a 400,
+            # not a cache miss (None) or a server error.
+            logger.warning(f"Rejected patch for {generation_id}: {e}")
+            raise SchemaValidationError() from None
+        except Exception as e:
+            logger.error(f"Patch application failed for {generation_id}: {e}")
+            return None
+
+        try:
             cache.set(f"gen:{generation_id}:schema", json.dumps(patched_schema), GenerationCache.TTL_DEFAULT)
             
-            generator = ReactCodeGenerator(patched_schema)
+            generator = ReactCodeGenerator(patched_schema, theme=GenerationCache._cached_theme(generation_id))
             new_code = generator.generate()
             cache.set(f"gen:{generation_id}:code", new_code, GenerationCache.TTL_DEFAULT)
             

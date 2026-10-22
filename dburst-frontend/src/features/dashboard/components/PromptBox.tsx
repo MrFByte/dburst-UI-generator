@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, MessageSquare } from 'lucide-react';
 import Loader from '@/shared/components/Loader';
 import { getChatHistory, refineUI } from '../api/dashboardApi';
+import { showError } from '@/core/api/showError';
+import { useCountdown } from '@/hooks/useCountdown';
 
 interface ChatMessage {
     role: 'user' | 'assistant';
@@ -20,6 +22,8 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    // After a rate limit, Send counts down instead of failing again.
+    const cooldown = useCountdown();
 
     // Load chat history on mount
     useEffect(() => {
@@ -32,23 +36,24 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
             const data = await getChatHistory(generationId);
             setMessages(data.messages || []);
         } catch (error) {
-            console.error('Failed to load chat history:', error);
+            showError(error, { fallback: "Couldn't load the chat history" });
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleSendMessage = async () => {
-        if (!inputValue.trim() || isSending) return;
+    const handleSendMessage = async (retryText?: string) => {
+        const text = retryText ?? inputValue;
+        if (!text.trim() || isSending || cooldown.active) return;
 
         const userMessage: ChatMessage = {
             role: 'user',
-            content: inputValue,
+            content: text,
             created_at: new Date().toISOString()
         };
 
         setMessages(prev => [...prev, userMessage]);
-        const messageText = inputValue;
+        const messageText = text;
         setInputValue('');
         setIsSending(true);
 
@@ -63,14 +68,18 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
 
             setMessages(prev => [...prev, aiMessage]);
             onSchemaUpdate(result.schema, result.code);
-        } catch (error: any) {
-            console.error('Failed to refine UI:', error);
-            const errorMessage: ChatMessage = {
-                role: 'assistant',
-                content: 'Sorry, I encountered an error processing your request.',
-                created_at: new Date().toISOString()
-            };
-            setMessages(prev => [...prev, errorMessage]);
+        } catch (error) {
+            // Take the unsent message back out of the thread and give the
+            // text back to the user, so retrying is one click (or Enter).
+            setMessages(prev => prev.filter(m => m !== userMessage));
+            setInputValue(messageText);
+            const apiError = showError(error, {
+                fallback: "Couldn't apply that change. Please try again.",
+                onRetry: () => { void handleSendMessage(messageText); },
+            });
+            if (apiError.code === 'llm_rate_limited' || apiError.code === 'throttled') {
+                cooldown.start(apiError.retryAfter ?? 30);
+            }
         } finally {
             setIsSending(false);
         }
@@ -132,13 +141,16 @@ export function PromptBox({ generationId, onSchemaUpdate }: PromptBoxProps) {
                      placeholder-gray-500 disabled:opacity-50"
                     />
                     <button
-                        onClick={handleSendMessage}
-                        disabled={!inputValue.trim() || isSending}
+                        onClick={() => handleSendMessage()}
+                        disabled={!inputValue.trim() || isSending || cooldown.active}
+                        aria-label={cooldown.active ? `Try again in ${cooldown.secondsLeft} seconds` : 'Send'}
                         className="px-4 py-2 min-w-11 min-h-11 md:min-h-0 justify-center shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded transition 
                      disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {isSending ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : cooldown.active ? (
+                            <span className="text-xs tabular-nums">{cooldown.secondsLeft}s</span>
                         ) : (
                             <Send className="w-4 h-4" />
                         )}

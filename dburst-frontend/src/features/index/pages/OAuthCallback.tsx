@@ -5,6 +5,7 @@ import { socialLogin } from "@/features/index/api/socialLogin";
 import type { OAuthProvider } from "@/features/index/api/indexApi";
 import { setCredentials } from "@/core/redux/authSlice";
 import { toast } from "@/shared/hooks/useToast";
+import { showError } from "@/core/api/showError";
 
 const LABELS: Record<OAuthProvider, string> = { google: "Google", github: "GitHub" };
 
@@ -48,8 +49,8 @@ export default function OAuthCallback({ provider }: { provider: OAuthProvider })
         dispatch(setCredentials({ user: data.user }));
         toast.success(`Logged in with ${label}!`);
         navigate("/dashboard", { replace: true });
-      } catch {
-        toast.error(`${label} login failed. Please try again.`);
+      } catch (err) {
+        showError(err, { fallback: `${label} login failed. Please try again.` });
         navigate("/login", { replace: true });
       }
     })();

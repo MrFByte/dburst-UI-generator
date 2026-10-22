@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 # backslashes/control characters make the source fragile. A lone "&" (as in
 # Tailwind's [&>*]:p-2) is literal and stays as-is.
 _UNSAFE_ATTR = re.compile(r'["\\\x00-\x1f\x7f\u2028\u2029]|&#?[A-Za-z0-9]+;')
+# Still needs a JSON literal even inside single quotes: backslashes, control
+# characters, line/paragraph separators and HTML entities.
+_NEEDS_JSON = re.compile(r'[\\\x00-\x1f\x7f\u2028\u2029]|&#?[A-Za-z0-9]+;')
 _JSX_TEXT_ESCAPES = {"{": "&#123;", "}": "&#125;", "<": "&lt;", ">": "&gt;", "&": "&amp;"}
 _JSX_TEXT_SPECIAL = re.compile(r"[{}<>&]")
 
@@ -41,12 +44,56 @@ INTRINSIC_TAGS = {
 }
 TEXT_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "div", "ul", "ol", "li"}
 
+# ---------------------------------------------------------------------------
+# Class inspection (read-only). Theme defaults are only added when the schema
+# has no colour of its own, so "does it already have a background?" has to
+# look at real, unprefixed utilities: `hover:bg-x` or `bg-clip-text` are not
+# a page background. Nothing here ever rewrites a class.
+# ---------------------------------------------------------------------------
+_BG_NON_COLOUR = re.compile(
+    r"^bg-(?:clip|origin|blend|repeat|no-repeat|cover|contain|auto|center|top|bottom|left|right|"
+    r"fixed|local|scroll|none|\[(?:length|position|size|percentage):)"
+)
+_TEXT_COLOUR = re.compile(
+    r"^text-(?:white|black|transparent|current|inherit|[a-z]+-\d{2,3}(?:/\d+)?|"
+    r"\[(?:#|rgb|hsl|oklch|color:)[^\]]*\](?:/\d+)?)$"
+)
+_BRACKETS = re.compile(r"\[[^\]]*\]")
+
+
+def _utilities(class_name: str):
+    """Base-state utilities: no `hover:`/`md:`/`[&>*]:` variant, and without
+    the v3 `!` prefix or v4 `!` suffix."""
+    for token in class_name.split():
+        if token.startswith("[") or ":" in _BRACKETS.sub("", token):
+            continue
+        yield token.strip("!")
+
+
+def has_background(class_name: str) -> bool:
+    """A base-state background colour or gradient (bg-red-500, bg-[#abc],
+    bg-gradient-to-r, bg-linear-to-r...); not bg-clip-text, not a variant."""
+    return any(u.startswith("bg-") and not _BG_NON_COLOUR.match(u) for u in _utilities(class_name))
+
+
+def has_text_colour(class_name: str) -> bool:
+    return any(_TEXT_COLOUR.match(u) for u in _utilities(class_name))
+
+
+def has_utility(class_name: str, prefix: str) -> bool:
+    return any(u.startswith(prefix) for u in _utilities(class_name))
+
 
 def jsx_attr(name: str, value: Any) -> str:
-    """` name="value"`, or ` name={"value"}` (a JSON string literal, which is a
-    valid JS string) when the value contains anything that could break out."""
+    """` name="value"`; ` name='value'` for a value with a double quote but no
+    single quote (JSX strings have no escapes, so the class stays verbatim in
+    the source, which is what Tailwind's scanner reads: font-["Playfair_Display"]);
+    else ` name={"value"}` (a JSON string literal, a valid JS string) when the
+    value contains anything else that could break out."""
     value = "" if value is None else str(value)
     if _UNSAFE_ATTR.search(value):
+        if '"' in value and "'" not in value and not _NEEDS_JSON.search(value):
+            return f" {name}='{value}'"
         return f" {name}={{{json.dumps(value)}}}"
     return f' {name}="{value}"'
 
@@ -95,6 +142,41 @@ def render_schema(schema: Dict[str, Any], component_name: str = "GeneratedUI", t
 
     validated = SchemaValidator.validate(copy.deepcopy(schema))
     return ReactCodeGenerator(validated, component_name, theme=theme).generate()
+
+def apply_theme_defaults(schema: Dict[str, Any], theme: Any) -> Dict[str, Any]:
+    """Write the theme's defaults (page background, hero gradient, card surface,
+    timeline accents) into the schema's own classNames, in place.
+
+    Generated code gets these defaults at codegen time, but every other view of
+    the schema (edit mode's renderer, a re-render without the theme, version
+    history) would not. Baking them in makes the stored schema the one source
+    of truth. Additive only, and idempotent: see ReactCodeGenerator.with_defaults.
+    """
+    generator = ReactCodeGenerator({}, theme=theme)
+
+    def walk(node: Any) -> None:
+        if not isinstance(node, dict):
+            return
+        node_type = node.get("type")
+        props = node.get("props")
+        if isinstance(node_type, str) and (props is None or isinstance(props, dict)):
+            current = (props or {}).get("className")
+            current = current if isinstance(current, str) else ""
+            updated = generator.with_defaults(node_type, current)
+            new_props = {**(props or {})}
+            if updated != current:
+                new_props["className"] = updated
+            if node_type == "TimelineItem" and "dotClassName" not in new_props and generator.colors.get("accent"):
+                # The dot drawn beside the item takes the theme accent too.
+                new_props["dotClassName"] = f"bg-[{generator.colors['accent']}]"
+            if new_props != (props or {}):
+                node["props"] = new_props
+        for child in node.get("children") or []:
+            walk(child)
+
+    walk(schema)
+    return schema
+
 
 class ReactCodeGenerator:
     """Generate modern React code from schema with proper nesting support"""
@@ -226,7 +308,7 @@ export default function {self.component_name}() {{
             return {}
         colors = {
             key: theme[key]
-            for key in ("background", "surface", "primary", "secondary", "accent", "on_hero")
+            for key in ("background", "surface", "primary", "secondary", "accent", "on_hero", "text")
             if isinstance(theme.get(key), str) and HEX_COLOR.match(theme[key])
         }
         hero = theme.get("hero")
@@ -249,6 +331,41 @@ export default function {self.component_name}() {{
             "timeline_dot": f"bg-[{c['accent']}]" if c.get("accent") else "bg-pink-500",
         }
 
+    def with_defaults(self, node_type: str, class_name: str) -> str:
+        """`class_name` plus the defaults a node type gets when the schema gives
+        it no colour of its own. Purely additive: the classes passed in are
+        never removed or edited, and a node that already has a background is
+        left alone (so applying this twice changes nothing)."""
+        c = self.colors
+        defaults = self._default_classes()
+        extra = []
+        if node_type == "Root":
+            # A themed page gets its background (and the text colour that was
+            # checked against it); the page always fills the viewport so the
+            # background doesn't stop halfway down.
+            if c.get("background") and not has_background(class_name):
+                extra.append(f"bg-[{c['background']}]")
+                if c.get("text") and not has_text_colour(class_name):
+                    extra.append(f"text-[{c['text']}]")
+            if not has_utility(class_name, "min-h-"):
+                extra.append("min-h-screen")
+        elif node_type == "Hero":
+            # Saturated default (theme colours, else indigo->pink) if it has no background.
+            if not has_background(class_name):
+                extra.append(f"{defaults['hero']} rounded-2xl shadow-lg p-12")
+            elif "rounded" not in class_name:
+                extra.append("rounded-2xl shadow-lg p-12")
+        elif node_type == "Timeline":
+            if "border-l" not in class_name:
+                extra.append(f"relative pl-8 border-l-2 {defaults['timeline_border']} space-y-8")
+        elif node_type == "TimelineItem":
+            if not has_background(class_name):
+                extra.append(f"{defaults['timeline_item']} rounded-lg p-6 shadow-md")
+        elif node_type == "Card":
+            if c.get("surface") and not has_background(class_name):
+                extra.append(f"bg-[{c['surface']}]")
+        return " ".join([class_name, *extra]).strip() if extra else class_name
+
     def _render_component(self, node: Dict[str, Any], indent: int = 1) -> str:
         """Recursively render component tree"""
         space = "  " * indent
@@ -262,9 +379,7 @@ export default function {self.component_name}() {{
         # Extract props
         className = self._str(props.get("className", ""))
         defaults = self._default_classes()
-        # With a theme, a Root without its own background gets the page colour.
-        if node_type == "Root" and self.colors.get("background") and "bg-" not in className:
-            className = f"{className} bg-[{self.colors['background']}]".strip()
+        className = self.with_defaults(node_type, className)
         id_attr = self._str(props.get("id", ""))
         # Specific props
         src = safe_url(props.get("src", ""), fallback=FIXED_IMAGE)
@@ -352,31 +467,20 @@ export default function {self.component_name}() {{
 
         # 7. Hero, Timeline, TimelineItem (render as divs with special styling)
         elif node_type == "Hero":
-            # Hero gets a saturated default (theme colours, else indigo->pink) if it has no bg-
-            if "bg-" not in className:
-                className = f"{className} {defaults['hero']} rounded-2xl shadow-lg p-12".strip()
-            elif "rounded" not in className:
-                className = f"{className} rounded-2xl shadow-lg p-12"
-            class_attr = jsx_attr("className", className)
             children_html = self._render_children(children, indent + 1)
             return f'{space}<div{class_attr}{id_attr_str}>\n{children_html}\n{space}</div>'
         
         elif node_type == "Timeline":
-            # Timeline gets special default styling (className already processed)
-            if "border-l" not in className:
-                className = f"{className} relative pl-8 border-l-2 {defaults['timeline_border']} space-y-8".strip()
-            class_attr = jsx_attr("className", className)
             children_html = self._render_children(children, indent + 1)
             return f'{space}<div{class_attr}{id_attr_str}>\n{children_html}\n{space}</div>'
         
         elif node_type == "TimelineItem":
             # TimelineItem gets a tinted card with an accent edge and a dot indicator
-            if not className or "bg-" not in className:
-                className = f"{className} {defaults['timeline_item']} rounded-lg p-6 shadow-md".strip()
-            class_attr = jsx_attr("className", className)
             children_html = self._render_children(children, indent + 1)
             # Wrap in a container with the dot
-            dot_attr = jsx_attr("className", f"absolute -left-[2.1rem] top-0 w-4 h-4 {defaults['timeline_dot']} rounded-full border-4 border-white shadow-md")
+            dot_colour = props.get("dotClassName")
+            dot_colour = dot_colour if isinstance(dot_colour, str) and dot_colour.strip() else defaults['timeline_dot']
+            dot_attr = jsx_attr("className", f"absolute -left-[2.1rem] top-0 w-4 h-4 {dot_colour} rounded-full border-4 border-white shadow-md")
             return f'{space}<div className="relative">\n{space}  <div{dot_attr}></div>\n{space}  <div{class_attr}{id_attr_str}>\n{children_html}\n{space}  </div>\n{space}</div>'
         
         # 8. Generic Container / Shadcn Components

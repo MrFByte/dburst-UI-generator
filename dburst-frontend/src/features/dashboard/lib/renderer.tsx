@@ -3,6 +3,7 @@ import type { SchemaNode } from '../types/renderType';
 import { DynamicIcon, type IconName } from 'lucide-react/dynamic';
 import { EditableText } from '../components/EditableText';
 import { classStyle } from './classStyle';
+import { hasBackground, withDefaults } from './classDefaults';
 import { safeHref, safeLinkTarget, safeUrl } from '@/shared/utils/safeUrl';
 
 // Type guard to ensure we only pass SchemaNode objects to RenderNode
@@ -118,11 +119,11 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     case 'Card': {
       // Cards without a background get a plain white surface (like the
       // shadcn Card in the generated code); the schema's bg-* wins.
-      const cardClass = className.includes('bg-') ? className : `${className} bg-white`;
+      const cardClass = withDefaults(className, 'bg-white');
 
       const cardDefaults = cardClass.includes('rounded')
         ? cardClass
-        : `${cardClass} rounded-xl border border-gray-200 shadow-md hover:shadow-lg transition-shadow`;
+        : withDefaults(cardClass, 'rounded-xl border border-gray-200 shadow-md hover:shadow-lg transition-shadow');
       return (
         <div {...sx(cardDefaults)}>
           {renderChildren()}
@@ -139,14 +140,14 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
 
     case 'CardTitle':
       return (
-        <h3 {...sx(`${className} text-2xl font-semibold leading-none tracking-tight`)}>
+        <h3 {...sx(withDefaults(className, 'text-2xl font-semibold leading-none tracking-tight'))}>
           {renderTextContent()}
         </h3>
       );
 
     case 'CardDescription':
       return (
-        <p {...sx(`${className} text-sm text-gray-500`)}>
+        <p {...sx(withDefaults(className, 'text-sm text-gray-500'))}>
           {renderTextContent()}
         </p>
       );
@@ -275,7 +276,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
 
     case 'Badge':
       return (
-        <span {...sx(`${className} inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold`)}>
+        <span {...sx(withDefaults(className, 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold'))}>
           {content}
         </span>
       );
@@ -306,10 +307,10 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     }
 
     case 'Separator':
-      return <hr {...sx(`${className} border-t border-gray-200`)} />;
+      return <hr {...sx(withDefaults(className, 'border-t border-gray-200'))} />;
 
     case 'Skeleton':
-      return <div {...sx(`${className} animate-pulse bg-gray-200 rounded`)} />;
+      return <div {...sx(withDefaults(className, 'animate-pulse bg-gray-200 rounded'))} />;
 
     case 'Link':
     case 'Link/A':
@@ -389,7 +390,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     case 'PieChart':
     case 'AreaChart':
       return (
-        <div {...sx(`${className} flex items-center justify-center bg-gray-100 rounded-lg border-2 border-dashed border-gray-300`)}>
+        <div {...sx(withDefaults(className, 'flex items-center justify-center bg-gray-100 rounded-lg border-2 border-dashed border-gray-300'))}>
           <div className="text-center p-8">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -412,7 +413,7 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
     case 'Hero': {
       // Same defaults as backend codegen: a saturated gradient with white
       // text when the schema gives no background.
-      const heroClass = !className.includes('bg-')
+      const heroClass = !hasBackground(className)
         ? `${className} bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white rounded-2xl shadow-lg p-12`
         : className.includes('rounded') ? className : `${className} rounded-2xl shadow-lg p-12`;
       return (
@@ -436,12 +437,14 @@ function RenderNode({ node, path = '', editMode = false, onTextEdit }: RenderNod
 
     case 'TimelineItem': {
       // Dot + tinted card with an accent edge (matches backend codegen defaults)
-      const itemClass = className.includes('bg-')
+      const itemClass = hasBackground(className)
         ? className
         : `${className} bg-indigo-50 border-l-4 border-pink-500 rounded-lg p-6 shadow-md`;
       return (
         <div className="relative">
-          <div className="absolute -left-[2.1rem] top-0 w-4 h-4 bg-pink-500 rounded-full border-4 border-white shadow-md"></div>
+          <div
+            {...sx(`absolute -left-[2.1rem] top-0 w-4 h-4 ${typeof props.dotClassName === 'string' && props.dotClassName.trim() ? props.dotClassName : 'bg-pink-500'} rounded-full border-4 border-white shadow-md`)}
+          ></div>
           <div {...sx(itemClass)}>
             {renderChildren()}
           </div>

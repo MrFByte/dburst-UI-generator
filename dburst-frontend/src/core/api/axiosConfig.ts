@@ -57,8 +57,10 @@ export function refreshSession(): Promise<void> {
 }
 
 function isCsrfFailure(error: AxiosError) {
-  const detail = (error.response?.data as { detail?: unknown } | undefined)?.detail;
-  return error.response?.status === 403 && typeof detail === "string" && detail.startsWith("CSRF Failed");
+  if (error.response?.status !== 403) return false;
+  const data = error.response.data as { code?: unknown; detail?: unknown } | undefined;
+  // The error contract's code; legacy DRF bodies carried the reason in `detail`.
+  return data?.code === "csrf_failed" || (typeof data?.detail === "string" && data.detail.startsWith("CSRF Failed"));
 }
 
 api.interceptors.response.use(

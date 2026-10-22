@@ -1,3 +1,4 @@
+from config.api_errors import ApiError, error_response
 import logging
 from rest_framework import status, permissions
 from rest_framework.views import APIView
@@ -46,10 +47,7 @@ class StorePatchView(APIView):
         
         serializer = ApplyPatchRequestSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(
-                {"error": "Invalid patch data", "details": serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response("This edit couldn't be saved because it isn't in the expected format. Please reload and try again.", "validation_error", 400, details=serializer.errors)
         
         patch_ops = serializer.validated_data['patch']
         description = serializer.validated_data.get('description', '')
@@ -58,10 +56,7 @@ class StorePatchView(APIView):
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
-                return Response(
-                    {"error": "You do not have permission to modify this generation"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return error_response("You do not have permission to modify this generation", "permission_denied", 403)
             
             updated_schema = GenerationCache.apply_patch(str(generation_id), patch_ops)
             
@@ -76,10 +71,7 @@ class StorePatchView(APIView):
                     updated_schema = GenerationCache.apply_patch(str(generation_id), patch_ops)
                 
                 if updated_schema is None:
-                    return Response(
-                        {"error": "Failed to apply patch. Schema not found in cache or database."},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
+                    return error_response("We couldn't load this design to apply your change. Please reload the page and try again.", "server_error", 500)
             
             patch_stored = GenerationCache.store_patch(
                 str(generation_id),
@@ -112,7 +104,7 @@ class StorePatchView(APIView):
             # reflects the save without a reload.
             cached = GenerationCache.get_generation(str(generation_id))
             try:
-                code = cached["code"] if cached and cached.get("code") else render_schema(updated_schema)
+                code = cached["code"] if cached and cached.get("code") else render_schema(updated_schema, theme=generation.theme)
             except Exception as e:
                 logger.error(f"Code regeneration after patch failed for {generation_id}: {e}")
                 code = ""
@@ -128,16 +120,12 @@ class StorePatchView(APIView):
             }, status=status.HTTP_200_OK)
             
         except Generations.DoesNotExist:
-            return Response(
-                {"error": "Generation not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Generation not found.", "not_found", 404)
+        except ApiError:
+            raise  # e.g. SchemaValidationError: already user-safe, rendered by the handler
         except Exception as e:
-            logger.error(f"Error applying patch to generation {generation_id}: {e}")
-            return Response(
-                {"error": "Failed to apply patch", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.exception(f"Error applying patch to generation {generation_id}: {e}")
+            return error_response("We couldn't save your change. Please try again.", "server_error", 500)
 
 
 class GetSchemaView(APIView):
@@ -163,10 +151,7 @@ class GetSchemaView(APIView):
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
-                return Response(
-                    {"error": "You do not have permission to view this generation"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return error_response("You do not have permission to view this generation", "permission_denied", 403)
             
             cached_data = GenerationCache.get_generation(str(generation_id))
             
@@ -197,22 +182,13 @@ class GetSchemaView(APIView):
                     "cached": False,
                 }, status=status.HTTP_200_OK)
             
-            return Response(
-                {"error": "Schema not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("This design couldn't be found.", "not_found", 404)
             
         except Generations.DoesNotExist:
-            return Response(
-                {"error": "Generation not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Generation not found.", "not_found", 404)
         except Exception as e:
-            logger.error(f"Error retrieving schema for generation {generation_id}: {e}")
-            return Response(
-                {"error": "Failed to retrieve schema", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.exception(f"Error retrieving schema for generation {generation_id}: {e}")
+            return error_response("We couldn't load this design. Please reload the page.", "server_error", 500)
 
 
 class ListPatchesView(APIView):
@@ -246,10 +222,7 @@ class ListPatchesView(APIView):
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
-                return Response(
-                    {"error": "You do not have permission to view patches for this generation"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return error_response("You do not have permission to view patches for this generation", "permission_denied", 403)
             
             limit = int(request.query_params.get('limit', 20))
             offset = int(request.query_params.get('offset', 0))
@@ -270,21 +243,12 @@ class ListPatchesView(APIView):
             }, status=status.HTTP_200_OK)
             
         except Generations.DoesNotExist:
-            return Response(
-                {"error": "Generation not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Generation not found.", "not_found", 404)
         except ValueError:
-            return Response(
-                {"error": "Invalid limit or offset parameter"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response("Invalid limit or offset parameter", "validation_error", 400)
         except Exception as e:
-            logger.error(f"Error listing patches for generation {generation_id}: {e}")
-            return Response(
-                {"error": "Failed to retrieve patches", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.exception(f"Error listing patches for generation {generation_id}: {e}")
+            return error_response("We couldn't load the version history. Please try again.", "server_error", 500)
 
 
 class ClearCacheView(APIView):
@@ -307,10 +271,7 @@ class ClearCacheView(APIView):
             generation = Generations.objects.select_related('project__user').get(id=generation_id)
             
             if generation.project.user != request.user:
-                return Response(
-                    {"error": "You do not have permission to clear cache for this generation"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return error_response("You do not have permission to clear cache for this generation", "permission_denied", 403)
             
             cleared = GenerationCache.clear_generation(str(generation_id))
             
@@ -320,19 +281,10 @@ class ClearCacheView(APIView):
                     "message": f"Cache cleared for generation {generation_id}",
                 }, status=status.HTTP_200_OK)
             else:
-                return Response({
-                    "success": False,
-                    "message": "Failed to clear cache",
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return error_response("We couldn't refresh this design. Please try again.", "server_error", 500)
             
         except Generations.DoesNotExist:
-            return Response(
-                {"error": "Generation not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Generation not found.", "not_found", 404)
         except Exception as e:
-            logger.error(f"Error clearing cache for generation {generation_id}: {e}")
-            return Response(
-                {"error": "Failed to clear cache", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.exception(f"Error clearing cache for generation {generation_id}: {e}")
+            return error_response("We couldn't refresh this design. Please try again.", "server_error", 500)

@@ -59,6 +59,10 @@ CSRF_TRUSTED_ORIGINS = os.environ.get(
     "https://localhost:5173"
 ).split(",")
 
+# Let the browser read the request id (shown with 5xx errors for support)
+# and Retry-After on cross-origin responses.
+CORS_EXPOSE_HEADERS = ["X-Request-ID", "Retry-After"]
+
 CORS_ALLOW_HEADERS = os.environ.get(
     "CORS_ALLOW_HEADERS",
     "accept,"
@@ -112,6 +116,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # First, so every log line and error body for the request carries its id.
+    'config.middleware.request_id.RequestIdMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',

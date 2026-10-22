@@ -11,6 +11,7 @@ import { updateProfile } from '@/features/index/api/indexApi';
 import type { ProfileUpdatePayload } from '@/features/index/api/indexApi';
 import Avatar from '@/shared/components/Avatar';
 import { toast } from '@/shared/hooks/useToast';
+import { showError } from '@/core/api/showError';
 import { displayName, emailLocalPart } from '@/shared/utils/displayName';
 import {
   AVATAR_URL_MAX_LENGTH,
@@ -136,7 +137,8 @@ function ProfileDialog({ user, onClose }: { user: User; onClose: () => void }) {
       if (error.status === 400 && (fieldErrors.name || fieldErrors.avatar_url)) {
         setServerErrors(fieldErrors);
       } else {
-        toast.error(error.status === 429 ? 'Too many updates. Please wait a minute.' : error.message || 'Failed to update profile');
+        // Includes 429 ("Please wait N seconds..."), network and server errors.
+        showError(err, { fallback: 'Failed to update profile' });
       }
     } finally {
       setIsSaving(false);

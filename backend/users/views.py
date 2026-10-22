@@ -1,3 +1,4 @@
+from config.api_errors import error_response
 import logging
 import requests
 from django.conf import settings
@@ -100,7 +101,7 @@ class OAuthCallbackView(CSRFProtectedMixin, APIView):
         state = request.data.get("state")
         if not code or not state:
             return _clear_oauth_cookie(
-                Response({"error": AUTH_FAILED}, status=status.HTTP_400_BAD_REQUEST)
+                error_response(AUTH_FAILED, "oauth_failed", 400)
             )
 
         try:
@@ -110,7 +111,7 @@ class OAuthCallbackView(CSRFProtectedMixin, APIView):
         except oauth.OAuthStateError:
             logger.warning(f"{self.provider} auth: state check failed")
             return _clear_oauth_cookie(
-                Response({"error": AUTH_FAILED}, status=status.HTTP_400_BAD_REQUEST)
+                error_response(AUTH_FAILED, "oauth_failed", 400)
             )
 
         try:
@@ -118,19 +119,16 @@ class OAuthCallbackView(CSRFProtectedMixin, APIView):
             user, created = resolve_oauth_user(self.provider, provider_id, email, defaults)
         except requests.exceptions.RequestException as e:
             logger.error(f"{self.provider} auth: provider unreachable: {e}")
-            return _clear_oauth_cookie(Response(
-                {"error": "Authentication service unreachable. Please try again."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            ))
+            return _clear_oauth_cookie(error_response("We couldn't reach the sign-in provider. Please try again.", "oauth_unavailable", 503))
         except (OAuthLoginError, ValueError, KeyError) as e:
             logger.warning(f"{self.provider} auth rejected: {e}")
             return _clear_oauth_cookie(
-                Response({"error": AUTH_FAILED}, status=status.HTTP_400_BAD_REQUEST)
+                error_response(AUTH_FAILED, "oauth_failed", 400)
             )
 
         if not user.is_active:
             return _clear_oauth_cookie(
-                Response({"error": AUTH_FAILED}, status=status.HTTP_400_BAD_REQUEST)
+                error_response(AUTH_FAILED, "oauth_failed", 400)
             )
 
         if created:
@@ -165,12 +163,12 @@ class OAuthStartView(CSRFProtectedMixin, APIView):
         redirect_uri = request.data.get("redirect_uri")
 
         if provider not in oauth.PROVIDERS:
-            return Response({"error": "Unsupported provider"}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("This sign-in method isn't supported.", "bad_request", 400)
         if redirect_uri not in oauth.allowed_redirect_uris(provider):
             logger.warning(f"{provider} auth: rejected redirect_uri={redirect_uri!r}")
-            return Response({"error": "Invalid redirect_uri"}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("Sign-in couldn't be started from this page. Please try again.", "bad_request", 400)
         if not getattr(settings, oauth.PROVIDERS[provider]["client_id_setting"]):
-            return Response({"error": "Provider not configured"}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("This sign-in method isn't available right now.", "bad_request", 400)
 
         authorization_url, cookie_value = oauth.begin(provider, redirect_uri)
         response = Response({"authorization_url": authorization_url}, status=status.HTTP_200_OK)
@@ -344,18 +342,14 @@ class TokenRefreshView(CSRFProtectedMixin, APIView):
     def post(self, request):
         refresh_str = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE)
         if not refresh_str:
-            return clear_auth_cookies(Response(
-                {"detail": "Invalid or expired session."}, status=status.HTTP_401_UNAUTHORIZED
-            ))
+            return clear_auth_cookies(error_response("Your session has expired. Please sign in again.", "not_authenticated", 401))
 
         serializer = TokenRefreshSerializer(data={"refresh": refresh_str})
         try:
             serializer.is_valid(raise_exception=True)
         except (TokenError, AuthenticationFailed, ValidationError, ObjectDoesNotExist) as e:
             logger.info(f"Token refresh rejected: {type(e).__name__}")
-            return clear_auth_cookies(Response(
-                {"detail": "Invalid or expired session."}, status=status.HTTP_401_UNAUTHORIZED
-            ))
+            return clear_auth_cookies(error_response("Your session has expired. Please sign in again.", "not_authenticated", 401))
 
         data = serializer.validated_data
         response = Response({"detail": "Session refreshed"}, status=status.HTTP_200_OK)

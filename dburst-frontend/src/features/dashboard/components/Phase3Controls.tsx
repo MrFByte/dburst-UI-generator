@@ -12,6 +12,7 @@ import { VersionHistory } from '../components/VersionHistory';
 import Loader from '@/shared/components/Loader';
 import { History, X } from 'lucide-react';
 import { toast } from '@/shared/hooks/useToast';
+import { showError } from '@/core/api/showError';
 import type { SchemaNode } from '../types/renderType';
 
 interface Phase3ControlsProps {
@@ -78,7 +79,7 @@ export function Phase3Controls({ generationId, schema, onSchemaUpdate }: Phase3C
             toast.success('Changes saved!');
         } catch (error: any) {
             console.error('Failed to save edit:', error);
-            toast.error(error.message || 'Failed to save changes');
+            showError(error, { fallback: 'Failed to save changes' });
         }
     }, [generationId, updatePath, currentSchema, applyOptimistic, refreshHistory, onSchemaUpdate]);
 
@@ -94,7 +95,7 @@ export function Phase3Controls({ generationId, schema, onSchemaUpdate }: Phase3C
             toast.success('Undone!');
         } catch (error: any) {
             console.error('Failed to undo:', error);
-            toast.error(error.message || 'Failed to undo');
+            showError(error, { fallback: 'Failed to undo' });
         }
     }, [generationId, totalPatches, setSchema, refreshHistory, onSchemaUpdate]);
 
@@ -112,7 +113,7 @@ export function Phase3Controls({ generationId, schema, onSchemaUpdate }: Phase3C
             }
         } catch (error: any) {
             console.error('Failed to restore version:', error);
-            toast.error(error.message || 'Failed to restore version');
+            showError(error, { fallback: 'Failed to restore version' });
         }
     }, [generationId, restoreVersion, setSchema, onSchemaUpdate]);
 

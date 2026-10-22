@@ -7,8 +7,8 @@ import { Logo } from "@/shared/components/Logo";
 import { setCredentials } from "@/core/redux/authSlice";
 import { safeRedirect } from "@/core/auth/safeRedirect";
 import { toast } from "@/shared/hooks/useToast";
+import { showError } from "@/core/api/showError";
 import { requestOtp, verifyOtp } from "@/features/index/api/otpApi";
-import type { ApiError } from "@/core/api/apiHandler";
 
 const OTP_LENGTH = 6;
 // Mirrors backend/config/settings.py's OTP_TTL_MINUTES — purely for the
@@ -58,7 +58,9 @@ export default function AuthPage({ mode }: AuthPageProps) {
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
       toast.success("Code sent! Check your inbox.");
     } catch (err) {
-      toast.error((err as ApiError)?.message || "Could not send code. Please try again.");
+      const error = showError(err, { fallback: "Could not send code. Please try again." });
+      // Throttled: count down on the resend button instead of failing again.
+      if (error.retryAfter) setResendCooldown(error.retryAfter);
     } finally {
       setSending(false);
     }
@@ -87,7 +89,7 @@ export default function AuthPage({ mode }: AuthPageProps) {
       // ?next= is set by ProtectedRoute; only internal paths are honoured.
       navigate(safeRedirect(searchParams.get("next")), { replace: true });
     } catch (err) {
-      toast.error((err as ApiError)?.message || "Invalid or expired code. Please try again.");
+      showError(err, { fallback: "Invalid or expired code. Please try again." });
     } finally {
       setVerifying(false);
     }

@@ -40,3 +40,6 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 # settings.py defaults.
 GROQ_UI_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b"]
 GEMINI_UI_MODELS = ["models/gemini-3.8-flash", "models/gemini-3.5-flash-lite"]
+GROQ_REASONING_MODEL = "openai/gpt-oss-120b"
+GEMINI_REASONING_MODEL = "models/gemini-3.8-flash"
+DEFAULT_UI_MODEL = "groq:openai/gpt-oss-20b"

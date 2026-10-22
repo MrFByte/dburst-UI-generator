@@ -66,10 +66,16 @@ def test_classname_whitespace_collapsed_and_control_chars_dropped():
     assert SchemaValidator.validate(schema)["props"]["className"] == "p-4 text-lg [31m"
 
 
-@pytest.mark.parametrize("value", [None, 42, ["p-4"], {"a": 1}])
+@pytest.mark.parametrize("value", [None, 42, ["p-4", 7], {"a": 1}])
 def test_classname_non_string_becomes_empty(value):
     schema = {"type": "Card", "props": {"className": value}}
     assert SchemaValidator.validate(schema)["props"]["className"] == ""
+
+
+def test_classname_list_of_strings_is_joined_not_dropped():
+    """A model that emits ["p-4", "bg-red-500"] meant those classes."""
+    schema = {"type": "Card", "props": {"className": ["p-4", "bg-red-500", "hover:bg-[#abc]"]}}
+    assert SchemaValidator.validate(schema)["props"]["className"] == "p-4 bg-red-500 hover:bg-[#abc]"
 
 
 def test_classname_capped_at_class_boundary():

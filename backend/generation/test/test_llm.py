@@ -105,13 +105,15 @@ def test_parse_response_fixes_json():
 
 @patch("generation.llm.requests.post")
 def test_api_failure_handling(mock_post):
-    """Test that API errors are raised."""
+    """Provider 5xx -> typed, user-safe error (raw body is logged, not raised)."""
+    from generation.errors import LLMUnavailableError
     mock_post.return_value.status_code = 500
     mock_post.return_value.text = "Error"
+    mock_post.return_value.json.side_effect = ValueError("not json")
 
     client = LLMClient(ui_model_id="groq:openai/gpt-oss-20b")
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(LLMUnavailableError) as exc:
         client._call_groq_api("p", "s", "m")
 
-    assert "Groq API Error (500)" in str(exc.value)
+    assert "Error" not in exc.value.message

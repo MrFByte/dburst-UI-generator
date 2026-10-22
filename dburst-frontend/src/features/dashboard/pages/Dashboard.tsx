@@ -13,6 +13,8 @@ import Header from '@/shared/components/Header';
 import Loader from '@/shared/components/Loader';
 import { createProject, getRecentProjects, generateUI, getAvailableModels } from '../api/dashboardApi';
 import { toast } from "@/shared/hooks/useToast";
+import { showError } from "@/core/api/showError";
+import { useCountdown } from "@/hooks/useCountdown";
 import { setItem } from '@/shared/utils/storageManager';
 import { ModelSelector } from '../components/ModelSelector';
 import type { ModelOption } from '../components/ModelSelector';
@@ -36,6 +38,8 @@ const Dashboard = () => {
   const [models, setModels] = useState<ModelOption[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
   const navigate = useNavigate();
+  // After a rate limit, the Build button counts down instead of failing again.
+  const cooldown = useCountdown();
 
 
   const validate = () => {
@@ -66,10 +70,14 @@ const Dashboard = () => {
 
 
   const handleRecentProjects = async () => {
-    const data = await getRecentProjects();
-    // A non-array body (e.g. the SPA's index.html when VITE_API_URL is unset)
-    // must not reach .map() and crash the page.
-    setRecentProjects(Array.isArray(data) ? data : []);
+    try {
+      const data = await getRecentProjects();
+      // A non-array body (e.g. the SPA's index.html when VITE_API_URL is unset)
+      // must not reach .map() and crash the page.
+      setRecentProjects(Array.isArray(data) ? data : []);
+    } catch (error) {
+      showError(error, { fallback: "Failed to load recent projects", onRetry: handleRecentProjects });
+    }
   };
 
   const handleLoadModels = async () => {
@@ -77,19 +85,23 @@ const Dashboard = () => {
       const data = await getAvailableModels();
       setModels(Array.isArray(data?.models) ? data.models : []);
       setSelectedModel(data.default);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load AI models");
+    } catch (error) {
+      showError(error, { fallback: "Failed to load AI models", onRetry: handleLoadModels });
     }
   };
 
   const handleCreateProject = async () => {
     if (!validate()) return;
 
-    const project = await createProject(title, description);
-    toast.success("Project created successfully");
-    setTitle("");
-    setDescription("");
-    navigate(`/dashboard/ui-generator/?projectId=${project.id}`);
+    try {
+      const project = await createProject(title, description);
+      toast.success("Project created successfully");
+      setTitle("");
+      setDescription("");
+      navigate(`/dashboard/ui-generator/?projectId=${project.id}`);
+    } catch (error) {
+      showError(error, { fallback: "Failed to create project" });
+    }
   };
 
   const activatePromptInterface = () => {
@@ -97,7 +109,7 @@ const Dashboard = () => {
   };
 
   const handleStartPrompting = async () => {
-    if (!validate()) return;
+    if (!validate() || cooldown.active) return;
 
     try {
       setIsGenerating(true);
@@ -106,24 +118,13 @@ const Dashboard = () => {
       setItem("lastGeneratedProject", project);
       toast.success("✨ UI generation complete! Redirecting...");
       navigate(`/dashboard/ui-generator/?projectId=${project.project_id}`);
-    } catch (error: any) {
+    } catch (error) {
+      // The prompt text stays in place; the backend's message already says
+      // what to do (rephrase, wait N seconds, pick another model, ...).
       setIsGenerating(false);
-
-      // Handle specific error types from backend (error.details contains the response data)
-      const errorType = error.details?.error_type;
-      const errorSuggestion = error.details?.suggestion;
-
-      if (error.status === 503 && errorType === "model_unavailable") {
-        toast.error(`⚠️ Model Unavailable: ${error.message}`);
-        toast.info(`💡 ${errorSuggestion || "Please try again later or select a different model."}`);
-      } else if (error.status === 429 && errorType === "rate_limit") {
-        toast.error(`⏱️ Rate Limit: ${error.message}`);
-        toast.info(`💡 ${errorSuggestion || "Please wait a few minutes before trying again."}`);
-      } else if (error.status === 500) {
-        toast.error(`Server Error: ${error.message}`);
-        toast.info("Please try again later or contact support if the problem persists.");
-      } else {
-        toast.error(error.message || "Failed to generate UI");
+      const apiError = showError(error, { fallback: "Failed to generate UI", onRetry: handleStartPrompting });
+      if (apiError.code === "llm_rate_limited" || apiError.code === "throttled") {
+        cooldown.start(apiError.retryAfter ?? 30);
       }
     }
   };
@@ -187,7 +188,7 @@ const Dashboard = () => {
                     Create Project
                   </button>
                   <button
-                    disabled={!prompt || isGenerating}
+                    disabled={!prompt || isGenerating || cooldown.active}
                     onClick={handleStartPrompting}
                     className="flex items-center gap-2 px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 cursor-pointer
                      text-white font-semibold rounded-xl shadow-lg transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -197,6 +198,8 @@ const Dashboard = () => {
                         <Loader2 className="w-5 h-5 animate-spin" />
                         Generating...
                       </>
+                    ) : cooldown.active ? (
+                      <span aria-live="polite">Try again in {cooldown.secondsLeft}s</span>
                     ) : (
                       <>
                         <MousePointerClick className="w-5 h-5" />

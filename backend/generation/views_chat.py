@@ -17,6 +17,8 @@ from .llm import LLMClient
 from .llm_chat import LLMChat
 from .codegen import ReactCodeGenerator
 from .schema_validator import SchemaValidator
+from .errors import LLMInvalidResponseError
+from config.api_errors import error_response
 from .models import Generations
 from .cache import GenerationCache
 from django_redis import get_redis_connection
@@ -66,10 +68,7 @@ def get_chat_history(request, generation_id):
         return Response(chat_history)
         
     except Generations.DoesNotExist:
-        return Response(
-            {'error': 'Generation not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+        return error_response("Generation not found.", "not_found", 404)
 
 
 @api_view(['POST'])
@@ -95,9 +94,9 @@ def refine_ui(request):
     user_message = request.data.get('message')
     
     if not generation_id or not user_message:
-        return Response(
-            {'error': 'generation_id and message are required'},
-            status=status.HTTP_400_BAD_REQUEST
+        return error_response(
+            "Please type what you'd like to change.", "validation_error", 400,
+            details={k: ["This field is required."] for k, v in (("generation_id", generation_id), ("message", user_message)) if not v},
         )
     
     try:
@@ -128,11 +127,9 @@ def refine_ui(request):
         try:
             refined_schema = SchemaValidator.validate(refinement_result['schema'])
         except ValueError as e:
-            logger.error(f"Schema validation failed: {e}")
-            return Response(
-                {"error": f"Schema validation failed: {str(e)}"},
-                status=400
-            )
+            # The AI produced a broken schema: not the user's fault.
+            logger.error(f"Refined schema failed validation: {e}")
+            raise LLMInvalidResponseError() from None
         refinement_result['schema'] = refined_schema
 
         # Update generation with new schema and AI response
@@ -141,7 +138,7 @@ def refine_ui(request):
         generation.save()
         
         # Regenerate code from updated schema
-        code_generator = ReactCodeGenerator(refined_schema)
+        code_generator = ReactCodeGenerator(refined_schema, theme=generation.theme)
         react_code = code_generator.generate()
         
         # Update usage
@@ -156,13 +153,6 @@ def refine_ui(request):
         }, status=status.HTTP_200_OK)
         
     except Generations.DoesNotExist:
-        return Response(
-            {'error': 'Generation not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    except Exception as e:
-        logger.error(f"UI refinement failed: {e}", exc_info=True)
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return error_response("Generation not found.", "not_found", 404)
+    # LLM errors and anything unexpected propagate to config.exception_handler
+    # (error contract, details logged, never exception text to the client).

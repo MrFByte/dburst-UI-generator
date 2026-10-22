@@ -107,7 +107,9 @@ def test_bad_avatar_url_rejected(logged_in, url, user, bad_url):
     client, token = logged_in
     res = patch(client, url, token, {"avatar_url": bad_url})
     assert res.status_code == 400
-    assert "avatar_url" in res.data and isinstance(res.data["avatar_url"], list)
+    assert res.data["code"] == "validation_error"
+    assert isinstance(res.data["details"]["avatar_url"], list)
+    assert res.data["error"] == res.data["details"]["avatar_url"][0]  # single problem: shown as-is
     user.refresh_from_db()
     assert user.avatar_url is None
 
@@ -118,7 +120,7 @@ def test_bad_name_rejected(logged_in, url, user, bad_name):
     client, token = logged_in
     res = patch(client, url, token, {"name": bad_name})
     assert res.status_code == 400
-    assert "name" in res.data
+    assert res.data["code"] == "validation_error" and "name" in res.data["details"]
     user.refresh_from_db()
     assert user.name == "Test User"
 
@@ -137,7 +139,7 @@ def test_name_with_nul_byte_rejected(logged_in, url):
     client, token = logged_in
     res = patch(client, url, token, {"name": "Ada\u0000"})
     assert res.status_code == 400
-    assert "name" in res.data
+    assert res.data["code"] == "validation_error" and "name" in res.data["details"]
 
 
 @pytest.mark.django_db

@@ -28,6 +28,13 @@ class Generations(models.Model):
     status = models.CharField(max_length=30, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def theme(self):
+        """The design_plan theme this generation was built with (colours that
+        codegen needs again whenever the code is re-rendered), or None."""
+        theme = (self.metadata or {}).get("theme")
+        return theme if isinstance(theme, dict) else None
+
     def __str__(self):
         return f"{self.project.title} → {self.status}"
 
