@@ -91,7 +91,7 @@ curl https://your-backend-domain.onrender.com/api/health
 
 ### Frontend (Vercel) and authentication
 
-The browser never calls Render directly. `dburst-frontend/vercel.json` rewrites `/api/:path*` to `https://dburst-ui-generator.onrender.com/api/:path*`, and the app always uses the relative base `/api/v1/`. The httpOnly auth cookies are therefore set on the Vercel origin and stay first-party (`SameSite=Lax`).
+The browser never calls Render directly. `dburst-frontend/middleware.ts` (Vercel Routing Middleware) rewrites `/api/:path*` to the backend named by the `BACKEND_URL` environment variable (set it in Vercel to e.g. `https://your-service.onrender.com`; no `VITE_` prefix; falls back to the default Render URL when unset). To switch backends, change `BACKEND_URL` and redeploy, with no repo edit. The app always uses the relative base `/api/v1/`. The httpOnly auth cookies are therefore set on the Vercel origin and stay first-party (`SameSite=Lax`).
 
 - If the backend URL changes, update the rewrite destination in `vercel.json`. `VITE_API_URL` is **no longer used**; remove it from the Vercel project's environment variables.
 - Set these on Vercel: `VITE_GOOGLE_CLIENT_ID`, `VITE_GITHUB_CLIENT_ID`, `VITE_WEBCONTAINER_API_CLIENT_ID`.
